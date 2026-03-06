@@ -556,8 +556,8 @@ export default function BookRideScreen() {
           Alert.alert('Ride Started', 'Your ride has begun. Enjoy your trip!');
         } else if (ride.status === 'completed') {
           Alert.alert(
-            'Ride Completed', 
-            `Thank you for riding with Swyft!\n\nFare: ₺${ride.price || estimatedPrice}`,
+            '🎉 Arrived at Destination!', 
+            `You have arrived at your destination!\n\nFare: ₺${ride.price || estimatedPrice}`,
             [{ 
               text: 'Rate Your Driver',
               onPress: () => router.push({

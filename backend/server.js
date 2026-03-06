@@ -221,7 +221,7 @@ app.post('/api/users', async (req, res) => {
 
     // Insert user first
     const userQuery = 'INSERT INTO users (first_name, last_name, email, password, role, phone, is_verified) VALUES (?, ?, ?, ?, ?, ?, 1)';
-    const userValues = [first_name, last_name, email, hashedPassword, role, phone || null];
+    const userValues = [first_name, last_name, email, hashedPassword, (role || 'passenger').toLowerCase(), phone || null];
 
     db.query(userQuery, userValues, (err2, result) => {
       if (err2) return res.status(500).json({ error: 'Failed to create user', details: err2.message });
@@ -310,7 +310,7 @@ app.post('/api/users/login', (req, res) => {
     );
 
     // If driver, get car details
-    if (user.role === 'driver') {
+    if (user.role && user.role.toLowerCase() === 'driver') {
       db.query('SELECT * FROM cars WHERE user_id = ?', [user.id], (err2, carResults) => {
         const car = carResults && carResults.length > 0 ? carResults[0] : null;
         res.json({
@@ -697,14 +697,44 @@ app.post('/api/rides/:id/start', (req,res)=>{
   });
 });
 
-// Complete ride
+// Complete ride - driver marks as complete, but passenger must confirm
 app.post('/api/rides/:id/complete', (req,res)=>{
   const rideId = req.params.id;
+  // Driver completes ride - status is 'completed' but passenger needs to confirm
   db.query('UPDATE rides SET status="completed", completed_at = NOW() WHERE id=? AND status IN ("accepted", "active")', [rideId], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.affectedRows===0) return res.status(400).json({error:"Cannot complete ride"});
     io.emit('rideUpdated',{id:rideId,status:"completed"});
-    res.json({message:"Ride completed", rideId});
+    res.json({message:"Ride marked as completed. Waiting for passenger confirmation.", rideId});
+  });
+});
+
+// Passenger confirms ride completion - this is when driver gets earnings
+app.post('/api/rides/:id/confirm', (req,res)=>{
+  const rideId = req.params.id;
+  // Passenger confirms the ride is complete - driver now gets earnings
+  db.query('UPDATE rides SET status="confirmed", confirmed_at = NOW() WHERE id=? AND status = "completed"', [rideId], (err,result)=>{
+    if(err) {
+      console.error('Error confirming ride:', err.message);
+      return res.status(500).json({error:"Server error"});
+    }
+    if(result.affectedRows===0) return res.status(400).json({error:"Cannot confirm ride - may already be confirmed"});
+    
+    // Get ride details to emit with confirmation
+    db.query('SELECT * FROM rides WHERE id = ?', [rideId], (err2, rides) => {
+      if (err2) {
+        console.error('Error getting ride details:', err2.message);
+        return res.status(500).json({error:"Server error"});
+      }
+      const ride = rides[0];
+      // Emit ride updated with confirmation
+      io.emit('rideUpdated',{
+        id:rideId,
+        status:"confirmed",
+        passenger_confirmed: true
+      });
+      res.json({message:"Ride confirmed! Driver has been notified.", rideId});
+    });
   });
 });
 
@@ -763,7 +793,7 @@ app.get('/api/drivers/nearby', (req, res) => {
       SELECT u.id, u.first_name, u.last_name, u.email, u.phone, dp.rating, dp.is_online, dp.current_lat, dp.current_lng
       FROM users u
       JOIN driver_profiles dp ON u.id = dp.user_id
-      WHERE u.role = "driver" AND dp.is_online = 1
+      WHERE LOWER(u.role) = "driver" AND dp.is_online = 1
     `, (err, results) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch drivers' });
       res.json(results);
@@ -777,7 +807,7 @@ app.get('/api/drivers/nearby', (req, res) => {
     (6371 * acos(cos(radians(?)) * cos(radians(dp.current_lat)) * cos(radians(dp.current_lng) - radians(?)) + sin(radians(?)) * sin(radians(dp.current_lat)))) AS distance
     FROM users u
     JOIN driver_profiles dp ON u.id = dp.user_id
-    WHERE u.role = 'driver' AND dp.is_online = 1 AND dp.current_lat IS NOT NULL
+    WHERE LOWER(u.role) = 'driver' AND dp.is_online = 1 AND dp.current_lat IS NOT NULL
     HAVING distance < ?
     ORDER BY distance
   `;
@@ -788,21 +818,151 @@ app.get('/api/drivers/nearby', (req, res) => {
   });
 });
 
+// Get driver earnings - must be defined BEFORE /api/drivers/:email to avoid route conflicts
+app.get('/api/drivers/earnings', (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  console.log('Fetching earnings for:', email);
+  
+  // Include multiple completed statuses: completed, confirmed, active (in case completed but not confirmed)
+  const completedStatuses = ['completed', 'confirmed', 'active'];
+  
+  // Try simple queries, return defaults on any error
+  try {
+    const simpleQuery = `SELECT COALESCE(SUM(price), 0) as total FROM rides WHERE driver_email = ? AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')})`;
+    db.query(simpleQuery, [email], (err, results) => {
+      if (err) {
+        console.log('Earnings query error:', err.message);
+        return res.json({ today_earnings: 0, total_earnings: 0, total_trips: 0, recent_rides: [] });
+      }
+      const total = results[0]?.total || 0;
+      
+      // Get today's earnings
+      const todayQuery = `SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = ? AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')}) AND DATE(created_at) = CURDATE()`;
+      db.query(todayQuery, [email], (err2, todayResults) => {
+        if (err2) {
+          console.log('Today earnings query error:', err2.message);
+        }
+        const today = todayResults[0]?.today || 0;
+        
+        // Get trip count
+        const countQuery = `SELECT COUNT(*) as count FROM rides WHERE driver_email = ? AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')})`;
+        db.query(countQuery, [email], (err3, countResults) => {
+          if (err3) {
+            console.log('Count query error:', err3.message);
+          }
+          const trips = countResults[0]?.count || 0;
+          
+          // Get recent rides
+          const recentRidesQuery = `
+            SELECT r.id, r.passenger_name, r.price, r.status, r.created_at, 
+                   r.pickup_location, r.dropoff_location
+            FROM rides r 
+            WHERE r.driver_email = ? AND r.status IN (${completedStatuses.map(s => `'${s}'`).join(',')})
+            ORDER BY r.created_at DESC 
+            LIMIT 10
+          `;
+          db.query(recentRidesQuery, [email], (err4, ridesResults) => {
+            if (err4) {
+              console.log('Recent rides query error:', err4.message);
+            }
+            const recentRides = ridesResults || [];
+            
+            res.json({ 
+              today_earnings: today, 
+              total_earnings: total, 
+              total_trips: trips, 
+              recent_rides: recentRides
+            });
+          });
+        });
+      });
+    });
+  } catch (e) {
+    console.log('Earnings catch error:', e.message);
+    res.json({ today_earnings: 0, total_earnings: 0, total_trips: 0, recent_rides: [] });
+  }
+});
+
+// Get driver stats (today's trips and earnings) - must be defined BEFORE /api/drivers/:email
+app.get('/api/drivers/stats', (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).json({ error: 'Email is required' });
+
+  // Include multiple completed statuses
+  const completedStatuses = ['completed', 'confirmed', 'active'];
+  
+  try {
+    // Get today's stats
+    const statsQuery = `
+      SELECT 
+        COUNT(*) as today_trips,
+        COALESCE(SUM(price), 0) as today_earnings
+      FROM rides 
+      WHERE driver_email = ? AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')}) 
+      AND DATE(created_at) = CURDATE()
+    `;
+    db.query(statsQuery, [email], (err, results) => {
+      if (err) {
+        console.log('Stats query error:', err.message);
+        return res.json({ today_trips: 0, today_earnings: 0 });
+      }
+      res.json({ 
+        today_trips: results[0]?.today_trips || 0, 
+        today_earnings: results[0]?.today_earnings || 0 
+      });
+    });
+  } catch (e) {
+    console.log('Stats catch error:', e.message);
+    res.json({ today_trips: 0, today_earnings: 0 });
+  }
+});
+
 // Get driver info by email
 app.get('/api/drivers/:email', (req, res) => {
   const { email } = req.params;
+  console.log(`[DEBUG] Fetching driver info for email: ${email}`);
   
   db.query(`
     SELECT u.id, u.first_name, u.last_name, u.email, u.phone, dp.rating, dp.is_online,
-           c.make, c.model, c.year, c.color, c.plate_number
+           c.make, c.model, c.year, c.color, c.plate_number, 
+           u.vehicle_plate, u.vehicle_id
     FROM users u
     LEFT JOIN driver_profiles dp ON u.id = dp.user_id
-    LEFT JOIN cars c ON u.vehicle_id = c.id
-    WHERE u.email = ? AND u.role = 'driver'
+    LEFT JOIN cars c ON (u.vehicle_id = c.id OR u.id = c.user_id)
+    WHERE u.email = ? AND LOWER(u.role) = 'driver'
   `, [email], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Failed to fetch driver info' });
-    if (results.length === 0) return res.status(404).json({ error: 'Driver not found' });
-    res.json(results[0]);
+    if (err) return res.status(500).json({ error: 'Failed to fetch driver info', details: err.message });
+    if (results.length === 0) {
+      console.log(`[DEBUG] Driver not found for email: ${email}`);
+      return res.status(404).json({ error: 'Driver not found' });
+    }
+    
+    const driver = results[0];
+    
+    // If no car data from cars table, try to parse from vehicle_plate column
+    if (!driver.make && driver.vehicle_plate) {
+      // Parse vehicle_plate like "kj234 Mercedes-Benz C class 2021"
+      const plateMatch = driver.vehicle_plate.match(/^([A-Za-z0-9]+)\s+(.+?)\s+(\d{4})$/);
+      if (plateMatch) {
+        driver.plate_number = plateMatch[1];
+        const vehicleInfo = plateMatch[2].split(' ');
+        driver.make = vehicleInfo[0];
+        driver.model = vehicleInfo.slice(1).join(' ');
+        driver.year = plateMatch[3];
+        driver.color = 'White';
+      } else {
+        driver.plate_number = driver.vehicle_plate;
+        driver.make = 'Unknown';
+        driver.model = 'Unknown';
+        driver.year = 'Unknown';
+        driver.color = 'Unknown';
+      }
+    }
+    
+    console.log(`[DEBUG] Driver info found:`, JSON.stringify(driver));
+    res.json(driver);
   });
 });
 
@@ -914,82 +1074,6 @@ function updateUserRating(email) {
     }
   });
 }
-
-// === DRIVER EARNINGS ===
-
-// Get driver earnings
-app.get('/api/drivers/earnings', (req, res) => {
-  const { email } = req.query;
-  if (!email) return res.status(400).json({ error: 'Email is required' });
-
-  // Get today's earnings - use created_at as fallback if completed_at doesn't exist
-  const todayQuery = `
-    SELECT COALESCE(SUM(price), 0) as today_earnings
-    FROM rides 
-    WHERE driver_email = ? AND status = 'completed' 
-    AND (DATE(completed_at) = CURDATE() OR (completed_at IS NULL AND DATE(created_at) = CURDATE()))
-  `;
-  
-  // Get total earnings
-  const totalQuery = `
-    SELECT COALESCE(SUM(price), 0) as total_earnings, COUNT(*) as total_trips
-    FROM rides 
-    WHERE driver_email = ? AND status = 'completed'
-  `;
-  
-  // Get recent rides for earnings history
-  const recentQuery = `
-    SELECT id, passenger_name, pickup_location, dropoff_location, price, created_at, status
-    FROM rides 
-    WHERE driver_email = ? AND status = 'completed'
-    ORDER BY created_at DESC
-    LIMIT 20
-  `;
-
-  db.query(todayQuery, [email], (err, todayResults) => {
-    if (err) {
-      console.error('Error fetching today earnings:', err.message);
-      // Return default values instead of error
-      return db.query(totalQuery, [email], (err2, totalResults) => {
-        if (err2) {
-          console.error('Error fetching total earnings:', err2.message);
-          return res.status(500).json({ error: 'Failed to fetch earnings' });
-        }
-        return db.query(recentQuery, [email], (err3, recentResults) => {
-          if (err3) {
-            console.error('Error fetching recent rides:', err3.message);
-          }
-          res.json({
-            today_earnings: 0,
-            total_earnings: totalResults[0]?.total_earnings || 0,
-            total_trips: totalResults[0]?.total_trips || 0,
-            recent_rides: recentResults || []
-          });
-        });
-      });
-    }
-    
-    db.query(totalQuery, [email], (err2, totalResults) => {
-      if (err2) {
-        console.error('Error fetching total earnings:', err2.message);
-        return res.status(500).json({ error: 'Failed to fetch earnings' });
-      }
-      
-      db.query(recentQuery, [email], (err3, recentResults) => {
-        if (err3) {
-          console.error('Error fetching recent rides:', err3.message);
-        }
-        
-        res.json({
-          today_earnings: todayResults[0]?.today_earnings || 0,
-          total_earnings: totalResults[0]?.total_earnings || 0,
-          total_trips: totalResults[0]?.total_trips || 0,
-          recent_rides: recentResults
-        });
-      });
-    });
-  });
-});
 
 // === ARRIVE AND START RIDE ===
 

@@ -134,10 +134,11 @@ export default function DriverDashboard() {
   const loadEarnings = async (email) => {
     try {
       const response = await driverAPI.getEarnings(email);
-      if (response.data) {
+      const data = response?.data;
+      if (data && typeof data === 'object') {
         setEarnings({
-          today_earnings: response.data.today_earnings || 0,
-          total_trips: response.data.total_trips || 0,
+          today_earnings: Number(data.today_earnings) || 0,
+          total_trips: Number(data.total_trips) || 0,
         });
       }
     } catch (error) {
@@ -149,10 +150,11 @@ export default function DriverDashboard() {
         setTimeout(() => {
           driverAPI.getEarnings(email)
             .then((response) => {
-              if (response.data) {
+              const data = response?.data;
+              if (data && typeof data === 'object') {
                 setEarnings({
-                  today_earnings: response.data.today_earnings || 0,
-                  total_trips: response.data.total_trips || 0,
+                  today_earnings: Number(data.today_earnings) || 0,
+                  total_trips: Number(data.total_trips) || 0,
                 });
               }
             })

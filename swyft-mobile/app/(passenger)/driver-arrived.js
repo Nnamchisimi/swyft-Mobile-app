@@ -203,9 +203,16 @@ export default function DriverArrivedScreen() {
         } else if (ride.status === 'completed') {
           
           Alert.alert(
-            'Ride Completed',
-            'Thank you for riding with us!',
-            [{ text: 'OK', onPress: () => router.replace('/(passenger)/rate-ride?rideId=' + rideId) }]
+            '🎉 Arrived at Destination!',
+            `You have arrived at your destination!\n\nFare: ₺${ride.price || '0.00'}`,
+            [{ text: 'Confirm & Rate Driver', onPress: async () => {
+              try {
+                await ridesAPI.confirmRide(rideId);
+              } catch (error) {
+                console.log('Confirm error:', error.message);
+              }
+              router.replace('/(passenger)/rate-ride?rideId=' + rideId);
+            }}]
           );
         } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
           Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');

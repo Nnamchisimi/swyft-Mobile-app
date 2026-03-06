@@ -115,20 +115,43 @@ export default function PassengerHomeScreen() {
             Alert.alert('🚀 Ride Started', 'Your ride has begun. Enjoy your trip!');
           } else if (ride.status === 'completed') {
             Alert.alert(
-              '✅ Ride Completed', 
-              `Thank you for riding with Swyft!\n\nFare: ₺${ride.price || '0.00'}`,
+              '🎉 Arrived at Destination!', 
+              `You have arrived at your destination!
+
+Dropoff: ${ride.dropoff || 'Your destination'}
+Fare: ₺${ride.price || '0.00'}`,
               [{ 
-                text: 'Rate Your Driver',
-                onPress: () => router.push({
-                  pathname: '/(passenger)/rate-ride',
-                  params: { 
-                    rideId: ride.id,
-                    driverName: ride.driver_name,
-                    driverVehicle: ride.driver_vehicle,
-                  },
-                })
+                text: 'Confirm & Rate Driver',
+                onPress: async () => {
+                  try {
+                    // Call confirm API - this notifies driver of earnings
+                    await ridesAPI.confirmRide(ride.id);
+                  } catch (error) {
+                    console.log('Confirm error (may already be confirmed):', error.message);
+                  }
+                  // Navigate to rate screen
+                  router.push({
+                    pathname: '/(passenger)/rate-ride',
+                    params: { 
+                      rideId: ride.id,
+                      driverName: ride.driver_name,
+                      driverVehicle: ride.driver_vehicle,
+                    },
+                  });
+                }
               }]
             );
+            setCurrentRide(null);
+          } else if (ride.status === 'confirmed') {
+            // Already confirmed - go directly to rating
+            router.push({
+              pathname: '/(passenger)/rate-ride',
+              params: { 
+                rideId: ride.id,
+                driverName: ride.driver_name,
+                driverVehicle: ride.driver_vehicle,
+              },
+            });
             setCurrentRide(null);
           } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
             Alert.alert('❌ Ride Cancelled', 'Your ride has been cancelled.');

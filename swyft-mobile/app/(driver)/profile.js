@@ -33,21 +33,61 @@ export default function DriverProfileScreen() {
 
   const loadDriverData = async () => {
     try {
-      const info = await authService.getDriverInfo();
       const email = await authService.getUserEmail();
-      setDriverInfo(info);
       setUserEmail(email || '');
 
-      
+      // Fetch fresh driver info from API (includes car details from cars table)
       if (email) {
         try {
-          const response = await driverAPI.getEarnings(email);
+          console.log('[Profile] Fetching driver info for:', email);
+          const response = await driverAPI.getDriverInfo(email);
+          console.log('[Profile] Driver API response:', response.data);
           if (response.data) {
-            setEarnings(response.data);
+            const driver = response.data;
+            setDriverInfo({
+              firstName: driver.first_name,
+              lastName: driver.last_name,
+              phone: driver.phone,
+              email: driver.email,
+              rating: driver.rating,
+              isOnline: driver.is_online,
+              // Vehicle info from cars table
+              vehicleMake: driver.make,
+              vehicleModel: driver.model,
+              vehicleYear: driver.year,
+              vehicleColor: driver.color,
+              vehiclePlate: driver.plate_number,
+            });
+            console.log('[Profile] Vehicle data:', {
+              make: driver.make,
+              model: driver.model,
+              year: driver.year,
+              color: driver.color,
+              plate: driver.plate_number
+            });
+          }
+        } catch (apiError) {
+          console.error('[Profile] Error fetching driver info:', apiError);
+          // Fallback to cached info
+          const info = await authService.getDriverInfo();
+          console.log('[Profile] Using cached driver info:', info);
+          setDriverInfo(info);
+        }
+
+        // Fetch earnings
+        try {
+          const response = await driverAPI.getEarnings(email);
+          const data = response?.data;
+          if (data && typeof data === 'object') {
+            setEarnings({
+              today_earnings: Number(data.today_earnings) || 0,
+              total_earnings: Number(data.total_earnings) || 0,
+              total_trips: Number(data.total_trips) || 0,
+              recent_rides: Array.isArray(data.recent_rides) ? data.recent_rides : [],
+            });
           }
         } catch (earningsError) {
           console.error('Error loading earnings:', earningsError);
-          
           setEarnings({
             today_earnings: 0,
             total_earnings: 0,
@@ -61,6 +101,36 @@ export default function DriverProfileScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle Add Vehicle button
+  const handleAddVehicle = () => {
+    Alert.alert(
+      'Add Vehicle',
+      'Vehicle registration is handled during signup. Please contact support to update your vehicle information.',
+      [{ text: 'OK' }]
+    );
+  };
+
+  // Handle menu item presses
+  const handleEarningsReport = () => {
+    router.push('/(driver)/dashboard');
+  };
+
+  const handleRideHistory = () => {
+    Alert.alert('Ride History', 'Your completed rides are shown in the Recent Rides section above.');
+  };
+
+  const handlePaymentSettings = () => {
+    Alert.alert('Payment Settings', 'Payment settings will be available in a future update.');
+  };
+
+  const handleNotifications = () => {
+    Alert.alert('Notifications', 'Notification settings will be available in a future update.');
+  };
+
+  const handleHelpSupport = () => {
+    Alert.alert('Help & Support', 'Contact us at support@swyft.com for assistance.');
   };
 
   const handleLogout = async () => {
@@ -183,7 +253,7 @@ export default function DriverProfileScreen() {
                     <Text style={styles.rideDate}>{formatDate(ride.created_at)}</Text>
                   </View>
                   <View style={styles.rideRight}>
-                    <Text style={styles.ridePrice}>₺{ride.price?.toFixed(2) || '0.00'}</Text>
+                    <Text style={styles.ridePrice}>₺{Number(ride.price || 0).toFixed(2)}</Text>
                     <Text style={styles.rideStatus}>{ride.status}</Text>
                   </View>
                 </View>
@@ -200,27 +270,27 @@ export default function DriverProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Vehicle</Text>
           <View style={styles.vehicleCard}>
-            {driverInfo?.vehicle ? (
+            {(driverInfo?.vehicleMake || driverInfo?.vehicleModel || driverInfo?.vehiclePlate) ? (
               <>
                 <View style={styles.vehicleHeader}>
                   <Text style={styles.vehicleName}>
-                    {driverInfo.vehicle_year} {driverInfo.vehicle_make} {driverInfo.vehicle_model}
+                    {driverInfo.vehicleYear} {driverInfo.vehicleMake} {driverInfo.vehicleModel}
                   </Text>
                   <View style={styles.vehicleColorBadge}>
                     <View style={[styles.colorDot, { 
-                      backgroundColor: driverInfo.vehicle_color?.toLowerCase() === 'white' ? '#E0E0E0' : 
-                                      driverInfo.vehicle_color?.toLowerCase() === 'black' ? '#333' : 
-                                      driverInfo.vehicle_color?.toLowerCase() === 'red' ? '#F44336' : 
-                                      driverInfo.vehicle_color?.toLowerCase() === 'blue' ? '#2196F3' : '#888' 
+                      backgroundColor: driverInfo.vehicleColor?.toLowerCase() === 'white' ? '#E0E0E0' : 
+                                      driverInfo.vehicleColor?.toLowerCase() === 'black' ? '#333' : 
+                                      driverInfo.vehicleColor?.toLowerCase() === 'red' ? '#F44336' : 
+                                      driverInfo.vehicleColor?.toLowerCase() === 'blue' ? '#2196F3' : '#888' 
                     }]} />
-                    <Text style={styles.vehicleColorText}>{driverInfo.vehicle_color || 'N/A'}</Text>
+                    <Text style={styles.vehicleColorText}>{driverInfo.vehicleColor || 'N/A'}</Text>
                   </View>
                 </View>
                 
                 <View style={styles.vehicleDetails}>
                   <View style={styles.vehicleDetailRow}>
                     <Text style={styles.vehicleDetailLabel}>License Plate</Text>
-                    <Text style={styles.vehicleDetailValue}>{driverInfo.vehicle_plate || 'N/A'}</Text>
+                    <Text style={styles.vehicleDetailValue}>{driverInfo.vehiclePlate || 'N/A'}</Text>
                   </View>
                 </View>
               </>
@@ -228,7 +298,7 @@ export default function DriverProfileScreen() {
               <View style={styles.noVehicle}>
                 <Ionicons name="car" size={40} color={COLORS.gray} />
                 <Text style={styles.noVehicleText}>No vehicle registered</Text>
-                <TouchableOpacity style={styles.addVehicleButton}>
+                <TouchableOpacity style={styles.addVehicleButton} onPress={handleAddVehicle}>
                   <Text style={styles.addVehicleButtonText}>Add Vehicle</Text>
                 </TouchableOpacity>
               </View>
@@ -261,27 +331,27 @@ export default function DriverProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
           <View style={styles.menuCard}>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleEarningsReport}>
               <Ionicons name="stats-chart" size={24} color={COLORS.primary} />
               <Text style={styles.menuText}>Earnings Report</Text>
               <Text style={styles.menuArrow}>{'>'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleRideHistory}>
               <Ionicons name="list" size={24} color={COLORS.primary} />
               <Text style={styles.menuText}>Ride History</Text>
               <Text style={styles.menuArrow}>{'>'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={handlePaymentSettings}>
               <Ionicons name="card" size={24} color={COLORS.primary} />
               <Text style={styles.menuText}>Payment Settings</Text>
               <Text style={styles.menuArrow}>{'>'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleNotifications}>
               <Ionicons name="notifications" size={24} color={COLORS.primary} />
               <Text style={styles.menuText}>Notifications</Text>
               <Text style={styles.menuArrow}>{'>'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleHelpSupport}>
               <Ionicons name="help-circle" size={24} color={COLORS.primary} />
               <Text style={styles.menuText}>Help & Support</Text>
               <Text style={styles.menuArrow}>{'>'}</Text>
