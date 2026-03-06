@@ -1,4 +1,3 @@
-// App constants
 export const COLORS = {
   primary: '#2196F3',
   secondary: '#FF9800',
@@ -14,7 +13,7 @@ export const COLORS = {
   gray: '#9E9E9E',
 };
 
-export const API_URL = 'http://192.168.55.73:3002'; // Change to your computer's IP address
+export const API_URL = 'http://192.168.55.73:3002';
 export const SOCKET_URL = 'http://192.168.55.73:3002';
 
 export const STORAGE_KEYS = {

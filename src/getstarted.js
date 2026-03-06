@@ -49,7 +49,7 @@ export default function GetStarted() {
       });
 
       const data = await res.json();      
-        localStorage.setItem('token', data.token); // optional
+        localStorage.setItem('token', data.token);
 
 
       if (!res.ok) {
@@ -62,8 +62,6 @@ export default function GetStarted() {
         return;
       }
 
-      // ✅ Success: show email verification message
-      console.log('Account created:', data);
       alert('Account created! Please check your email to verify your account before signing in.');
       navigate('/signin');
     } catch (err) {
@@ -77,22 +75,7 @@ export default function GetStarted() {
 
   return (
     <>
-      {/* Header */}
-      <Box
-        sx={{
-          bgcolor: '#82b1ff',
-          color: 'white',
-          p: 2,
-          textAlign: 'left',
-          fontWeight: 'bold',
-          fontSize: '1.5rem',
-          pl: { xs: 2, sm: '50px' },
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap'
-        }}
-      >
+      <Box sx={{ bgcolor: '#82b1ff', color: 'white', p: 2, textAlign: 'left', fontWeight: 'bold', fontSize: '1.5rem', pl: { xs: 2, sm: '50px' }, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Box
             component="img"
@@ -135,11 +118,7 @@ export default function GetStarted() {
         </Box>
       </Box>
 
-      {/* User Type Selector */}
-      <Container
-        maxWidth="xs"
-        sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mt: 4 }}
-      >
+      <Container maxWidth="xs" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mt: 4 }}>
         <Typography variant="h6" gutterBottom sx={{ color: '#4e4e4eff' }}>
           Create Account
         </Typography>
@@ -191,7 +170,6 @@ export default function GetStarted() {
         </Box>
       </Container>
 
-      {/* Form */}
       {userType && (
         <Container
           maxWidth="xs"

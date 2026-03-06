@@ -19,7 +19,6 @@ export default function DriverDashboard() {
   const handleOpenDialog = ride => { setSelectedRide(ride); setOpenDialog(true); };
   const handleCloseDialog = () => { setOpenDialog(false); setSelectedRide(null); };
 
-  // Load driver info from sessionStorage
   useEffect(() => {
     const savedDriver = sessionStorage.getItem('driverInfo');
     if (savedDriver) {
@@ -29,7 +28,6 @@ export default function DriverDashboard() {
     }
   }, []);
 
-  // Fetch driver details from backend
   useEffect(() => {
     const email = JSON.parse(sessionStorage.getItem('driverInfo'))?.email;
     if (!email) return;
@@ -49,20 +47,17 @@ export default function DriverDashboard() {
       .catch(err => console.error('Error fetching drivers:', err));
   }, []);
 
-  // Fetch rides
   useEffect(() => {
     const fetchRides = async () => {
       try {
         const token = sessionStorage.getItem('authToken');
 
-        // Pending rides
         const pendingRes = await fetch('http://localhost:3001/api/rides', {
           headers: { Authorization: `Bearer ${token}` },
         });
         const pendingData = await pendingRes.json();
         setPendingRides(pendingData.filter(ride => !ride.driver_assigned));
 
-        // Active rides
         if (driverInfo.email) {
           const activeRes = await fetch(`http://localhost:3001/api/active-rides?driver_email=${driverInfo.email}`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -76,7 +71,7 @@ export default function DriverDashboard() {
     };
 
     fetchRides();
-    const interval = setInterval(fetchRides, 15000); // 15s
+    const interval = setInterval(fetchRides, 15000);
     return () => clearInterval(interval);
   }, [driverInfo.email]);
 
@@ -136,7 +131,6 @@ export default function DriverDashboard() {
 
   return (
     <Box sx={{ p: 0, bgcolor: '#f0f2f5', minHeight: '100vh' }}>
-      {/* Header */}
       <Box sx={{ bgcolor: '#82b1ff', color: 'white', p: 2, display: 'flex', alignItems: 'center', justifyContent: isDesktop ? 'space-between' : 'flex-start', pl: isDesktop ? '50px' : '20px', fontWeight: 'bold', fontSize: isDesktop ? '1.5rem' : '1.25rem' }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <img src="/taxifav.png" alt="Taxi Icon" style={{ width: isDesktop ? 35 : 30, height: isDesktop ? 35 : 30, marginRight: 10 }} />
@@ -155,7 +149,6 @@ export default function DriverDashboard() {
       </Typography>
 
       <Box sx={{ display: 'flex', flexDirection: isDesktop ? 'row' : 'column', gap: 3, alignItems: isDesktop ? 'flex-start' : 'center', mt: 2, pl: isDesktop ? 5 : 2, pr: isDesktop ? 5 : 2 }}>
-        {/* Pending Rides */}
         <Box sx={{ width: isDesktop ? 500 : '100%' }}>
           <Box sx={{ width: '92%', bgcolor: '#82b1ff', color: 'white', p: 2, fontWeight: 'bold', fontSize: '1.25rem', textAlign: 'left', borderTopLeftRadius: 12, borderTopRightRadius: 12, mb: 1 }}>Available Rides</Box>
           <Box sx={{ border: '1px solid #ccc', borderRadius: 3, p: 2, bgcolor: '#f5f5f5', maxHeight: 500, overflowY: 'auto' }}>
@@ -173,17 +166,11 @@ export default function DriverDashboard() {
           </Box>
         </Box>
 
-        {/* Driver Map */}
         <DriverMap ride={activeRides[0]} />
 
-        {/* Active Rides */}
-        <ActiveRides
-          rides={activeRides.filter(ride => ride.driver_email === driverInfo.email)}
-          onCancelRide={handleCancelRide}
-        />
+        <ActiveRides rides={activeRides.filter(ride => ride.driver_email === driverInfo.email)} onCancelRide={handleCancelRide} />
       </Box>
 
-      {/* Confirm Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog}>
         <DialogTitle>Accept Ride</DialogTitle>
         <DialogContent>

@@ -41,7 +41,6 @@ export default function BookRideScreen() {
     };
   }, []);
 
-  // Set up socket listeners when userEmail is loaded
   useEffect(() => {
     if (userEmail) {
       setupSocketListeners();
@@ -88,7 +87,6 @@ export default function BookRideScreen() {
       socketService.joinRoom(userEmail);
     }
     
-    // Listen for ride creation confirmation
     socketService.on('rideCreated', (ride) => {
       console.log('rideCreated received:', ride);
       if (ride.passenger_email === userEmail) {
@@ -143,7 +141,6 @@ export default function BookRideScreen() {
 
       const response = await ridesAPI.createRide(rideData);
       
-      // Join the passenger's email room to receive socket updates
       socketService.joinRoom(userEmail);
       
       setCurrentRide(response.data.ride || response.data);
@@ -300,7 +297,6 @@ const styles = StyleSheet.create({
   buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
   locationBtn: { marginTop: 16, alignItems: 'center' },
   locationBtnText: { color: COLORS.primary, fontSize: 14 },
-  // Ride status styles
   rideStatusContainer: { 
     backgroundColor: '#f8f9fa', 
     borderRadius: 12, 

@@ -5,7 +5,7 @@ import { Paper, Box, Typography } from "@mui/material";
 const containerStyle = { width: "100%", height: 400 };
 
 export default function DriverMap({ ride }) {
-  const [driverLocation, setDriverLocation] = useState(null); // null initially
+  const [driverLocation, setDriverLocation] = useState(null);
   const [pickup, setPickup] = useState(null);
   const [dropoff, setDropoff] = useState(null);
   const [directions, setDirections] = useState(null);
@@ -19,7 +19,6 @@ export default function DriverMap({ ride }) {
     libraries: ["places"],
   });
 
-  // ✅ Get system location on load
   useEffect(() => {
     if (!navigator.geolocation) {
       console.error("Geolocation not supported.");
@@ -33,7 +32,6 @@ export default function DriverMap({ ride }) {
     );
   }, []);
 
-  // Geocode pickup & dropoff
   useEffect(() => {
     if (!ride || !isLoaded || !window.google?.maps?.Geocoder) return;
 
@@ -52,7 +50,6 @@ export default function DriverMap({ ride }) {
     geocodeAddress(ride.dropoff_location, setDropoff);
   }, [ride, isLoaded]);
 
-  // Track driver geolocation continuously
   useEffect(() => {
     if (!ride) return;
 
@@ -65,7 +62,6 @@ export default function DriverMap({ ride }) {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [ride]);
 
-  // Directions
   useEffect(() => {
     if (!pickup || !dropoff || !driverLocation) return;
 
@@ -84,7 +80,7 @@ export default function DriverMap({ ride }) {
             const distanceToPickup = Math.sqrt(
               (driverLocation.lat - pickup.lat) ** 2 + (driverLocation.lng - pickup.lng) ** 2
             );
-            if (distanceToPickup < 0.0005) setHasPickedUp(true); // ~50 meters
+            if (distanceToPickup < 0.0005) setHasPickedUp(true);
           }
 
           if (mapRef.current) {
@@ -97,7 +93,6 @@ export default function DriverMap({ ride }) {
     );
   }, [pickup, dropoff, driverLocation, hasPickedUp]);
 
-  // Only render map once system location is available
   if (!isLoaded || !driverLocation) {
     return <Typography>Loading map and fetching your location…</Typography>;
   }

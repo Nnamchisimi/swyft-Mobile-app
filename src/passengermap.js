@@ -6,7 +6,7 @@ import { io } from "socket.io-client";
 const containerStyle = { width: "100%", height: 400 };
 
 export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLocation, rideBooked, rideId }) {
-  const [passengerLocation, setPassengerLocation] = useState(null); // will get from system
+  const [passengerLocation, setPassengerLocation] = useState(null);
   const [pickup, setPickup] = useState(pickupLocation || null);
   const [dropoff, setDropoff] = useState(dropoffLocation || null);
   const [driverLocation, setDriverLocation] = useState(null);
@@ -20,7 +20,6 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
     libraries: ["places"],
   });
 
-  // ✅ Get system location on load
   useEffect(() => {
     if (!navigator.geolocation) {
       console.error("Geolocation not supported.");
@@ -34,7 +33,6 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
     );
   }, []);
 
-  // ✅ Connect passenger to socket room & listen for driver updates
   useEffect(() => {
     if (!rideId || !passengerEmail) return;
 
@@ -52,7 +50,6 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
     };
   }, [rideId, passengerEmail]);
 
-  // ✅ Geocode pickup & dropoff
   useEffect(() => {
     if (!isLoaded || !window.google?.maps?.Geocoder) return;
 
@@ -76,7 +73,6 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
     geocodeAddress(dropoffLocation?.address, setDropoff);
   }, [pickupLocation?.address, dropoffLocation?.address, isLoaded]);
 
-  // ✅ Fetch directions
   useEffect(() => {
     if (!isLoaded || !pickup || !dropoff || !passengerLocation) return;
 
@@ -104,7 +100,6 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
     );
   }, [pickup, dropoff, isLoaded, passengerLocation]);
 
-  // ✅ Reset map on rideBooked
   useEffect(() => {
     if (rideBooked) {
       setPickup(null);
@@ -117,7 +112,6 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
     }
   }, [rideBooked]);
 
-  // Only render map when API loaded & location available
   if (!isLoaded || !passengerLocation) {
     return <Typography>Loading map and fetching your location…</Typography>;
   }

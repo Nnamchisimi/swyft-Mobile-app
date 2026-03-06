@@ -34,7 +34,6 @@ export default function SignInScreen() {
       const result = await authService.login(email.trim(), password);
 
       if (result.success) {
-        // Determine routing based on role
         const role = result.user.role || 'passenger';
         if (role === 'driver') {
           router.replace('/(driver)/dashboard');
