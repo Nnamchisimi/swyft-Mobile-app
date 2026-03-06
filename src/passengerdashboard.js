@@ -20,6 +20,7 @@ import RecentRides from './RecentRides';
 import socket from "./socket";
 import PassengerMap from './passengermap';
 
+// ------------------ LocationInput Component ------------------
 function LocationInput({ label, onSelect, value }) {
   const [query, setQuery] = useState(value || '');
   const [suggestions, setSuggestions] = useState([]);
@@ -79,6 +80,7 @@ function LocationInput({ label, onSelect, value }) {
   );
 }
 
+// ------------------ PassengerDashboard Component ------------------
 export default function PassengerDashboard() {
   const navigate = useNavigate();
   const theme = useTheme();
@@ -92,9 +94,10 @@ export default function PassengerDashboard() {
   const [dropoff, setDropoff] = useState('');
   const [rideType, setRideType] = useState('economy');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [selectedRide, setSelectedRide] = useState(null);
-  const [rideBooked, setRideBooked] = useState(false);
+  const [selectedRide, setSelectedRide] = useState(null); // currently tracked ride
+  const [rideBooked, setRideBooked] = useState(false); // triggers map reset
 
+  // Fetch user email & info
   useEffect(() => {
     const savedEmail = sessionStorage.getItem('userEmail');
     if (savedEmail) setPassengerEmail(savedEmail);
@@ -120,6 +123,7 @@ export default function PassengerDashboard() {
     }
   }, []);
 
+  // Listen for ride updates
   useEffect(() => {
     if (!passengerEmail) return;
     socket.emit("joinRoom", passengerEmail);
@@ -133,6 +137,7 @@ export default function PassengerDashboard() {
         else return [ride, ...prev];
       });
 
+      // Track only accepted or in-progress rides
       if (["accepted", "in_progress"].includes(ride.status)) {
         setSelectedRide(ride);
       } else if (selectedRide?.id === ride.id && ride.status === "completed") {
@@ -151,6 +156,8 @@ export default function PassengerDashboard() {
 
   const handleChange = (setter) => (e) => setter(e.target.value);
   const handleRideTypeChange = (_, newType) => { if (newType) setRideType(newType); };
+
+  // Handle ride booking
   const onBookClick = async () => {
     if (!passengerName || !passengerEmail || !passengerPhone || !pickup || !dropoff) {
       setSnackbar({ open: true, message: 'Please fill all fields', severity: 'error' });
@@ -193,6 +200,7 @@ export default function PassengerDashboard() {
 
   return (
     <>
+      {/* Header */}
       <Box sx={{ bgcolor: '#82b1ff', color: 'white', p: 2, textAlign: 'left', fontWeight: 'bold', fontSize: isDesktop ? '1.5rem' : '1.25rem', pl: isDesktop ? '50px' : '20px', display: 'flex', alignItems: 'center', justifyContent: isDesktop ? 'space-between' : 'flex-start' }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <img src="/taxifav.png" alt="Taxi Icon" style={{ width: isDesktop ? 35 : 30, height: isDesktop ? 35 : 30, marginRight: 10 }} />
@@ -204,7 +212,9 @@ export default function PassengerDashboard() {
         {isDesktop && <Button variant="contained" color="secondary" onClick={() => navigate('/')} sx={{ mr: 15, borderRadius: '15px', backgroundColor: '#ffffff', fontWeight: 'bold', padding: '10px 24px', color: '#000000', '&:hover': { backgroundColor: '#f0f0f0' } }}>Home</Button>}
       </Box>
 
+      {/* Main content */}
       <Box sx={{ display: 'flex', flexDirection: isDesktop ? 'row' : 'column', justifyContent: 'center', mt: 2, px: isDesktop ? 7 : 2, gap: 3, alignItems: isDesktop ? 'flex-start' : 'center' }}>
+        {/* Ride booking form */}
         <Container maxWidth="xs" sx={{ p: 4, border: '1px solid #ccc', borderRadius: 3, width: '100%', maxWidth: 360 }}>
           <Typography variant={isDesktop ? "h5" : "h6"} align={isDesktop ? "left" : "center"} gutterBottom sx={{ fontWeight: 'bold' }}>Book a Ride</Typography>
           <TextField fullWidth label="Passenger Name" margin="normal" value={passengerName} onChange={handleChange(setPassengerName)} />
@@ -229,6 +239,7 @@ export default function PassengerDashboard() {
           </Snackbar>
         </Container>
 
+        {/* Passenger Map with real-time driver */}
         <PassengerMap
           passengerEmail={passengerEmail}
           pickupLocation={pickup ? { address: pickup } : null}
@@ -238,6 +249,7 @@ export default function PassengerDashboard() {
           rideBooked={rideBooked}
         />
 
+        {/* Recent rides */}
         <RecentRides userEmail={passengerEmail} />
       </Box>
     </>

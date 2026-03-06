@@ -33,7 +33,7 @@ const handleStartDriving = () => {
           observer.unobserve(entry.target);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 } // trigger a little earlier
     );
 
     if (ref.current) observer.observe(ref.current);
@@ -57,9 +57,10 @@ const handleStartDriving = () => {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    flexWrap: 'wrap',
+    flexWrap: 'wrap', // allow wrapping on small screens
   }}
 >
+  {/* Logo + Brand */}
   <Box sx={{ display: 'flex', alignItems: 'center' }}>
     <Box
       component="img"
@@ -84,7 +85,17 @@ const handleStartDriving = () => {
     </Box>
   </Box>
 
-  <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center', mr: { xs: 0, sm: 15 }, mt: { xs: 2, sm: 0 } }}>
+  {/* Action Buttons */}
+  <Box
+    sx={{
+      display: 'flex',
+      gap: 2,
+      flexDirection: { xs: 'column', sm: 'row' }, // stack on mobile
+      alignItems: 'center',
+      mr: { xs: 0, sm: 15 },
+      mt: { xs: 2, sm: 0 },
+    }}
+  >
     <Button
       variant="contained"
       onClick={() => navigate('/getstarted')}
@@ -141,12 +152,24 @@ const handleStartDriving = () => {
         sx={{
           display: 'flex',
           justifyContent: 'center',
-          gap: 2,
+          gap: 2, // space between containers
           px: 2,
           flexWrap: 'wrap',
         }}
       >
-        <Container maxWidth="sm" sx={{ border: 'none', borderRadius: 2, p: 5, boxShadow: 'none', bgcolor: 'transparent', flex: '1 1 400px', textAlign: 'center' }}>
+        {/* Passenger Container */}
+       <Container
+            maxWidth="sm"
+            sx={{
+              border: 'none',
+              borderRadius: 2,
+              p: 5,
+              boxShadow: 'none',
+              bgcolor: 'transparent',
+              flex: '1 1 400px', // flexible width but minimum 400px
+              textAlign: 'center', // center text and heading
+            }}
+          >
             {/* People Icon in a Circle */}
             <Box
               sx={{
@@ -198,7 +221,21 @@ const handleStartDriving = () => {
             </Button>
           </Container>
 
-        <Container maxWidth="sm" sx={{ border: 'none', borderRadius: 2, p: 3, boxShadow: 'none', bgcolor: 'transparent', flex: '1 1 400px', textAlign: 'center' }}>
+        {/* Driver Container */}
+
+
+<Container
+  maxWidth="sm"
+  sx={{
+    border: 'none',
+    borderRadius: 2,
+    p: 3,
+    boxShadow: 'none',
+    bgcolor: 'transparent',
+    flex: '1 1 400px',
+    textAlign: 'center', // center heading and text
+  }}
+>
   {/* Car Icon in a Circle */}
   <Box
     sx={{
@@ -257,10 +294,10 @@ const handleStartDriving = () => {
         ref={ref}
         maxWidth="md"
         sx={{
-             mt: { xs: 4, sm: 6 },
-              mb: { xs: 3, sm: 4 },
+             mt: { xs: 4, sm: 6 },     // smaller top margin on mobile
+              mb: { xs: 3, sm: 4 },     // smaller bottom margin on mobile
               textAlign: 'center',
-              px: { xs: 2, sm: 0 },
+              px: { xs: 2, sm: 0 },     // padding adjustment
               opacity: visible ? 1 : 0,
               transform: visible ? 'translateY(0)' : 'translateY(60px)',
               transition: 'opacity 1s ease-out, transform 1s ease-out',
@@ -270,19 +307,23 @@ const handleStartDriving = () => {
 <Box
   sx={{
     display: 'flex',
-    flexDirection: { xs: 'column', md: 'row' },
-    alignItems: { xs: 'center', md: 'flex-start' },
+    flexDirection: { xs: 'column', md: 'row' }, // stack vertically on small screens
+    alignItems: { xs: 'center', md: 'flex-start' }, // center image/text on mobile
     gap: 3,
-    textAlign: { xs: 'center', md: 'left' },
+    textAlign: { xs: 'center', md: 'left' }, // center text on mobile
   }}
 >
+  {/* Text Section */}
   <Box>
     <Typography variant="h2" fontWeight="bold" gutterBottom sx={{ color: '#4e4e4eff' }}> Moving You, Smarter</Typography>
     <Typography  variant="h6" color="text.secondary" gutterBottom>
       By sharing our industry insights and real-time ride data, we make city travel faster, safer, and easier for everyone.
     </Typography>
   </Box>
-  <Box component="img" src="/ri1.jpg" alt="Smarter city travel" sx={{ width: { xs: '100%', md: 300 }, height: { xs: 'auto', md: 400 }, borderRadius: 2, mt: { xs: 2, md: 0 }, alignSelf: { xs: 'center', md: 'flex-start' } }} />
+  {/* Image Section */}
+  <Box component="img" src="/ri1.jpg"  alt="Smarter city travel" 
+    sx={{   width: { xs: '100%', md: 300 }, height: { xs: 'auto', md: 400 }, borderRadius: 2 ,mt: { xs: 2, md: 0 }, // spacing when stacked vertically
+   alignSelf: { xs: 'center', md: 'flex-start' }, }}
   />
 </Box>
 
@@ -316,7 +357,7 @@ const handleStartDriving = () => {
 <Box
   sx={{
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'column', // only vertical now
     alignItems: 'center', // center horizontally
     gap: 3,
     mt: 4,
@@ -340,7 +381,16 @@ const handleStartDriving = () => {
 </Box>
 
 
-<Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'center', md: 'flex-start' }, gap: 3, mt: 4 }}>
+{/* Block 3 */}
+<Box
+  sx={{
+    display: 'flex',
+    flexDirection: { xs: 'column', md: 'row' },
+    alignItems: { xs: 'center', md: 'flex-start' },
+    gap: 3,
+    mt: 4,
+  }}
+>
   <Box
     component="img"
     src="/ri4.jpg"
@@ -350,12 +400,13 @@ const handleStartDriving = () => {
       height: { xs: 'auto', md: 400 },
       borderRadius: 2,
       mt: { xs: 2, md: 0 },
-      order: { xs: 2, md: 1 },
+      order: { xs: 2, md: 1 }, // image first on md+
     }}
   />
   <Box
     sx={{
       textAlign: { xs: 'center', md: 'right' },
+      order: { xs: 1, md: 2 }, // text second on md+
     }}
   >
     <Typography
@@ -372,7 +423,16 @@ const handleStartDriving = () => {
   </Box>
  </Box> 
 
-<Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'center', md: 'flex-start' }, gap: 3, mt: 4 }}>
+{/* Block 4 */}
+<Box
+  sx={{
+    display: 'flex',
+    flexDirection: { xs: 'column', md: 'row' },
+    alignItems: { xs: 'center', md: 'flex-start' },
+    gap: 3,
+    mt: 4,
+  }}
+>
   <Box sx={{ textAlign: { xs: 'center', md: 'left' } }}>
     <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ color: '#4e4e4eff' }}>
       Your city, Your Ride

@@ -16,7 +16,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: "*", // Allow all origins for development
     methods: ["GET", "POST"],
   },
 });
@@ -27,15 +27,19 @@ io.on("connection", (socket) => {
   socket.on("joinRoom", (email) => socket.join(email));
   socket.on("leaveRoom", (email) => socket.leave(email));
   
+  // Driver goes online - join drivers room and store location
   socket.on("driverOnline", (data) => {
     console.log('driverOnline event received:', data.email);
+    // Join the online drivers room for receiving ride requests
     socket.join("onlineDrivers");
+    // Also join a room with their email for personal messages
     socket.join(data.email);
     socket.driverEmail = data.email;
     socket.driverLocation = data.location;
     
     console.log('Driver joined onlineDrivers room');
     
+    // Update driver_profiles table with online status and location
     const query = `
       INSERT INTO driver_profiles (user_id, is_online, current_lat, current_lng)
       SELECT id, 1, ?, ? FROM users WHERE email = ?
@@ -47,12 +51,15 @@ io.on("connection", (socket) => {
     
     console.log(`Driver ${data.email} is now online at ${data.location?.lat}, ${data.location?.lng}`);
     
+    // Notify all passengers about available driver
     io.emit('driverStatusChanged', { email: data.email, isOnline: true, location: data.location });
   });
   
+  // Driver goes offline
   socket.on("driverOffline", (email) => {
     socket.leave("onlineDrivers");
     
+    // Update driver_profiles table with offline status
     db.query(`
       UPDATE driver_profiles dp
       JOIN users u ON dp.user_id = u.id
@@ -64,12 +71,15 @@ io.on("connection", (socket) => {
     
     console.log(`Driver ${email} is now offline`);
     
+    // Notify all passengers
     io.emit('driverStatusChanged', { email, isOnline: false });
   });
   
+  // Driver location update (real-time tracking)
   socket.on("updateDriverLocation", (data) => {
     socket.driverLocation = data.location;
     
+    // Update driver_profiles table
     db.query(`
       UPDATE driver_profiles dp
       JOIN users u ON dp.user_id = u.id
@@ -85,9 +95,11 @@ io.on("connection", (socket) => {
     
     // Also emit to specific passenger if they have an active ride
     if (data.rideId) {
+      // Get passenger email for this ride
       db.query('SELECT passenger_email FROM rides WHERE id = ?', [data.rideId], (err, results) => {
         if (results && results.length > 0) {
           const passengerEmail = results[0].passenger_email;
+          // Send to specific passenger room
           io.to(passengerEmail).emit('driverLocationUpdated', { 
             rideId: data.rideId, 
             lat: data.location.lat, 
@@ -99,6 +111,7 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Passenger sends location update (for driver to see on map)
   socket.on("passengerLocationUpdate", (data) => {
     const { email, location, rideId } = data;
     
@@ -106,9 +119,11 @@ io.on("connection", (socket) => {
     
     // Also emit to specific driver if they have an active ride
     if (data.rideId) {
+      // Get driver email for this ride
       db.query('SELECT driver_email FROM rides WHERE id = ?', [data.rideId], (err, results) => {
         if (results && results.length > 0) {
           const driverEmail = results[0].driver_email;
+          // Send to specific driver room
           io.to(driverEmail).emit('passengerLocationUpdated', { 
             rideId: data.rideId, 
             lat: data.location.lat, 
@@ -120,6 +135,7 @@ io.on("connection", (socket) => {
     }
   });
   
+  // Driver heartbeat to maintain connection status
   socket.on("driverHeartbeat", (data) => {
     if (socket.driverEmail) {
       db.query('UPDATE users SET last_active = NOW() WHERE email = ?', [socket.driverEmail], (err) => {
@@ -128,9 +144,11 @@ io.on("connection", (socket) => {
     }
   });
   
+  // New ride request - broadcast to all online drivers with countdown
   socket.on("newRide", (ride) => {
+    // Add created timestamp for countdown
     ride.createdAt = new Date().toISOString();
-    ride.expiresAt = new Date(Date.now() + 15000).toISOString();
+    ride.expiresAt = new Date(Date.now() + 15000).toISOString(); // 15 seconds countdown
     
     io.to("onlineDrivers").emit("newRide", ride);
     io.emit("newRide", ride);
@@ -153,6 +171,7 @@ io.on("connection", (socket) => {
   });
 });
 
+// MySQL connection
 const db = mysql.createConnection({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -166,11 +185,13 @@ db.connect((err) => {
   console.log('Connected to MySQL database.');
 });
 
+// Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
+// === SIGNUP ===
 app.post('/api/users', async (req, res) => {
   const { 
     first_name, 
@@ -207,6 +228,7 @@ app.post('/api/users', async (req, res) => {
 
       const userId = result.insertId;
 
+      // If driver, insert car details
       if (role === 'driver') {
         const carQuery = 'INSERT INTO cars (user_id, make, model, year, color, plate_number) VALUES (?, ?, ?, ?, ?, ?)';
         const carValues = [userId, vehicle_make, vehicle_model, vehicle_year || '2020', vehicle_color || 'White', vehicle_plate];
@@ -214,9 +236,11 @@ app.post('/api/users', async (req, res) => {
         db.query(carQuery, carValues, (err3, carResult) => {
           if (err3) return res.status(500).json({ error: 'Failed to save vehicle details', details: err3.message });
           
+          // Update user with vehicle_id
           db.query('UPDATE users SET vehicle_id = ? WHERE id = ?', [carResult.insertId, userId]);
         });
 
+        // Create driver profile for tracking online status and location
         const driverProfileQuery = 'INSERT INTO driver_profiles (user_id, is_online, rating, total_trips) VALUES (?, 0, 5.0, 0)';
         db.query(driverProfileQuery, [userId], (err4) => {
           if (err4) console.error('Error creating driver profile:', err4);
@@ -243,6 +267,7 @@ app.post('/api/users', async (req, res) => {
   });
 });
 
+// === VERIFY EMAIL ===
 app.get('/api/users/verify', (req, res) => {
   const { token } = req.query;
   if (!token) return res.send('<h3>Invalid verification link</h3>');
@@ -265,6 +290,7 @@ app.get('/api/users/verify', (req, res) => {
   }
 });
 
+// === LOGIN ===
 app.post('/api/users/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -283,6 +309,7 @@ app.post('/api/users/login', (req, res) => {
       { expiresIn: '7d' }
     );
 
+    // If driver, get car details
     if (user.role === 'driver') {
       db.query('SELECT * FROM cars WHERE user_id = ?', [user.id], (err2, carResults) => {
         const car = carResults && carResults.length > 0 ? carResults[0] : null;
@@ -316,6 +343,7 @@ app.post('/api/users/login', (req, res) => {
   });
 });
 
+// === USER PROFILE ===
 app.get('/api/user/profile', (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -342,6 +370,7 @@ app.get('/api/user/profile', (req, res) => {
   }
 });
 
+// GET all drivers
 app.get('/api/drivers', (req, res) => {
   db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate FROM users WHERE role = "Driver"', (err, results) => {
     if (err) return res.status(500).json({ error: 'Failed to fetch drivers' });
@@ -349,6 +378,9 @@ app.get('/api/drivers', (req, res) => {
   });
 });
 
+// === RIDES ===
+
+// Get rides
 app.get('/api/rides', (req, res) => {
   const { passenger_email, driver_email, status } = req.query;
   let query = 'SELECT * FROM rides';
@@ -358,6 +390,7 @@ app.get('/api/rides', (req, res) => {
   if (passenger_email) { conditions.push('passenger_email = ?'); params.push(passenger_email); }
   if (driver_email) { conditions.push('driver_email = ?'); params.push(driver_email); }
   if (status) { 
+    // Handle comma-separated status values properly
     const statusArray = status.split(',');
     conditions.push('status IN (' + statusArray.map(() => '?').join(',') + ')');
     params.push(...statusArray);
@@ -375,6 +408,7 @@ app.get('/api/rides', (req, res) => {
   });
 });
 
+// Active rides
 app.get('/api/active-rides', (req, res) => {
   const { driver_email } = req.query;
   if (!driver_email) return res.status(400).json({ error: 'driver_email is required' });
@@ -385,6 +419,7 @@ app.get('/api/active-rides', (req, res) => {
   });
 });
 
+// Get ride by ID
 app.get('/api/rides/:id', (req, res) => {
   const rideId = req.params.id;
   
@@ -395,6 +430,7 @@ app.get('/api/rides/:id', (req, res) => {
   });
 });
 
+// Completed & cancelled rides
 app.get('/api/completed-rides', (req, res) => {
   const { driver_email } = req.query;
   if (!driver_email) return res.status(400).json({ error: 'driver_email is required' });
@@ -405,6 +441,7 @@ app.get('/api/completed-rides', (req, res) => {
   });
 });
 
+// POST new ride
 app.post('/api/rides', (req, res) => {
   console.log('Ride request received:', req.body);
   

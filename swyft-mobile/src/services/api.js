@@ -10,6 +10,7 @@ const api = axios.create({
   },
 });
 
+// Request interceptor to add auth token
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
@@ -21,6 +22,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -36,12 +38,14 @@ api.interceptors.response.use(
   }
 );
 
+// Auth API
 export const authAPI = {
   login: (email, password) => api.post('/api/users/login', { email, password }),
   register: (userData) => api.post('/api/users', userData),
   getProfile: () => api.get('/api/user/profile'),
 };
 
+// Rides API
 export const ridesAPI = {
   createRide: (rideData) => api.post('/api/rides', rideData),
   getRides: (params) => api.get('/api/rides', { params }),
@@ -56,6 +60,7 @@ export const ridesAPI = {
   updateDriverLocation: (rideId, location) => api.post(`/api/rides/${rideId}/driver-location`, location),
 };
 
+// Driver API
 export const driverAPI = {
   getPendingRides: () => api.get('/api/rides'),
   acceptRide: (rideId, driverData) => api.post(`/api/rides/${rideId}/accept`, driverData),
@@ -63,6 +68,7 @@ export const driverAPI = {
   getNearbyDrivers: (lat, lng, radius) => api.get('/api/drivers/nearby', { params: { lat, lng, radius } }),
   getDriverInfo: (email) => api.get(`/api/drivers/${email}`),
   
+  // Driver status
   setOnlineStatus: (email, isOnline, location) => 
     api.post('/api/drivers/status', { email, is_online: isOnline, ...location }),
   
@@ -73,11 +79,13 @@ export const driverAPI = {
   getTodayStats: (email) => api.get('/api/drivers/stats', { params: { email } }),
 };
 
+// Fare API
 export const fareAPI = {
   calculate: (distanceKm, rideType = 'standard') => 
     api.post('/api/fare/calculate', { distance_km: distanceKm, ride_type: rideType }),
 };
 
+// Drivers API (for passengers to see nearby drivers)
 export const driversAPI = {
   getNearby: (lat, lng, radius = 5) => 
     api.get('/api/drivers/nearby', { params: { lat, lng, radius } }),

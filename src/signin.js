@@ -25,9 +25,16 @@ export default function SignIn() {
 
       const user = response.data;
 
-      sessionStorage.setItem('authToken', user.token);
+      // Save auth token
+      if (user.token) {
+        sessionStorage.setItem('authToken', user.token);
+      }
 
-      sessionStorage.setItem('userEmail', savedEmail);
+      // Save email (supports both { email } and { user: { email } })
+      const savedEmail = user.email || user.user?.email;
+      if (savedEmail) {
+        sessionStorage.setItem('userEmail', savedEmail);
+      }
 
     const driverData = {
   name: user.name || (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.user?.name),
@@ -40,6 +47,7 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
 
 
 
+      // Redirect based on role
       const role = user.role || user.user?.role;
       if (role === 'Passenger') {
         navigate('/ride-booking');
@@ -63,7 +71,22 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
 
   return (
     <>
-      <Box sx={{ bgcolor: '#82b1ff', color: 'white', p: 2, textAlign: 'left', fontWeight: 'bold', fontSize: '1.5rem', pl: { xs: 2, sm: '50px' }, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+      {/* Header */}
+      <Box
+        sx={{
+          bgcolor: '#82b1ff',
+          color: 'white',
+          p: 2,
+          textAlign: 'left',
+          fontWeight: 'bold',
+          fontSize: '1.5rem',
+          pl: { xs: 2, sm: '50px' },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+        }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Box
             component="img"
@@ -107,6 +130,7 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
         </Box>
       </Box>
 
+      {/* Sign In Form */}
       <Container maxWidth="xs" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 8 }}>
         <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ color: '#4e4e4eff' }}>
           Sign In

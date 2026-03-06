@@ -88,6 +88,7 @@ export default function DriverDashboardScreen() {
     setIsOnline(!isOnline);
     
     if (!isOnline) {
+      // Fetch pending rides when going online
       fetchPendingRides();
     }
   };

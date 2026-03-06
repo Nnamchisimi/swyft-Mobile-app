@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, List, ListItem, ListItemText, Divider, useTheme, useMediaQuery } from '@mui/material';
 import { io } from 'socket.io-client';
 
+// Same socket instance
 const socket = io("http://localhost:3001");
 
 export default function RecentRides({ userEmail }) {
@@ -9,6 +10,7 @@ export default function RecentRides({ userEmail }) {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
+  // Fetch initial rides
   useEffect(() => {
     if (!userEmail) return;
 
@@ -26,6 +28,7 @@ export default function RecentRides({ userEmail }) {
     fetchRides();
   }, [userEmail]);
 
+  // Real-time updates
   useEffect(() => {
     if (!userEmail) return;
 

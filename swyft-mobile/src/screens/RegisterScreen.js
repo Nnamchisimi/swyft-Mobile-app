@@ -23,7 +23,7 @@ export default function RegisterScreen() {
     phone: '',
     password: '',
     confirmPassword: '',
-    role: 'passenger',
+    role: 'passenger', // 'passenger' or 'driver'
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
