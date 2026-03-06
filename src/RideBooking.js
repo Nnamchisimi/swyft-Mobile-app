@@ -20,10 +20,10 @@ export default function RideBooking() {
       return;
     }
 
-    // Prepare data to send
+    
     const rideData = { passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType };
 
-    // Send POST request to backend API
+    
     fetch('http://localhost:3001/api/rides', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -37,7 +37,7 @@ export default function RideBooking() {
       })
       .then(data => {
         setSnackbar({ open: true, message: data.message, severity: 'success' });
-        // Clear inputs on success
+        
         setPassengerName('');
         setPassengerEmail('');
         setPassengerPhone('');

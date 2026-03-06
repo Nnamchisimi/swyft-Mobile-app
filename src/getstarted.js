@@ -49,7 +49,7 @@ export default function GetStarted() {
       });
 
       const data = await res.json();      
-        localStorage.setItem('token', data.token); // optional
+        localStorage.setItem('token', data.token); 
 
 
       if (!res.ok) {
@@ -62,7 +62,7 @@ export default function GetStarted() {
         return;
       }
 
-      // ✅ Success: show email verification message
+      
       console.log('Account created:', data);
       alert('Account created! Please check your email to verify your account before signing in.');
       navigate('/signin');
@@ -77,7 +77,7 @@ export default function GetStarted() {
 
   return (
     <>
-      {/* Header */}
+      {}
       <Box
         sx={{
           bgcolor: '#82b1ff',
@@ -135,7 +135,7 @@ export default function GetStarted() {
         </Box>
       </Box>
 
-      {/* User Type Selector */}
+      {}
       <Container
         maxWidth="xs"
         sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mt: 4 }}
@@ -191,7 +191,7 @@ export default function GetStarted() {
         </Box>
       </Container>
 
-      {/* Form */}
+      {}
       {userType && (
         <Container
           maxWidth="xs"

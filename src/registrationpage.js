@@ -14,12 +14,12 @@ export default function VerifyEmail() {
       return;
     }
 
-    // Optional: verify token with backend before showing form
+    
     fetch(`http://localhost:3001/api/verify-token?token=${token}`)
       .then(res => res.json())
       .then(data => {
         if (data.valid) {
-          // Redirect to GetStarted with token in state
+          
           navigate('/get-started', { state: { verificationToken: token } });
         } else {
           alert('Verification token is invalid or expired.');

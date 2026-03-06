@@ -996,22 +996,32 @@ app.get('/api/drivers/earnings', (req, res) => {
 // Driver arrives at pickup
 app.post('/api/rides/:id/arrive', (req, res) => {
   const rideId = req.params.id;
+  console.log('=== ARRIVE ENDPOINT ===');
+  console.log('rideId:', rideId);
   // First get the ride to include all details in the socket emit
   db.query('SELECT * FROM rides WHERE id = ?', [rideId], (err, rides) => {
     if (err) return res.status(500).json({ error: 'Server error' });
     if (!rides || rides.length === 0) return res.status(400).json({ error: 'Ride not found' });
     
     const ride = rides[0];
-    // Use 'arrived' status when driver arrives at pickup
-    db.query('UPDATE rides SET status = "arrived" WHERE id = ? AND status = "accepted"', [rideId], (err, result) => {
-      if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
-      if (result.affectedRows === 0) return res.status(400).json({ error: 'Cannot mark as arrived - ride may already be in progress or completed' });
+    console.log('Ride found, current status:', ride.status);
+    // Use 'active' status when driver arrives at pickup - use 'active' instead of 'arrived' since it's not in the enum
+    db.query('UPDATE rides SET status = "active" WHERE id = ? AND (status = "accepted" OR status = "active")', [rideId], (err, result) => {
+      if (err) {
+        console.log('SQL Error:', err.message);
+        return res.status(500).json({ error: 'Server error: ' + err.message });
+      }
+      console.log('Update result:', result);
+      if (result.affectedRows === 0) {
+        console.log('No rows updated - status was:', ride.status);
+        return res.status(400).json({ error: 'Cannot mark as arrived - ride may already be in progress or completed' });
+      }
       
       // Emit ride updated with all ride details including driver info
       // Use correct column names: pickup_location, dropoff_location
       io.emit('rideUpdated', {
         id: ride.id,
-        status: 'arrived', // Send 'arrived' to frontend for consistency
+        status: 'active', // Send 'active' to frontend
         passenger_email: ride.passenger_email,
         pickup: ride.pickup_location,
         pickup_lat: ride.pickup_lat,

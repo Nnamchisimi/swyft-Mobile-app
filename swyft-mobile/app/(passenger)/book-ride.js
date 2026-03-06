@@ -322,7 +322,7 @@ export default function BookRideScreen() {
       const timeoutId = setTimeout(() => controller.abort(), 3000);
       
       
-      let url = `https:
+      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
       
       
       

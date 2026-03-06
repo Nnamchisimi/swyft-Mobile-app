@@ -128,7 +128,7 @@ export default function DriverProfileScreen() {
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {(driverInfo?.first_name || 'D').charAt(0).toUpperCase()}
+                {(driverInfo?.firstName || 'D').charAt(0).toUpperCase()}
               </Text>
             </View>
             <View style={styles.onlineBadge}>
@@ -136,7 +136,7 @@ export default function DriverProfileScreen() {
             </View>
           </View>
           <Text style={styles.driverName}>
-            {driverInfo?.first_name ? `${driverInfo.first_name} ${driverInfo.last_name || ''}`.trim() : 'Driver'}
+            {driverInfo?.firstName ? `${driverInfo.firstName} ${driverInfo.lastName || ''}`.trim() : 'Driver'}
           </Text>
           <Text style={styles.driverEmail}>{userEmail}</Text>
           <View style={styles.ratingContainer}>
@@ -243,7 +243,7 @@ export default function DriverProfileScreen() {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Full Name</Text>
               <Text style={styles.infoValue}>
-                {driverInfo?.first_name ? `${driverInfo.first_name} ${driverInfo.last_name || ''}`.trim() : 'N/A'}
+                {driverInfo?.firstName ? `${driverInfo.firstName} ${driverInfo.lastName || ''}`.trim() : 'N/A'}
               </Text>
             </View>
             <View style={styles.infoRow}>

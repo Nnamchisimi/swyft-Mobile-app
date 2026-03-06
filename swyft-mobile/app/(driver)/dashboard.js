@@ -495,9 +495,9 @@ export default function DriverDashboard() {
     const longitude = parseFloat(lng);
     
     
-    const googleMapsUrl = `https:
-    const appleMapsUrl = `maps:
-    const wazeUrl = `https:
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+    const appleMapsUrl = `maps://?daddr=${latitude},${longitude}`;
+    const wazeUrl = `https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`;
     
     Alert.alert(
       'Open Navigation',
@@ -738,7 +738,7 @@ export default function DriverDashboard() {
               <Text style={styles.arrivedButtonText}>Arrived at Pickup</Text>
             </TouchableOpacity>
           )}
-          {(currentRide.status === 'arrived' || currentRide.status === 'active') && (
+          {(currentRide.status === 'arrived') && (
             <TouchableOpacity style={styles.startButton} onPress={handleStartRide}>
               <Text style={styles.startButtonText}>Start Ride</Text>
             </TouchableOpacity>

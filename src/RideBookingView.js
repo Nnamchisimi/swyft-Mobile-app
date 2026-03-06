@@ -27,14 +27,14 @@ export default function RideBookingView(props) {
 
 
   useEffect(() => {
-    // ✅ Prefill from navigation state (fastest)
+    
     if (location.state?.email) {
       setPassengerEmail(location.state.email);
     } else {
-      // fallback: fetch from backend
+      
       async function fetchUserEmail() {
         try {
-          const res = await fetch("http://localhost:3001/api/user/profile?email=test@example.com");
+          const res = await fetch("http://localhost:3001/api/users/profile");
           const data = await res.json();
           if (res.ok && data.email) {
             setPassengerEmail(data.email);
