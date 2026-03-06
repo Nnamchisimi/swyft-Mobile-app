@@ -11,8 +11,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { authService } from '../services/auth';
-import { COLORS } from '../constants/config';
+import { authService } from '../../src/services/auth';
+import { COLORS } from '../../src/constants/config';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -34,7 +34,8 @@ export default function SignInScreen() {
       const result = await authService.login(email.trim(), password);
 
       if (result.success) {
-        const role = result.user.role || 'passenger';
+        
+        const role = (result.user.role || 'passenger').toLowerCase();
         if (role === 'driver') {
           router.replace('/(driver)/dashboard');
         } else {
@@ -57,6 +58,7 @@ export default function SignInScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
+          <Text style={styles.brandName}>SWYFTinc</Text>
           <Text style={styles.title}>Swyft</Text>
           <Text style={styles.subtitle}>Your ride, on demand</Text>
         </View>
@@ -100,7 +102,7 @@ export default function SignInScreen() {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push('/register')}>
+            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
               <Text style={styles.link}>Sign Up</Text>
             </TouchableOpacity>
           </View>
@@ -123,6 +125,13 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 40,
+  },
+  brandName: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    letterSpacing: 3,
+    marginBottom: 4,
   },
   title: {
     fontSize: 40,

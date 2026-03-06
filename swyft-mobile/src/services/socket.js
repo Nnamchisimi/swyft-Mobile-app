@@ -42,7 +42,6 @@ class SocketService {
     }
   }
 
-  // Join a room (for user-specific updates)
   joinRoom(email) {
     this.socket?.emit('joinRoom', email);
   }
@@ -51,27 +50,22 @@ class SocketService {
     this.socket?.emit('leaveRoom', email);
   }
 
-  // Driver goes online
   driverOnline(email, location) {
     this.socket?.emit('driverOnline', { email, location });
   }
 
-  // Driver goes offline
   driverOffline(email) {
     this.socket?.emit('driverOffline', email);
   }
 
-  // Update driver location
   updateDriverLocation(email, location, rideId = null) {
     this.socket?.emit('updateDriverLocation', { email, location, rideId });
   }
 
-  // Driver heartbeat
   driverHeartbeat(email) {
     this.socket?.emit('driverHeartbeat', { email });
   }
 
-  // Emit new ride
   emitNewRide(ride) {
     this.socket?.emit('newRide', ride);
   }
@@ -84,10 +78,8 @@ class SocketService {
     this.socket?.emit('driverLocationUpdated', data);
   }
 
-  // Listen to events
   on(event, callback) {
     this.socket?.on(event, callback);
-    // Store listener for cleanup
     if (!this.listeners.has(event)) {
       this.listeners.set(event, []);
     }
@@ -105,7 +97,6 @@ class SocketService {
     }
   }
 
-  // Remove all listeners
   removeAllListeners() {
     this.listeners.forEach((callbacks, event) => {
       callbacks.forEach((callback) => {

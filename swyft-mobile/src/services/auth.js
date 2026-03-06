@@ -4,13 +4,11 @@ import { STORAGE_KEYS } from '../constants/config';
 import { authAPI } from './api';
 
 class AuthService {
-  // Login user
   async login(email, password) {
     try {
       const response = await authAPI.login(email, password);
       const user = response.data;
 
-      // Save user data without token
       await this.saveAuthData(user);
       return { success: true, user };
     } catch (error) {
@@ -21,7 +19,6 @@ class AuthService {
     }
   }
 
-  // Register user
   async register(userData) {
     try {
       const response = await authAPI.register(userData);
@@ -34,9 +31,7 @@ class AuthService {
     }
   }
 
-  // Save auth data to storage (without token)
   async saveAuthData(user) {
-    // Normalize role to lowercase
     const normalizedRole = (user.role || 'passenger').toLowerCase();
     
     await AsyncStorage.multiSet([
@@ -59,22 +54,18 @@ class AuthService {
     ]);
   }
 
-  // Get stored auth token
   async getToken() {
     return AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   }
 
-  // Get stored user email
   async getUserEmail() {
     return AsyncStorage.getItem(STORAGE_KEYS.USER_EMAIL);
   }
 
-  // Get stored user role
   async getUserRole() {
     return AsyncStorage.getItem(STORAGE_KEYS.USER_ROLE);
   }
 
-  // Get stored driver info
   async getDriverInfo() {
     const info = await AsyncStorage.getItem(STORAGE_KEYS.DRIVER_INFO);
     return info ? JSON.parse(info) : null;
@@ -95,7 +86,6 @@ class AuthService {
     }
   }
 
-  // Logout user
   async logout() {
     await AsyncStorage.multiRemove([
       STORAGE_KEYS.AUTH_TOKEN,

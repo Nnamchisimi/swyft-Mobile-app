@@ -11,8 +11,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { authService } from '../services/auth';
-import { COLORS } from '../constants/config';
+import { authService } from '../../src/services/auth';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../../src/constants/config';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -24,6 +25,12 @@ export default function RegisterScreen() {
     password: '',
     confirmPassword: '',
     role: 'passenger',
+    
+    vehicleMake: '',
+    vehicleModel: '',
+    vehicleYear: '',
+    vehicleColor: '',
+    vehiclePlate: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,7 +40,8 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    const { firstName, lastName, email, phone, password, confirmPassword, role } = formData;
+    const { firstName, lastName, email, phone, password, confirmPassword, role,
+            vehicleMake, vehicleModel, vehicleYear, vehicleColor, vehiclePlate } = formData;
 
     if (!firstName || !lastName || !email || !password) {
       setError('Please fill in all required fields');
@@ -50,6 +58,14 @@ export default function RegisterScreen() {
       return;
     }
 
+    
+    if (role === 'driver') {
+      if (!vehicleMake || !vehicleModel || !vehicleYear || !vehicleColor || !vehiclePlate) {
+        setError('Please fill in all vehicle details');
+        return;
+      }
+    }
+
     setError('');
     setLoading(true);
 
@@ -58,10 +74,17 @@ export default function RegisterScreen() {
         first_name: firstName,
         last_name: lastName,
         email,
-        phone,
+        phone: phone || 'N/A',
         password,
         role,
-        ...(role === 'driver' && { vehicle: '' }),
+        ...(role === 'driver' && {
+          vehicle: `${vehicleYear} ${vehicleMake} ${vehicleModel}`,
+          vehicle_color: vehicleColor,
+          vehicle_plate: vehiclePlate,
+          vehicle_make: vehicleMake,
+          vehicle_model: vehicleModel,
+          vehicle_year: vehicleYear,
+        }),
       };
 
       const result = await authService.register(userData);
@@ -89,6 +112,7 @@ export default function RegisterScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
+          <Text style={styles.brandName}>SWYFTinc</Text>
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Join Swyft today</Text>
         </View>
@@ -167,6 +191,7 @@ export default function RegisterScreen() {
               ]}
               onPress={() => handleChange('role', 'passenger')}
             >
+              <Ionicons name="person" size={40} color={COLORS.primary} />
               <Text
                 style={[
                   styles.roleText,
@@ -175,6 +200,7 @@ export default function RegisterScreen() {
               >
                 Passenger
               </Text>
+              <Text style={styles.roleDesc}>I need rides</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -183,6 +209,7 @@ export default function RegisterScreen() {
               ]}
               onPress={() => handleChange('role', 'driver')}
             >
+              <Ionicons name="car" size={40} color={COLORS.primary} />
               <Text
                 style={[
                   styles.roleText,
@@ -191,8 +218,74 @@ export default function RegisterScreen() {
               >
                 Driver
               </Text>
+              <Text style={styles.roleDesc}>I provide rides</Text>
             </TouchableOpacity>
           </View>
+
+          {formData.role === 'driver' && (
+            <View style={styles.vehicleSection}>
+              <Text style={styles.sectionTitle}>Vehicle Details</Text>
+              <Text style={styles.sectionSubtitle}>Enter your vehicle information</Text>
+              
+              <View style={styles.row}>
+                <View style={styles.halfInput}>
+                  <Text style={styles.label}>Make *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.vehicleMake}
+                    onChangeText={(value) => handleChange('vehicleMake', value)}
+                    placeholder="e.g., Toyota"
+                    placeholderTextColor={COLORS.textSecondary}
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <Text style={styles.label}>Model *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.vehicleModel}
+                    onChangeText={(value) => handleChange('vehicleModel', value)}
+                    placeholder="e.g., Camry"
+                    placeholderTextColor={COLORS.textSecondary}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.row}>
+                <View style={styles.halfInput}>
+                  <Text style={styles.label}>Year *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.vehicleYear}
+                    onChangeText={(value) => handleChange('vehicleYear', value)}
+                    placeholder="e.g., 2020"
+                    keyboardType="numeric"
+                    maxLength={4}
+                    placeholderTextColor={COLORS.textSecondary}
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <Text style={styles.label}>Color *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.vehicleColor}
+                    onChangeText={(value) => handleChange('vehicleColor', value)}
+                    placeholder="e.g., White"
+                    placeholderTextColor={COLORS.textSecondary}
+                  />
+                </View>
+              </View>
+
+              <Text style={styles.label}>License Plate *</Text>
+              <TextInput
+                style={styles.input}
+                value={formData.vehiclePlate}
+                onChangeText={(value) => handleChange('vehiclePlate', value)}
+                placeholder="e.g., ABC 123"
+                autoCapitalize="characters"
+                placeholderTextColor={COLORS.textSecondary}
+              />
+            </View>
+          )}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -232,6 +325,13 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 24,
+  },
+  brandName: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    letterSpacing: 3,
+    marginBottom: 4,
   },
   title: {
     fontSize: 28,
@@ -277,22 +377,51 @@ const styles = StyleSheet.create({
   roleButton: {
     flex: 1,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: COLORS.border,
     alignItems: 'center',
+    backgroundColor: COLORS.surface,
   },
   roleButtonActive: {
     borderColor: COLORS.primary,
     backgroundColor: COLORS.primary,
   },
+  roleIcon: {
+    fontSize: 28,
+    marginBottom: 8,
+  },
   roleText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: COLORS.text,
   },
   roleTextActive: {
     color: COLORS.white,
+  },
+  roleDesc: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+  },
+  vehicleSection: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    marginBottom: 12,
   },
   error: {
     color: COLORS.error,
@@ -302,7 +431,7 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: COLORS.primary,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginTop: 24,
@@ -319,7 +448,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 24,
-    marginBottom: 24,
   },
   footerText: {
     color: COLORS.textSecondary,
