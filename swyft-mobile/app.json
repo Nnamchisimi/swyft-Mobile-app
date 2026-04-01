@@ -32,7 +32,9 @@
       "package": "com.swyft.rideshare",
       "permissions": [
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION"
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "config": {
         "googleMaps": {
@@ -64,6 +66,13 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "97f23673-f3cf-43e6-a768-0fc19f89d9d7"
+      },
+      "apiUrl": "https://swyft-mobile-app.onrender.com"
     }
   }
 }
