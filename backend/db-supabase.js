@@ -1,17 +1,46 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Supabase PostgreSQL connection configuration
-const pool = new Pool({
-  connectionString: process.env.SUPABASE_DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false // Required for Supabase
-  },
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // How long a client is allowed to remain idle
-  connectionTimeoutMillis: 2000, // How long to wait for a connection
-  family: 4 // Force IPv4 to avoid IPv6 connectivity issues on Render
-});
+// Parse Supabase connection string to extract components
+const connectionString = process.env.SUPABASE_DATABASE_URL;
+const connectionRegex = /postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/([^?]+)/;
+const match = connectionString?.match(connectionRegex);
+
+let pool;
+
+if (match) {
+  const [, user, password, host, port, database] = match;
+  console.log(`Connecting to Supabase at ${host}:${port}/${database}`);
+  
+  // Supabase PostgreSQL connection configuration with explicit options
+  pool = new Pool({
+    user,
+    password,
+    host,
+    port: parseInt(port),
+    database,
+    ssl: {
+      rejectUnauthorized: false // Required for Supabase
+    },
+    max: 20, // Maximum number of clients in the pool
+    idleTimeoutMillis: 30000, // How long a client is allowed to remain idle
+    connectionTimeoutMillis: 2000, // How long to wait for a connection
+    family: 4 // Force IPv4 to avoid IPv6 connectivity issues on Render
+  });
+} else {
+  // Fallback to connection string if parsing fails
+  console.log('Using connection string directly');
+  pool = new Pool({
+    connectionString,
+    ssl: {
+      rejectUnauthorized: false
+    },
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
+    family: 4
+  });
+}
 
 // Test the connection
 pool.on('connect', () => {

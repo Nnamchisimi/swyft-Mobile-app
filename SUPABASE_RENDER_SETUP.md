@@ -104,13 +104,15 @@ const db = require('./db-supabase');
 In your Render service settings, add these environment variables:
 
 ```
-SUPABASE_DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+SUPABASE_DATABASE_URL=postgresql://postgres.[YOUR-PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
 JWT_SECRET=your-production-jwt-secret-very-secure
 EMAIL_USER=your-production-email@gmail.com
 EMAIL_PASS=your-production-app-password
 NODE_ENV=production
 PORT=10000
 ```
+
+**Important:** Use the **Transaction mode** connection pooler (port 6543) instead of the direct connection (port 5432). The direct connection only supports IPv6, but Render doesn't support IPv6. The connection pooler supports both IPv4 and IPv6.
 
 **Important:** Render assigns a port automatically via the `PORT` environment variable. Your app should use `process.env.PORT || 5000`.
 
@@ -284,12 +286,18 @@ app.use((req, res, next) => {
 
 ### Supabase Connection String Format
 ```
+# Direct connection (IPv6 only - NOT compatible with Render)
 postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
+
+# Connection pooler (IPv4 and IPv6 - USE THIS for Render)
+postgresql://postgres.[YOUR-PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
 ```
+
+**Note:** Use the connection pooler (port 6543) for Render deployments. The direct connection (port 5432) only supports IPv6, which Render doesn't support.
 
 ### Render Environment Variables
 ```
-SUPABASE_DATABASE_URL=postgresql://...
+SUPABASE_DATABASE_URL=postgresql://postgres.[YOUR-PROJECT-REF]:[YOUR-PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
 JWT_SECRET=your-secret
 EMAIL_USER=your-email
 EMAIL_PASS=your-password

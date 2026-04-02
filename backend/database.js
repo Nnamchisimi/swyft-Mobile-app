@@ -12,13 +12,39 @@ let db;
 if (useSupabase && process.env.SUPABASE_DATABASE_URL) {
   // Supabase PostgreSQL connection
   console.log('Initializing Supabase PostgreSQL connection...');
-  db = new Pool({
-    connectionString: process.env.SUPABASE_DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
-    },
-    family: 4 // Force IPv4 to avoid IPv6 connectivity issues on Render
-  });
+  
+  // Parse Supabase connection string to extract components
+  const connectionString = process.env.SUPABASE_DATABASE_URL;
+  const connectionRegex = /postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/([^?]+)/;
+  const match = connectionString?.match(connectionRegex);
+  
+  if (match) {
+    const [, user, password, host, port, database] = match;
+    console.log(`Connecting to Supabase at ${host}:${port}/${database}`);
+    
+    // Supabase PostgreSQL connection configuration with explicit options
+    db = new Pool({
+      user,
+      password,
+      host,
+      port: parseInt(port),
+      database,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      family: 4 // Force IPv4 to avoid IPv6 connectivity issues on Render
+    });
+  } else {
+    // Fallback to connection string if parsing fails
+    console.log('Using connection string directly');
+    db = new Pool({
+      connectionString,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      family: 4
+    });
+  }
 
   db.on('connect', () => {
     console.log('Connected to Supabase PostgreSQL database!');
