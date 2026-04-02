@@ -32,6 +32,7 @@ if (useSupabase && process.env.SUPABASE_DATABASE_URL) {
       ssl: {
         rejectUnauthorized: false
       },
+      connectionTimeoutMillis: 10000, // Increased to 10s
       family: 4 // Force IPv4 to avoid IPv6 connectivity issues on Render
     });
   } else {
@@ -42,6 +43,7 @@ if (useSupabase && process.env.SUPABASE_DATABASE_URL) {
       ssl: {
         rejectUnauthorized: false
       },
+      connectionTimeoutMillis: 10000, // Increased to 10s
       family: 4
     });
   }

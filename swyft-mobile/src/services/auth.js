@@ -5,16 +5,44 @@ import { authAPI } from './api';
 
 class AuthService {
   async login(email, password) {
+    console.log('=== AUTH SERVICE DEBUG ===');
+    console.log('Making API call to login endpoint...');
+    
     try {
       const response = await authAPI.login(email, password);
+      console.log('API response received:', JSON.stringify(response.data, null, 2));
       const user = response.data;
 
       await this.saveAuthData(user);
       return { success: true, user };
     } catch (error) {
+      console.log('API call failed!');
+      console.log('Error type:', error.constructor.name);
+      console.log('Error message:', error.message);
+      console.log('Error code:', error.code);
+      console.log('Response status:', error.response?.status);
+      console.log('Response data:', JSON.stringify(error.response?.data, null, 2));
+      console.log('Request config:', JSON.stringify({
+        url: error.config?.url,
+        method: error.config?.method,
+        baseURL: error.config?.baseURL,
+        timeout: error.config?.timeout,
+      }, null, 2));
+      
+      let errorMessage = 'Login failed';
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Connection timeout - server took too long to respond';
+      } else if (error.code === 'ERR_NETWORK') {
+        errorMessage = 'Network error - check your internet connection';
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       return {
         success: false,
-        error: error.response?.data?.error || error.message || 'Login failed',
+        error: errorMessage,
       };
     }
   }

@@ -30,10 +30,17 @@ export default function SignInScreen() {
     setError('');
     setLoading(true);
 
+    console.log('=== LOGIN DEBUG START ===');
+    console.log('Email:', email.trim());
+    console.log('Attempting login at:', new Date().toISOString());
+
     try {
       const result = await authService.login(email.trim(), password);
 
+      console.log('Login result:', JSON.stringify(result, null, 2));
+
       if (result.success) {
+        console.log('Login successful, user role:', result.user.role);
         
         const role = (result.user.role || 'passenger').toLowerCase();
         if (role === 'driver') {
@@ -42,11 +49,17 @@ export default function SignInScreen() {
           router.replace('/(passenger)/home');
         }
       } else {
+        console.log('Login failed with error:', result.error);
         setError(result.error);
       }
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      console.log('Login exception caught:', err);
+      console.log('Exception message:', err.message);
+      console.log('Exception code:', err.code);
+      console.log('Full exception:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      setError(`Error: ${err.message || 'Unknown error occurred'}`);
     } finally {
+      console.log('=== LOGIN DEBUG END ===');
       setLoading(false);
     }
   };

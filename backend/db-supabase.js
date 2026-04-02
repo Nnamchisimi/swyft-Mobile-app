@@ -24,7 +24,7 @@ if (match) {
     },
     max: 20, // Maximum number of clients in the pool
     idleTimeoutMillis: 30000, // How long a client is allowed to remain idle
-    connectionTimeoutMillis: 2000, // How long to wait for a connection
+    connectionTimeoutMillis: 10000, // How long to wait for a connection (increased to 10s)
     family: 4 // Force IPv4 to avoid IPv6 connectivity issues on Render
   });
 } else {
@@ -37,7 +37,7 @@ if (match) {
     },
     max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    connectionTimeoutMillis: 10000, // Increased to 10s
     family: 4
   });
 }
