@@ -211,7 +211,7 @@ export default function DriverProfileScreen() {
           <Text style={styles.driverEmail}>{userEmail}</Text>
           <View style={styles.ratingContainer}>
             <Text style={styles.ratingStar}>⭐</Text>
-            <Text style={styles.ratingText}>{driverInfo?.rating?.toFixed(1) || '5.0'}</Text>
+            <Text style={styles.ratingText}>{driverInfo?.rating ? Number(driverInfo.rating).toFixed(1) : '5.0'}</Text>
             <Text style={styles.ratingCount}>({earnings.total_trips || 0} trips)</Text>
           </View>
         </View>
@@ -236,7 +236,7 @@ export default function DriverProfileScreen() {
           />
           <StatCard 
             label="Rating" 
-            value={driverInfo?.rating?.toFixed(1) || '5.0'} 
+            value={driverInfo?.rating ? Number(driverInfo.rating).toFixed(1) : '5.0'} 
             icon="star" 
           />
         </View>

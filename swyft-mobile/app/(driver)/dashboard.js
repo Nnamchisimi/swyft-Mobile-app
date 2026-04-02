@@ -1003,7 +1003,7 @@ export default function DriverDashboard() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>⭐ {driverInfo?.rating?.toFixed(1) || '5.0'}</Text>
+          <Text style={styles.statValue}>⭐ {driverInfo?.rating ? Number(driverInfo.rating).toFixed(1) : '5.0'}</Text>
           <Text style={styles.statLabel}>Rating</Text>
         </View>
       </View>

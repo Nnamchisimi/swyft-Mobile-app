@@ -43,8 +43,8 @@ io.on("connection", (socket) => {
     // Update driver_profiles table with online status and location
     const query = `
       INSERT INTO driver_profiles (user_id, is_online, current_lat, current_lng)
-      SELECT id, 1, $1, $2 FROM users WHERE email = $3
-      ON CONFLICT (user_id) DO UPDATE SET is_online = 1, current_lat = EXCLUDED.current_lat, current_lng = EXCLUDED.current_lng
+      SELECT id, true, $1, $2 FROM users WHERE email = $3
+      ON CONFLICT (user_id) DO UPDATE SET is_online = true, current_lat = EXCLUDED.current_lat, current_lng = EXCLUDED.current_lng
     `;
     db.query(query, [data.location?.lat || null, data.location?.lng || null, data.email], (err) => {
       if (err) console.error('Error updating driver online status:', err);
@@ -63,7 +63,7 @@ io.on("connection", (socket) => {
     // Update driver_profiles table with offline status
     db.query(`
       UPDATE driver_profiles dp
-      SET is_online = 0, current_lat = NULL, current_lng = NULL
+      SET is_online = false, current_lat = NULL, current_lng = NULL
       FROM users u
       WHERE dp.user_id = u.id AND u.email = $1
     `, [email], (err) => {
@@ -226,7 +226,7 @@ app.post('/api/users', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert user first
-    const userQuery = 'INSERT INTO users (first_name, last_name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, $6, 1) RETURNING id';
+    const userQuery = 'INSERT INTO users (first_name, last_name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id';
     const userValues = [first_name, last_name, email, hashedPassword, (role || 'passenger').toLowerCase(), phone || null];
 
     db.query(userQuery, userValues, (err2, result) => {
@@ -247,7 +247,7 @@ app.post('/api/users', async (req, res) => {
         });
 
         // Create driver profile for tracking online status and location
-        const driverProfileQuery = 'INSERT INTO driver_profiles (user_id, is_online, rating, total_trips) VALUES ($1, 0, 5.0, 0)';
+        const driverProfileQuery = 'INSERT INTO driver_profiles (user_id, is_online, rating, total_trips) VALUES ($1, false, 5.0, 0)';
         db.query(driverProfileQuery, [userId], (err4) => {
           if (err4) console.error('Error creating driver profile:', err4);
         });
@@ -284,7 +284,7 @@ app.get('/api/users/verify', (req, res) => {
       if (err || results.rows.length === 0) return res.send('<h3>Invalid or expired token</h3>');
 
       const userId = decoded.id;
-      db.query('UPDATE users SET is_verified = 1 WHERE id = $1', [userId], (err2) => {
+      db.query('UPDATE users SET is_verified = true WHERE id = $1', [userId], (err2) => {
         if (err2) return res.send('<h3>Failed to verify email</h3>');
 
         db.query('DELETE FROM email_verification_tokens WHERE token = $1', [token]);
@@ -621,7 +621,7 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
           console.log('Final values - driverName:', driverName, 'driverPhone:', driverPhone, 'vehicleDetails:', vehicleDetails, 'driverLat:', driverLat, 'driverLng:', driverLng);
             
             // Update rides with driver_id, vehicle, name and location
-            db.query('UPDATE rides SET driver_id=$1, driver_name=$2, driver_email=$3, driver_phone=$4, driver_vehicle=$5, driver_lat=$6, driver_lng=$7, status=$8, driver_assigned=1 WHERE id=$9',
+            db.query('UPDATE rides SET driver_id=$1, driver_name=$2, driver_email=$3, driver_phone=$4, driver_vehicle=$5, driver_lat=$6, driver_lng=$7, status=$8, driver_assigned=true WHERE id=$9',
               [driverUserId, driverName, email, driverPhone, vehicleDetails, driverLat, driverLng, 'accepted', rideId], (err2) => {
               if (err2) {
                 console.error('UPDATE rides error:', err2);
@@ -676,7 +676,7 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
           });
       } else {
         // No user found, use basic info
-        db.query('UPDATE rides SET driver_name=$1, driver_email=$2, driver_phone=$3, driver_vehicle=$4, status=$5, driver_assigned=1 WHERE id=$6',
+        db.query('UPDATE rides SET driver_name=$1, driver_email=$2, driver_phone=$3, driver_vehicle=$4, status=$5, driver_assigned=true WHERE id=$6',
           [driverName, email, driverPhone, vehicleDetails, 'accepted', rideId], (err2) => {
           if (err2) {
             console.error('UPDATE rides error (no user):', err2);
@@ -747,10 +747,10 @@ app.post('/api/rides/:id/confirm', (req,res)=>{
 // Cancel ride
 app.post('/api/rides/:id/cancel', (req,res)=>{
   const rideId = req.params.id;
-  db.query('UPDATE rides SET status=$1, driver_assigned=0 WHERE id=$2', ['cancelled', rideId], (err,result)=>{
+  db.query('UPDATE rides SET status=$1, driver_assigned=false WHERE id=$2', ['cancelled', rideId], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.rowCount===0) return res.status(404).json({error:"Ride not found"});
-    io.emit('rideUpdated',{id:rideId,status:"cancelled", driver_assigned:0});
+    io.emit('rideUpdated',{id:rideId,status:"cancelled", driver_assigned:false});
     res.json({message:"Ride cancelled successfully", rideId});
   });
 });
@@ -761,7 +761,7 @@ app.post('/api/rides/:id/driver-location', (req,res)=>{
   const { lat, lng } = req.body;
   if(lat==null||lng==null) return res.status(400).json({error:"Latitude and longitude required"});
 
-  db.query('UPDATE rides SET driver_lat=$1, driver_lng=$2 WHERE id=$3 AND driver_assigned=1 AND status IN ($4,$5)', [lat,lng,rideId,'accepted','active'], (err,result)=>{
+  db.query('UPDATE rides SET driver_lat=$1, driver_lng=$2 WHERE id=$3 AND driver_assigned=true AND status IN ($4,$5)', [lat,lng,rideId,'accepted','active'], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.rowCount===0) return res.status(400).json({error:"Cannot update location"});
     io.emit('driverLocationUpdated',{rideId,lat,lng});
@@ -782,7 +782,7 @@ app.post('/api/drivers/status', (req, res) => {
     FROM users u
     WHERE dp.user_id = u.id AND u.email = $4
   `;
-  db.query(query, [is_online ? 1 : 0, lat || null, lng || null, email], (err, result) => {
+  db.query(query, [is_online ? true : false, lat || null, lng || null, email], (err, result) => {
     if (err) return res.status(500).json({ error: 'Failed to update driver status' });
     res.json({ message: `Driver is now ${is_online ? 'online' : 'offline'}`, is_online });
   });
@@ -798,7 +798,7 @@ app.get('/api/drivers/nearby', (req, res) => {
       SELECT u.id, u.first_name, u.last_name, u.email, u.phone, dp.rating, dp.is_online, dp.current_lat, dp.current_lng
       FROM users u
       JOIN driver_profiles dp ON u.id = dp.user_id
-      WHERE LOWER(u.role) = $1 AND dp.is_online = 1
+      WHERE LOWER(u.role) = $1 AND dp.is_online = true
     `, ['driver'], (err, results) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch drivers' });
       res.json(results);
@@ -812,7 +812,7 @@ app.get('/api/drivers/nearby', (req, res) => {
     (6371 * acos(cos(radians(?)) * cos(radians(dp.current_lat)) * cos(radians(dp.current_lng) - radians(?)) + sin(radians(?)) * sin(radians(dp.current_lat)))) AS distance
     FROM users u
     JOIN driver_profiles dp ON u.id = dp.user_id
-    WHERE LOWER(u.role) = 'driver' AND dp.is_online = 1 AND dp.current_lat IS NOT NULL
+    WHERE LOWER(u.role) = 'driver' AND dp.is_online = true AND dp.current_lat IS NOT NULL
     HAVING distance < ?
     ORDER BY distance
   `;

@@ -500,7 +500,7 @@ export default function BookRideScreen() {
         if (ride.status === 'accepted') {
           Alert.alert(
             'Driver Found!',
-            `Your driver is on the way!\n\nDriver: ${ride.driver_name || 'Driver'}\nRating: ⭐ ${ride.driver_rating ? ride.driver_rating.toFixed(1) : '5.0'}\nPhone: ${ride.driver_phone || 'N/A'}\nVehicle: ${ride.driver_vehicle || 'N/A'}`,
+            `Your driver is on the way!\n\nDriver: ${ride.driver_name || 'Driver'}\nRating: ⭐ ${ride.driver_rating ? Number(ride.driver_rating).toFixed(1) : '5.0'}\nPhone: ${ride.driver_phone || 'N/A'}\nVehicle: ${ride.driver_vehicle || 'N/A'}`,
             [{ text: 'Great!' }]
           );
           
@@ -691,7 +691,7 @@ export default function BookRideScreen() {
               <Text style={styles.driverVehicle}>{currentRide.driver_vehicle || 'Vehicle'}</Text>
               <View style={styles.ratingContainer}>
                 <Text style={styles.ratingStar}>⭐</Text>
-                <Text style={styles.ratingText}>{currentRide.driver_rating ? currentRide.driver_rating.toFixed(1) : '5.0'}</Text>
+                <Text style={styles.ratingText}>{currentRide.driver_rating ? Number(currentRide.driver_rating).toFixed(1) : '5.0'}</Text>
               </View>
             </View>
           </View>
