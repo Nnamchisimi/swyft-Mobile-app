@@ -155,18 +155,7 @@ export default function BookRideScreen() {
   const calculateFare = async () => {
     const ride = rideTypes.find(r => r.id === selectedRideType);
     if (ride) {
-      try {
-        
-        const response = await fareAPI.calculate(5, selectedRideType);
-        if (response.data) {
-          setEstimatedPrice(response.data.total_fare || ride.price);
-        } else {
-          setEstimatedPrice(ride.price);
-        }
-      } catch (error) {
-        
-        setEstimatedPrice(ride.price);
-      }
+      setEstimatedPrice(ride.price);
     }
   };
 
