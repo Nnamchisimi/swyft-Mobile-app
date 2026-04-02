@@ -1159,4 +1159,5 @@ app.post('/api/rides/:id/complete', (req, res) => {
 });
 
 // Start server
-server.listen(3002, '0.0.0.0', () => console.log("Server running on port 3002"));
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
