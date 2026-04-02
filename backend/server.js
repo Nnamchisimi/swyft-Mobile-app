@@ -1,10 +1,11 @@
 const express = require('express');
-const mysql = require('mysql2');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
+
+const db = require('./database');
 
 const app = express();
 app.use(cors());
@@ -42,8 +43,8 @@ io.on("connection", (socket) => {
     // Update driver_profiles table with online status and location
     const query = `
       INSERT INTO driver_profiles (user_id, is_online, current_lat, current_lng)
-      SELECT id, 1, ?, ? FROM users WHERE email = ?
-      ON DUPLICATE KEY UPDATE is_online = 1, current_lat = VALUES(current_lat), current_lng = VALUES(current_lng)
+      SELECT id, 1, $1, $2 FROM users WHERE email = $3
+      ON CONFLICT (user_id) DO UPDATE SET is_online = 1, current_lat = EXCLUDED.current_lat, current_lng = EXCLUDED.current_lng
     `;
     db.query(query, [data.location?.lat || null, data.location?.lng || null, data.email], (err) => {
       if (err) console.error('Error updating driver online status:', err);
@@ -62,9 +63,9 @@ io.on("connection", (socket) => {
     // Update driver_profiles table with offline status
     db.query(`
       UPDATE driver_profiles dp
-      JOIN users u ON dp.user_id = u.id
-      SET dp.is_online = 0, dp.current_lat = NULL, dp.current_lng = NULL
-      WHERE u.email = ?
+      SET is_online = 0, current_lat = NULL, current_lng = NULL
+      FROM users u
+      WHERE dp.user_id = u.id AND u.email = $1
     `, [email], (err) => {
       if (err) console.error('Error updating driver offline status:', err);
     });
@@ -82,9 +83,9 @@ io.on("connection", (socket) => {
     // Update driver_profiles table
     db.query(`
       UPDATE driver_profiles dp
-      JOIN users u ON dp.user_id = u.id
-      SET dp.current_lat = ?, dp.current_lng = ?
-      WHERE u.email = ?
+      SET current_lat = $1, current_lng = $2
+      FROM users u
+      WHERE dp.user_id = u.id AND u.email = $3
     `, 
       [data.location?.lat, data.location?.lng, data.email], (err) => {
       if (err) console.error('Error updating driver location:', err);
@@ -96,9 +97,9 @@ io.on("connection", (socket) => {
     // Also emit to specific passenger if they have an active ride
     if (data.rideId) {
       // Get passenger email for this ride
-      db.query('SELECT passenger_email FROM rides WHERE id = ?', [data.rideId], (err, results) => {
-        if (results && results.length > 0) {
-          const passengerEmail = results[0].passenger_email;
+      db.query('SELECT passenger_email FROM rides WHERE id = $1', [data.rideId], (err, results) => {
+        if (results && results.rows.length > 0) {
+          const passengerEmail = results.rows[0].passenger_email;
           // Send to specific passenger room
           io.to(passengerEmail).emit('driverLocationUpdated', { 
             rideId: data.rideId, 
@@ -110,7 +111,7 @@ io.on("connection", (socket) => {
       });
     }
   });
-
+  
   // Passenger sends location update (for driver to see on map)
   socket.on("passengerLocationUpdate", (data) => {
     const { email, location, rideId } = data;
@@ -120,9 +121,9 @@ io.on("connection", (socket) => {
     // Also emit to specific driver if they have an active ride
     if (data.rideId) {
       // Get driver email for this ride
-      db.query('SELECT driver_email FROM rides WHERE id = ?', [data.rideId], (err, results) => {
-        if (results && results.length > 0) {
-          const driverEmail = results[0].driver_email;
+      db.query('SELECT driver_email FROM rides WHERE id = $1', [data.rideId], (err, results) => {
+        if (results && results.rows.length > 0) {
+          const driverEmail = results.rows[0].driver_email;
           // Send to specific driver room
           io.to(driverEmail).emit('passengerLocationUpdated', { 
             rideId: data.rideId, 
@@ -138,7 +139,7 @@ io.on("connection", (socket) => {
   // Driver heartbeat to maintain connection status
   socket.on("driverHeartbeat", (data) => {
     if (socket.driverEmail) {
-      db.query('UPDATE users SET last_active = NOW() WHERE email = ?', [socket.driverEmail], (err) => {
+      db.query('UPDATE users SET last_active = NOW() WHERE email = $1', [socket.driverEmail], (err) => {
         if (err) console.error('Error updating driver heartbeat:', err);
       });
     }
@@ -171,20 +172,6 @@ io.on("connection", (socket) => {
   });
 });
 
-// MySQL connection
-const db = mysql.createConnection({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASS || '123456789',
-  database: process.env.DB_NAME || 'swyft',
-  port: process.env.DB_PORT || 3306,
-});
-
-db.connect((err) => {
-  if (err) return console.error('Database connection failed:', err.stack);
-  console.log('Connected to MySQL database.');
-});
-
 // Nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -213,35 +200,35 @@ app.post('/api/users', async (req, res) => {
   if (role === 'driver' && (!vehicle_make || !vehicle_model || !vehicle_plate))
     return res.status(400).json({ error: 'Vehicle details required for drivers' });
 
-  db.query('SELECT * FROM users WHERE email = ?', [email], async (err, results) => {
+  db.query('SELECT * FROM users WHERE email = $1', [email], async (err, results) => {
     if (err) return res.status(500).json({ error: 'Server error' });
-    if (results.length > 0) return res.status(400).json({ error: 'Email already exists' });
+    if (results.rows.length > 0) return res.status(400).json({ error: 'Email already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert user first
-    const userQuery = 'INSERT INTO users (first_name, last_name, email, password, role, phone, is_verified) VALUES (?, ?, ?, ?, ?, ?, 1)';
+    const userQuery = 'INSERT INTO users (first_name, last_name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, $6, 1) RETURNING id';
     const userValues = [first_name, last_name, email, hashedPassword, (role || 'passenger').toLowerCase(), phone || null];
 
     db.query(userQuery, userValues, (err2, result) => {
       if (err2) return res.status(500).json({ error: 'Failed to create user', details: err2.message });
 
-      const userId = result.insertId;
+      const userId = result.rows[0].id;
 
       // If driver, insert car details
       if (role === 'driver') {
-        const carQuery = 'INSERT INTO cars (user_id, make, model, year, color, plate_number) VALUES (?, ?, ?, ?, ?, ?)';
+        const carQuery = 'INSERT INTO cars (user_id, make, model, year, color, plate_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id';
         const carValues = [userId, vehicle_make, vehicle_model, vehicle_year || '2020', vehicle_color || 'White', vehicle_plate];
         
         db.query(carQuery, carValues, (err3, carResult) => {
           if (err3) return res.status(500).json({ error: 'Failed to save vehicle details', details: err3.message });
           
           // Update user with vehicle_id
-          db.query('UPDATE users SET vehicle_id = ? WHERE id = ?', [carResult.insertId, userId]);
+          db.query('UPDATE users SET vehicle_id = $1 WHERE id = $2', [carResult.rows[0].id, userId]);
         });
 
         // Create driver profile for tracking online status and location
-        const driverProfileQuery = 'INSERT INTO driver_profiles (user_id, is_online, rating, total_trips) VALUES (?, 0, 5.0, 0)';
+        const driverProfileQuery = 'INSERT INTO driver_profiles (user_id, is_online, rating, total_trips) VALUES ($1, 0, 5.0, 0)';
         db.query(driverProfileQuery, [userId], (err4) => {
           if (err4) console.error('Error creating driver profile:', err4);
         });
@@ -274,14 +261,14 @@ app.get('/api/users/verify', (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    db.query('SELECT * FROM email_verification_tokens WHERE token = ? AND expires_at > NOW()', [token], (err, results) => {
-      if (err || results.length === 0) return res.send('<h3>Invalid or expired token</h3>');
+    db.query('SELECT * FROM email_verification_tokens WHERE token = $1 AND expires_at > NOW()', [token], (err, results) => {
+      if (err || results.rows.length === 0) return res.send('<h3>Invalid or expired token</h3>');
 
       const userId = decoded.id;
-      db.query('UPDATE users SET is_verified = 1 WHERE id = ?', [userId], (err2) => {
+      db.query('UPDATE users SET is_verified = 1 WHERE id = $1', [userId], (err2) => {
         if (err2) return res.send('<h3>Failed to verify email</h3>');
 
-        db.query('DELETE FROM email_verification_tokens WHERE token = ?', [token]);
+        db.query('DELETE FROM email_verification_tokens WHERE token = $1', [token]);
         res.redirect('http://localhost:3003/signin');
       });
     });
@@ -295,11 +282,11 @@ app.post('/api/users/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
-  db.query('SELECT * FROM users WHERE email = ?', [email], async (err, results) => {
+  db.query('SELECT * FROM users WHERE email = $1', [email], async (err, results) => {
     if (err) return res.status(500).json({ error: 'Database error' });
-    if (results.length === 0) return res.status(404).json({ error: 'User not found' });
+    if (results.rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
-    const user = results[0];
+    const user = results.rows[0];
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: 'Incorrect password' });
 
@@ -311,8 +298,8 @@ app.post('/api/users/login', (req, res) => {
 
     // If driver, get car details
     if (user.role && user.role.toLowerCase() === 'driver') {
-      db.query('SELECT * FROM cars WHERE user_id = ?', [user.id], (err2, carResults) => {
-        const car = carResults && carResults.length > 0 ? carResults[0] : null;
+      db.query('SELECT * FROM cars WHERE user_id = $1', [user.id], (err2, carResults) => {
+        const car = carResults && carResults.rows.length > 0 ? carResults.rows[0] : null;
         res.json({
           token,
           id: user.id,
@@ -350,11 +337,11 @@ app.get('/api/user/profile', (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate, role FROM users WHERE id = ?', [decoded.id], (err, results) => {
+    db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate, role FROM users WHERE id = $1', [decoded.id], (err, results) => {
       if (err) return res.status(500).json({ error: 'Database error' });
-      if (results.length === 0) return res.status(404).json({ error: 'User not found' });
+      if (results.rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
-      const user = results[0];
+      const user = results.rows[0];
       res.json({
         id: user.id,
         firstName: user.first_name,
@@ -372,9 +359,9 @@ app.get('/api/user/profile', (req, res) => {
 
 // GET all drivers
 app.get('/api/drivers', (req, res) => {
-  db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate FROM users WHERE role = "Driver"', (err, results) => {
+  db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate FROM users WHERE role = $1', ['driver'], (err, results) => {
     if (err) return res.status(500).json({ error: 'Failed to fetch drivers' });
-    res.json(results);
+    res.json(results.rows);
   });
 });
 
@@ -404,7 +391,7 @@ app.get('/api/rides', (req, res) => {
       console.error('Error fetching rides:', err);
       return res.status(500).json({ error: 'Failed to fetch rides' });
     }
-    res.json(results);
+    res.json(results.rows);
   });
 });
 
@@ -413,9 +400,9 @@ app.get('/api/active-rides', (req, res) => {
   const { driver_email } = req.query;
   if (!driver_email) return res.status(400).json({ error: 'driver_email is required' });
 
-  db.query('SELECT * FROM rides WHERE driver_email = ? AND status IN ("accepted","active") ORDER BY created_at DESC', [driver_email], (err, results) => {
+  db.query('SELECT * FROM rides WHERE driver_email = $1 AND status IN ($2, $3) ORDER BY created_at DESC', [driver_email, 'accepted', 'active'], (err, results) => {
     if (err) return res.status(500).json({ error: 'Failed to fetch active rides' });
-    res.json(results);
+    res.json(results.rows);
   });
 });
 
@@ -423,10 +410,10 @@ app.get('/api/active-rides', (req, res) => {
 app.get('/api/rides/:id', (req, res) => {
   const rideId = req.params.id;
   
-  db.query('SELECT * FROM rides WHERE id = ?', [rideId], (err, results) => {
+  db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, results) => {
     if (err) return res.status(500).json({ error: 'Server error' });
-    if (results.length === 0) return res.status(404).json({ error: 'Ride not found' });
-    res.json(results[0]);
+    if (results.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });
+    res.json(results.rows[0]);
   });
 });
 
@@ -435,9 +422,9 @@ app.get('/api/completed-rides', (req, res) => {
   const { driver_email } = req.query;
   if (!driver_email) return res.status(400).json({ error: 'driver_email is required' });
 
-  db.query('SELECT * FROM rides WHERE driver_email = ? AND status IN ("completed","cancelled") ORDER BY created_at DESC', [driver_email], (err, results) => {
+  db.query('SELECT * FROM rides WHERE driver_email = $1 AND status IN ($2, $3) ORDER BY created_at DESC', [driver_email, 'completed', 'cancelled'], (err, results) => {
     if (err) return res.status(500).json({ error: 'Failed to fetch completed/cancelled rides' });
-    res.json(results);
+    res.json(results.rows);
   });
 });
 
@@ -453,15 +440,15 @@ app.post('/api/rides', (req, res) => {
   }
 
   // First get the passenger's user ID from the users table
-  const getUserQuery = 'SELECT id FROM users WHERE email = ?';
+  const getUserQuery = 'SELECT id FROM users WHERE email = $1';
   db.query(getUserQuery, [passengerEmail], (errUser, userResults) => {
     let passengerId = null;
-    if (userResults && userResults.length > 0) {
-      passengerId = userResults[0].id;
+    if (userResults && userResults.rows.length > 0) {
+      passengerId = userResults.rows[0].id;
     }
     
     // Insert with passenger_id foreign key
-    const query = 'INSERT INTO rides (passenger_id, passenger_name, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const query = 'INSERT INTO rides (passenger_id, passenger_name, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id';
     const values = [passengerId, passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, 'pending', pickupLat || null, pickupLng || null, dropoffLat || null, dropoffLng || null];
   
   db.query(query, values, (err, result) => {
@@ -470,8 +457,8 @@ app.post('/api/rides', (req, res) => {
       return res.status(500).json({ error: 'Failed to save ride', details: err.message });
     }
     
-    console.log('Ride created with ID:', result.insertId);
-    const rideId = result.insertId;
+    console.log('Ride created with ID:', result.rows[0].id);
+    const rideId = result.rows[0].id;
     
     const newRide = { 
       id: rideId, 
@@ -512,11 +499,11 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
   console.log('Driver phone:', phone);
   console.log('Driver vehicle:', vehicle);
 
-  db.query('SELECT * FROM rides WHERE id = ?', [rideId], (err, results) => {
+  db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, results) => {
     if (err) return res.status(500).json({ error: 'Server error' });
-    if (results.length === 0) return res.status(404).json({ error: 'Ride not found' });
+    if (results.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });
 
-    const ride = results[0];
+    const ride = results.rows[0];
     if (ride.driver_assigned) return res.status(400).json({ error: 'Ride already accepted' });
     
     // Check if ride has expired (older than 60 seconds for pending rides)
@@ -526,7 +513,7 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
       const secondsDiff = (now - createdAt) / 1000;
       if (secondsDiff > 60) {
         // Ride expired, mark as cancelled
-        db.query('UPDATE rides SET status = "cancelled" WHERE id = ?', [rideId]);
+        db.query('UPDATE rides SET status = $1 WHERE id = $2', ['cancelled', rideId]);
         io.emit('rideUpdated', { id: rideId, status: 'cancelled', reason: 'expired' });
         return res.status(400).json({ error: 'Ride request has expired' });
       }
@@ -539,7 +526,7 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
     console.log('Driver phone from socket:', phone);
     console.log('Driver vehicle from socket:', vehicle);
     
-    const userQuery = `SELECT id, first_name, phone FROM users WHERE email = ?`;
+    const userQuery = `SELECT id, first_name, phone FROM users WHERE email = $1`;
     db.query(userQuery, [email], (errUser, userResults) => {
       console.log('User query error:', errUser);
       console.log('User query results:', userResults);
@@ -575,7 +562,7 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
             dp.current_lat, dp.current_lng, dp.rating
           FROM cars c
           LEFT JOIN driver_profiles dp ON c.user_id = dp.user_id
-          WHERE c.user_id = ?
+          WHERE c.user_id = $1
         `;
         
         console.log('>>> STEP 1: Querying cars and driver_profiles with user_id:', driverUserId);
@@ -616,17 +603,17 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
           console.log('Final values - driverName:', driverName, 'driverPhone:', driverPhone, 'vehicleDetails:', vehicleDetails, 'driverLat:', driverLat, 'driverLng:', driverLng);
             
             // Update rides with driver_id, vehicle, name and location
-            db.query('UPDATE rides SET driver_id=?, driver_name=?, driver_email=?, driver_phone=?, driver_vehicle=?, driver_lat=?, driver_lng=?, status="accepted", driver_assigned=1 WHERE id=?',
-              [driverUserId, driverName, email, driverPhone, vehicleDetails, driverLat, driverLng, rideId], (err2) => {
+            db.query('UPDATE rides SET driver_id=$1, driver_name=$2, driver_email=$3, driver_phone=$4, driver_vehicle=$5, driver_lat=$6, driver_lng=$7, status=$8, driver_assigned=1 WHERE id=$9',
+              [driverUserId, driverName, email, driverPhone, vehicleDetails, driverLat, driverLng, 'accepted', rideId], (err2) => {
               if (err2) {
                 console.error('UPDATE rides error:', err2);
                 return res.status(500).json({ error: 'Failed to accept ride', details: err2.message });
               }
               
               // Get full ride details including pickup location
-              db.query('SELECT * FROM rides WHERE id = ?', [rideId], (err4, rideResults) => {
-                if (rideResults && rideResults.length > 0) {
-                  const ride = rideResults[0];
+              db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err4, rideResults) => {
+                if (rideResults && rideResults.rows.length > 0) {
+                  const ride = rideResults.rows[0];
                   const passengerEmail = ride.passenger_email;
                   console.log('Emitting rideUpdated to passenger room:', passengerEmail);
                   // Emit to specific passenger room
@@ -671,8 +658,8 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
           });
       } else {
         // No user found, use basic info
-        db.query('UPDATE rides SET driver_name=?, driver_email=?, driver_phone=?, driver_vehicle=?, status="accepted", driver_assigned=1 WHERE id=?',
-          [driverName, email, driverPhone, vehicleDetails, rideId], (err2) => {
+        db.query('UPDATE rides SET driver_name=$1, driver_email=$2, driver_phone=$3, driver_vehicle=$4, status=$5, driver_assigned=1 WHERE id=$6',
+          [driverName, email, driverPhone, vehicleDetails, 'accepted', rideId], (err2) => {
           if (err2) {
             console.error('UPDATE rides error (no user):', err2);
             return res.status(500).json({ error: 'Failed to accept ride', details: err2.message });
@@ -689,7 +676,7 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
 app.post('/api/rides/:id/start', (req,res)=>{
   const rideId = req.params.id;
   // Accept both 'accepted' and 'active' status, and work even without driver_assigned flag
-  db.query('UPDATE rides SET status="active" WHERE id=? AND status IN ("accepted", "active")', [rideId], (err, result)=>{
+  db.query('UPDATE rides SET status=$1 WHERE id=$2 AND status IN ($3, $4)', ['active', rideId, 'accepted', 'active'], (err, result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.affectedRows===0) return res.status(400).json({error:"Cannot start ride - ride may already be in progress or completed"});
     io.emit('rideUpdated',{id:rideId,status:"active"});
@@ -701,7 +688,7 @@ app.post('/api/rides/:id/start', (req,res)=>{
 app.post('/api/rides/:id/complete', (req,res)=>{
   const rideId = req.params.id;
   // Driver completes ride - status is 'completed' but passenger needs to confirm
-  db.query('UPDATE rides SET status="completed", completed_at = NOW() WHERE id=? AND status IN ("accepted", "active")', [rideId], (err,result)=>{
+  db.query('UPDATE rides SET status=$1, completed_at = NOW() WHERE id=$2 AND status IN ($3, $4)', ['completed', rideId, 'accepted', 'active'], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.affectedRows===0) return res.status(400).json({error:"Cannot complete ride"});
     io.emit('rideUpdated',{id:rideId,status:"completed"});
@@ -713,7 +700,7 @@ app.post('/api/rides/:id/complete', (req,res)=>{
 app.post('/api/rides/:id/confirm', (req,res)=>{
   const rideId = req.params.id;
   // Passenger confirms the ride is complete - driver now gets earnings
-  db.query('UPDATE rides SET status="confirmed", confirmed_at = NOW() WHERE id=? AND status = "completed"', [rideId], (err,result)=>{
+  db.query('UPDATE rides SET status=$1, confirmed_at = NOW() WHERE id=$2 AND status = $3', ['confirmed', rideId, 'completed'], (err,result)=>{
     if(err) {
       console.error('Error confirming ride:', err.message);
       return res.status(500).json({error:"Server error"});
@@ -721,12 +708,12 @@ app.post('/api/rides/:id/confirm', (req,res)=>{
     if(result.affectedRows===0) return res.status(400).json({error:"Cannot confirm ride - may already be confirmed"});
     
     // Get ride details to emit with confirmation
-    db.query('SELECT * FROM rides WHERE id = ?', [rideId], (err2, rides) => {
+    db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err2, rides) => {
       if (err2) {
         console.error('Error getting ride details:', err2.message);
         return res.status(500).json({error:"Server error"});
       }
-      const ride = rides[0];
+      const ride = rides.rows[0];
       // Emit ride updated with confirmation
       io.emit('rideUpdated',{
         id:rideId,
@@ -742,7 +729,7 @@ app.post('/api/rides/:id/confirm', (req,res)=>{
 // Cancel ride
 app.post('/api/rides/:id/cancel', (req,res)=>{
   const rideId = req.params.id;
-  db.query('UPDATE rides SET status="canceled", driver_assigned=0 WHERE id=?', [rideId], (err,result)=>{
+  db.query('UPDATE rides SET status=$1, driver_assigned=0 WHERE id=$2', ['canceled', rideId], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.affectedRows===0) return res.status(404).json({error:"Ride not found"});
     io.emit('rideUpdated',{id:rideId,status:"canceled", driver_assigned:0});
@@ -756,7 +743,7 @@ app.post('/api/rides/:id/driver-location', (req,res)=>{
   const { lat, lng } = req.body;
   if(lat==null||lng==null) return res.status(400).json({error:"Latitude and longitude required"});
 
-  db.query('UPDATE rides SET driver_lat=?, driver_lng=? WHERE id=? AND driver_assigned=1 AND status IN ("accepted","active")', [lat,lng,rideId], (err,result)=>{
+  db.query('UPDATE rides SET driver_lat=$1, driver_lng=$2 WHERE id=$3 AND driver_assigned=1 AND status IN ($4,$5)', [lat,lng,rideId,'accepted','active'], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.affectedRows===0) return res.status(400).json({error:"Cannot update location"});
     io.emit('driverLocationUpdated',{rideId,lat,lng});
@@ -773,9 +760,9 @@ app.post('/api/drivers/status', (req, res) => {
 
   const query = `
     UPDATE driver_profiles dp
-    JOIN users u ON dp.user_id = u.id
-    SET dp.is_online = ?, dp.current_lat = ?, dp.current_lng = ?
-    WHERE u.email = ?
+    SET is_online = $1, current_lat = $2, current_lng = $3
+    FROM users u
+    WHERE dp.user_id = u.id AND u.email = $4
   `;
   db.query(query, [is_online ? 1 : 0, lat || null, lng || null, email], (err, result) => {
     if (err) return res.status(500).json({ error: 'Failed to update driver status' });
@@ -793,8 +780,8 @@ app.get('/api/drivers/nearby', (req, res) => {
       SELECT u.id, u.first_name, u.last_name, u.email, u.phone, dp.rating, dp.is_online, dp.current_lat, dp.current_lng
       FROM users u
       JOIN driver_profiles dp ON u.id = dp.user_id
-      WHERE LOWER(u.role) = "driver" AND dp.is_online = 1
-    `, (err, results) => {
+      WHERE LOWER(u.role) = $1 AND dp.is_online = 1
+    `, ['driver'], (err, results) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch drivers' });
       res.json(results);
     });
