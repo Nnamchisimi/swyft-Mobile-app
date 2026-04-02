@@ -16,6 +16,7 @@ import {
 import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import { StatusBar } from 'expo-status-bar';
 import { authService } from '../../src/services/auth';
 import { ridesAPI, driverAPI } from '../../src/services/api';
 import { socketService } from '../../src/services/socket';
@@ -766,6 +767,7 @@ export default function DriverDashboard() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
       <ScrollView 
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
@@ -1067,9 +1069,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: COLORS.white,
+    backgroundColor: '#000000',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#333333',
   },
   headerLeft: {
     flex: 1,
@@ -1077,18 +1079,18 @@ const styles = StyleSheet.create({
   brandName: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: '#FFFFFF',
     letterSpacing: 2,
     marginBottom: 2,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: '#FFFFFF',
   },
   headerSubtitle: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: '#AAAAAA',
     marginTop: 2,
   },
   profileButton: {

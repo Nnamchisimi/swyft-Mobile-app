@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { authService } from '../../src/services/auth';
 import { driverAPI } from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -171,9 +172,10 @@ export default function DriverProfileScreen() {
     );
   }
 
+  const iconMap = { car: 'car-outline', MONEY: 'cash-outline', star: 'star' };
   const StatCard = ({ label, value, icon }) => (
     <View style={styles.statCard}>
-      <Text style={styles.statIcon}>{icon}</Text>
+      <Ionicons name={iconMap[icon] || icon} size={28} color={COLORS.primary} />
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -181,6 +183,7 @@ export default function DriverProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="light" />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backButton}>← Back</Text>
@@ -391,13 +394,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: COLORS.white,
+    backgroundColor: '#000000',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#333333',
   },
   backButton: {
     fontSize: 16,
-    color: COLORS.primary,
+    color: '#FFFFFF',
     fontWeight: '500',
   },
   headerTitleContainer: {
@@ -406,13 +409,13 @@ const styles = StyleSheet.create({
   brandName: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: COLORS.primary,
+    color: '#FFFFFF',
     letterSpacing: 2,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.text,
+    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
