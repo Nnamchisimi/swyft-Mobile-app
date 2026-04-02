@@ -178,6 +178,25 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
+// Health check route
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    message: 'Swyft API is running',
+    database: 'Supabase PostgreSQL',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    database: 'Supabase PostgreSQL',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
+
 // === SIGNUP ===
 app.post('/api/users', async (req, res) => {
   const { 
