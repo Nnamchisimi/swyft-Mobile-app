@@ -21,8 +21,8 @@ const getApiUrl = () => {
   const deployedUrl = Constants.expoConfig?.extra?.apiUrl;
   if (deployedUrl) return deployedUrl;
   
-  // Default to localhost for local development
-  return 'http://localhost:3001';
+  // Default to Render backend for production
+  return 'https://swyft-mobile-app.onrender.com';
 };
 
 export const API_URL = getApiUrl();
