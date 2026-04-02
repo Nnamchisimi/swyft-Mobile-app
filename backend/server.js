@@ -393,13 +393,12 @@ app.get('/api/rides', (req, res) => {
   let conditions = [];
   let params = [];
 
-  if (passenger_email) { conditions.push('passenger_email = ?'); params.push(passenger_email); }
-  if (driver_email) { conditions.push('driver_email = ?'); params.push(driver_email); }
-  if (status) { 
-    // Handle comma-separated status values properly
+  if (passenger_email) { params.push(passenger_email); conditions.push(`passenger_email = $${params.length}`); }
+  if (driver_email) { params.push(driver_email); conditions.push(`driver_email = $${params.length}`); }
+  if (status) {
     const statusArray = status.split(',');
-    conditions.push('status IN (' + statusArray.map(() => '?').join(',') + ')');
-    params.push(...statusArray);
+    statusArray.forEach(s => { params.push(s); });
+    conditions.push('status IN (' + statusArray.map((_, i) => `$${params.length - statusArray.length + 1 + i}`).join(',') + ')');
   }
 
   if (conditions.length > 0) query += ' WHERE ' + conditions.join(' AND ');
@@ -556,8 +555,8 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
       let driverPhone = phone || '';
       let driverUserId = null;
       
-      if (userResults && userResults.length > 0) {
-        const userRecord = userResults[0];
+      if (userResults && userResults.rows.length > 0) {
+        const userRecord = userResults.rows[0];
         driverUserId = userRecord.id;
         const userFirstName = userRecord.first_name;
         const userPhone = userRecord.phone;
@@ -594,8 +593,8 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
           let driverLng = null;
           let driverRating = null;
           
-          if (joinResults && joinResults.length > 0) {
-            const result = joinResults[0];
+          if (joinResults && joinResults.rows.length > 0) {
+            const result = joinResults.rows[0];
             
             // Get vehicle details from cars table
             if (result.plate_number || result.make || result.model) {
@@ -836,36 +835,36 @@ app.get('/api/drivers/earnings', (req, res) => {
   
   // Try simple queries, return defaults on any error
   try {
-    const simpleQuery = `SELECT COALESCE(SUM(price), 0) as total FROM rides WHERE driver_email = ? AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')})`;
+    const simpleQuery = `SELECT COALESCE(SUM(price), 0) as total FROM rides WHERE driver_email = $1 AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')})`;
     db.query(simpleQuery, [email], (err, results) => {
       if (err) {
         console.log('Earnings query error:', err.message);
         return res.json({ today_earnings: 0, total_earnings: 0, total_trips: 0, recent_rides: [] });
       }
-      const total = results[0]?.total || 0;
+      const total = results.rows[0]?.total || 0;
       
       // Get today's earnings
-      const todayQuery = `SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = ? AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')}) AND DATE(created_at) = CURDATE()`;
+      const todayQuery = `SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')}) AND DATE(created_at) = CURRENT_DATE`;
       db.query(todayQuery, [email], (err2, todayResults) => {
         if (err2) {
           console.log('Today earnings query error:', err2.message);
         }
-        const today = todayResults[0]?.today || 0;
+        const today = todayResults.rows[0]?.today || 0;
         
         // Get trip count
-        const countQuery = `SELECT COUNT(*) as count FROM rides WHERE driver_email = ? AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')})`;
+        const countQuery = `SELECT COUNT(*) as count FROM rides WHERE driver_email = $1 AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')})`;
         db.query(countQuery, [email], (err3, countResults) => {
           if (err3) {
             console.log('Count query error:', err3.message);
           }
-          const trips = countResults[0]?.count || 0;
+          const trips = countResults.rows[0]?.count || 0;
           
           // Get recent rides
           const recentRidesQuery = `
             SELECT r.id, r.passenger_name, r.price, r.status, r.created_at, 
                    r.pickup_location, r.dropoff_location
             FROM rides r 
-            WHERE r.driver_email = ? AND r.status IN (${completedStatuses.map(s => `'${s}'`).join(',')})
+            WHERE r.driver_email = $1 AND r.status IN (${completedStatuses.map(s => `'${s}'`).join(',')})
             ORDER BY r.created_at DESC 
             LIMIT 10
           `;
@@ -873,7 +872,7 @@ app.get('/api/drivers/earnings', (req, res) => {
             if (err4) {
               console.log('Recent rides query error:', err4.message);
             }
-            const recentRides = ridesResults || [];
+            const recentRides = ridesResults?.rows || [];
             
             res.json({ 
               today_earnings: today, 
@@ -906,8 +905,8 @@ app.get('/api/drivers/stats', (req, res) => {
         COUNT(*) as today_trips,
         COALESCE(SUM(price), 0) as today_earnings
       FROM rides 
-      WHERE driver_email = ? AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')}) 
-      AND DATE(created_at) = CURDATE()
+      WHERE driver_email = $1 AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')}) 
+      AND DATE(created_at) = CURRENT_DATE
     `;
     db.query(statsQuery, [email], (err, results) => {
       if (err) {
@@ -915,8 +914,8 @@ app.get('/api/drivers/stats', (req, res) => {
         return res.json({ today_trips: 0, today_earnings: 0 });
       }
       res.json({ 
-        today_trips: results[0]?.today_trips || 0, 
-        today_earnings: results[0]?.today_earnings || 0 
+        today_trips: results.rows[0]?.today_trips || 0, 
+        today_earnings: results.rows[0]?.today_earnings || 0 
       });
     });
   } catch (e) {
@@ -937,15 +936,15 @@ app.get('/api/drivers/:email', (req, res) => {
     FROM users u
     LEFT JOIN driver_profiles dp ON u.id = dp.user_id
     LEFT JOIN cars c ON (u.vehicle_id = c.id OR u.id = c.user_id)
-    WHERE u.email = ? AND LOWER(u.role) = 'driver'
+    WHERE u.email = $1 AND LOWER(u.role) = 'driver'
   `, [email], (err, results) => {
     if (err) return res.status(500).json({ error: 'Failed to fetch driver info', details: err.message });
-    if (results.length === 0) {
+    if (results.rows.length === 0) {
       console.log(`[DEBUG] Driver not found for email: ${email}`);
       return res.status(404).json({ error: 'Driver not found' });
     }
     
-    const driver = results[0];
+    const driver = results.rows[0];
     
     // If no car data from cars table, try to parse from vehicle_plate column
     if (!driver.make && driver.vehicle_plate) {
@@ -976,10 +975,10 @@ app.get('/api/drivers/:email', (req, res) => {
 app.get('/api/passengers/:email', (req, res) => {
   const { email } = req.params;
   
-  db.query('SELECT id, first_name, last_name, email, phone, rating FROM users WHERE email = ?', [email], (err, results) => {
+  db.query('SELECT id, first_name, last_name, email, phone, rating FROM users WHERE email = $1', [email], (err, results) => {
     if (err) return res.status(500).json({ error: 'Failed to fetch passenger info' });
-    if (results.length === 0) return res.status(404).json({ error: 'Passenger not found' });
-    res.json(results[0]);
+    if (results.rows.length === 0) return res.status(404).json({ error: 'Passenger not found' });
+    res.json(results.rows[0]);
   });
 });
 
@@ -1029,15 +1028,15 @@ app.post('/api/rides/:id/rate', (req, res) => {
   }
 
   // Get ride details first
-  db.query('SELECT * FROM rides WHERE id = ?', [rideId], (err, results) => {
+  db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, results) => {
     if (err) return res.status(500).json({ error: 'Server error' });
-    if (results.length === 0) return res.status(404).json({ error: 'Ride not found' });
+    if (results.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });
     
-    const ride = results[0];
+    const ride = results.rows[0];
     
     if (rated_by === 'passenger') {
       // Passenger rating for driver
-      db.query('INSERT INTO ratings (ride_id, user_email, driver_email, rating, comment, created_at) VALUES (?, ?, ?, ?, ?, NOW())', 
+      db.query('INSERT INTO ratings (ride_id, user_email, driver_email, rating, comment, created_at) VALUES ($1, $2, $3, $4, $5, NOW())', 
         [rideId, ride.passenger_email, ride.driver_email, rating, comment || ''], (err2) => {
         if (err2) return res.status(500).json({ error: 'Failed to save rating' });
         
@@ -1047,7 +1046,7 @@ app.post('/api/rides/:id/rate', (req, res) => {
       });
     } else if (rated_by === 'driver') {
       // Driver rating for passenger
-      db.query('INSERT INTO ratings (ride_id, driver_email, user_email, rating, comment, created_at) VALUES (?, ?, ?, ?, ?, NOW())', 
+      db.query('INSERT INTO ratings (ride_id, driver_email, user_email, rating, comment, created_at) VALUES ($1, $2, $3, $4, $5, NOW())', 
         [rideId, ride.driver_email, ride.passenger_email, rating, comment || ''], (err2) => {
         if (err2) return res.status(500).json({ error: 'Failed to save rating' });
         
@@ -1063,20 +1062,20 @@ app.post('/api/rides/:id/rate', (req, res) => {
 
 // Helper function to update driver rating
 function updateDriverRating(email) {
-  db.query('SELECT AVG(rating) as avg_rating FROM ratings WHERE driver_email = ?', [email], (err, results) => {
-    if (!err && results.length > 0) {
-      const avgRating = results[0].avg_rating || 0;
-      db.query('UPDATE users SET rating = ? WHERE email = ?', [Math.round(avgRating * 10) / 10, email]);
+  db.query('SELECT AVG(rating) as avg_rating FROM ratings WHERE driver_email = $1', [email], (err, results) => {
+    if (!err && results.rows.length > 0) {
+      const avgRating = results.rows[0].avg_rating || 0;
+      db.query('UPDATE users SET rating = $1 WHERE email = $2', [Math.round(avgRating * 10) / 10, email]);
     }
   });
 }
 
 // Helper function to update user rating
 function updateUserRating(email) {
-  db.query('SELECT AVG(rating) as avg_rating FROM ratings WHERE user_email = ?', [email], (err, results) => {
-    if (!err && results.length > 0) {
-      const avgRating = results[0].avg_rating || 0;
-      db.query('UPDATE users SET rating = ? WHERE email = ?', [Math.round(avgRating * 10) / 10, email]);
+  db.query('SELECT AVG(rating) as avg_rating FROM ratings WHERE user_email = $1', [email], (err, results) => {
+    if (!err && results.rows.length > 0) {
+      const avgRating = results.rows[0].avg_rating || 0;
+      db.query('UPDATE users SET rating = $1 WHERE email = $2', [Math.round(avgRating * 10) / 10, email]);
     }
   });
 }
@@ -1089,14 +1088,14 @@ app.post('/api/rides/:id/arrive', (req, res) => {
   console.log('=== ARRIVE ENDPOINT ===');
   console.log('rideId:', rideId);
   // First get the ride to include all details in the socket emit
-  db.query('SELECT * FROM rides WHERE id = ?', [rideId], (err, rides) => {
+  db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, rides) => {
     if (err) return res.status(500).json({ error: 'Server error' });
-    if (!rides || rides.length === 0) return res.status(400).json({ error: 'Ride not found' });
+    if (!rides || rides.rows.length === 0) return res.status(400).json({ error: 'Ride not found' });
     
-    const ride = rides[0];
+    const ride = rides.rows[0];
     console.log('Ride found, current status:', ride.status);
     // Use 'active' status when driver arrives at pickup - use 'active' instead of 'arrived' since it's not in the enum
-    db.query('UPDATE rides SET status = "active" WHERE id = ? AND (status = "accepted" OR status = "active")', [rideId], (err, result) => {
+    db.query('UPDATE rides SET status = \'active\' WHERE id = $1 AND (status = \'accepted\' OR status = \'active\')', [rideId], (err, result) => {
       if (err) {
         console.log('SQL Error:', err.message);
         return res.status(500).json({ error: 'Server error: ' + err.message });
@@ -1135,18 +1134,18 @@ app.post('/api/rides/:id/arrive', (req, res) => {
 app.post('/api/rides/:id/start', (req, res) => {
   const rideId = req.params.id;
   // Database uses 'active' status, update to 'active'
-  db.query('UPDATE rides SET status = "active" WHERE id = ? AND status IN ("accepted", "active")', [rideId], (err, result) => {
+  db.query('UPDATE rides SET status = \'active\' WHERE id = $1 AND status IN (\'accepted\', \'active\')', [rideId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
     if (result.affectedRows === 0) return res.status(400).json({ error: 'Cannot start ride - ride may already be in progress or completed' });
     
     // Get ride details for socket emit
-    db.query('SELECT * FROM rides WHERE id = ?', [rideId], (err, rides) => {
-      if (err || !rides || rides.length === 0) {
+    db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, rides) => {
+      if (err || !rides || rides.rows.length === 0) {
         io.emit('rideUpdated', { id: rideId, status: 'active' });
         return res.json({ message: 'Ride started', rideId });
       }
       
-      const ride = rides[0];
+      const ride = rides.rows[0];
       io.emit('rideUpdated', {
         id: ride.id,
         status: 'active',
@@ -1169,7 +1168,7 @@ app.post('/api/rides/:id/complete', (req, res) => {
   const rideId = req.params.id;
   const { final_price } = req.body;
   
-  db.query('UPDATE rides SET status = "completed", price = COALESCE(?, price), completed_at = NOW() WHERE id = ? AND status = "active"', [final_price, rideId], (err, result) => {
+  db.query('UPDATE rides SET status = \'completed\', price = COALESCE($1, price), completed_at = NOW() WHERE id = $2 AND status = \'active\'', [final_price, rideId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Server error' });
     if (result.affectedRows === 0) return res.status(400).json({ error: 'Cannot complete ride' });
     io.emit('rideUpdated', { id: rideId, status: 'completed' });
