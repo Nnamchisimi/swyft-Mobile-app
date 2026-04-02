@@ -696,7 +696,7 @@ app.post('/api/rides/:id/start', (req,res)=>{
   // Accept both 'accepted' and 'active' status, and work even without driver_assigned flag
   db.query('UPDATE rides SET status=$1 WHERE id=$2 AND status IN ($3, $4)', ['active', rideId, 'accepted', 'active'], (err, result)=>{
     if(err) return res.status(500).json({error:"Server error"});
-    if(result.affectedRows===0) return res.status(400).json({error:"Cannot start ride - ride may already be in progress or completed"});
+    if(result.rowCount===0) return res.status(400).json({error:"Cannot start ride - ride may already be in progress or completed"});
     io.emit('rideUpdated',{id:rideId,status:"active"});
     res.json({message:"Ride started", rideId});
   });
@@ -708,7 +708,7 @@ app.post('/api/rides/:id/complete', (req,res)=>{
   // Driver completes ride - status is 'completed' but passenger needs to confirm
   db.query('UPDATE rides SET status=$1, completed_at = NOW() WHERE id=$2 AND status IN ($3, $4)', ['completed', rideId, 'accepted', 'active'], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
-    if(result.affectedRows===0) return res.status(400).json({error:"Cannot complete ride"});
+    if(result.rowCount===0) return res.status(400).json({error:"Cannot complete ride"});
     io.emit('rideUpdated',{id:rideId,status:"completed"});
     res.json({message:"Ride marked as completed. Waiting for passenger confirmation.", rideId});
   });
@@ -723,7 +723,7 @@ app.post('/api/rides/:id/confirm', (req,res)=>{
       console.error('Error confirming ride:', err.message);
       return res.status(500).json({error:"Server error"});
     }
-    if(result.affectedRows===0) return res.status(400).json({error:"Cannot confirm ride - may already be confirmed"});
+    if(result.rowCount===0) return res.status(400).json({error:"Cannot confirm ride - may already be confirmed"});
     
     // Get ride details to emit with confirmation
     db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err2, rides) => {
@@ -747,10 +747,10 @@ app.post('/api/rides/:id/confirm', (req,res)=>{
 // Cancel ride
 app.post('/api/rides/:id/cancel', (req,res)=>{
   const rideId = req.params.id;
-  db.query('UPDATE rides SET status=$1, driver_assigned=0 WHERE id=$2', ['canceled', rideId], (err,result)=>{
+  db.query('UPDATE rides SET status=$1, driver_assigned=0 WHERE id=$2', ['cancelled', rideId], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
-    if(result.affectedRows===0) return res.status(404).json({error:"Ride not found"});
-    io.emit('rideUpdated',{id:rideId,status:"canceled", driver_assigned:0});
+    if(result.rowCount===0) return res.status(404).json({error:"Ride not found"});
+    io.emit('rideUpdated',{id:rideId,status:"cancelled", driver_assigned:0});
     res.json({message:"Ride cancelled successfully", rideId});
   });
 });
@@ -763,7 +763,7 @@ app.post('/api/rides/:id/driver-location', (req,res)=>{
 
   db.query('UPDATE rides SET driver_lat=$1, driver_lng=$2 WHERE id=$3 AND driver_assigned=1 AND status IN ($4,$5)', [lat,lng,rideId,'accepted','active'], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
-    if(result.affectedRows===0) return res.status(400).json({error:"Cannot update location"});
+    if(result.rowCount===0) return res.status(400).json({error:"Cannot update location"});
     io.emit('driverLocationUpdated',{rideId,lat,lng});
     res.json({message:"Driver location updated",rideId});
   });
@@ -1101,7 +1101,7 @@ app.post('/api/rides/:id/arrive', (req, res) => {
         return res.status(500).json({ error: 'Server error: ' + err.message });
       }
       console.log('Update result:', result);
-      if (result.affectedRows === 0) {
+      if (result.rowCount === 0) {
         console.log('No rows updated - status was:', ride.status);
         return res.status(400).json({ error: 'Cannot mark as arrived - ride may already be in progress or completed' });
       }
@@ -1136,7 +1136,7 @@ app.post('/api/rides/:id/start', (req, res) => {
   // Database uses 'active' status, update to 'active'
   db.query('UPDATE rides SET status = \'active\' WHERE id = $1 AND status IN (\'accepted\', \'active\')', [rideId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
-    if (result.affectedRows === 0) return res.status(400).json({ error: 'Cannot start ride - ride may already be in progress or completed' });
+    if (result.rowCount === 0) return res.status(400).json({ error: 'Cannot start ride - ride may already be in progress or completed' });
     
     // Get ride details for socket emit
     db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, rides) => {
@@ -1170,7 +1170,7 @@ app.post('/api/rides/:id/complete', (req, res) => {
   
   db.query('UPDATE rides SET status = \'completed\', price = COALESCE($1, price), completed_at = NOW() WHERE id = $2 AND status = \'active\'', [final_price, rideId], (err, result) => {
     if (err) return res.status(500).json({ error: 'Server error' });
-    if (result.affectedRows === 0) return res.status(400).json({ error: 'Cannot complete ride' });
+    if (result.rowCount === 0) return res.status(400).json({ error: 'Cannot complete ride' });
     io.emit('rideUpdated', { id: rideId, status: 'completed' });
     res.json({ message: 'Ride completed', rideId });
   });
