@@ -68,7 +68,7 @@ const executeQuery = async (text, params) => {
 
 // Export both pool (for direct access) and executeQuery (for promise-based usage)
 module.exports = {
-  query: (text, params) => pool.query(text, params),
+  query: (text, params, callback) => pool.query(text, params, callback),
   getClient: () => pool.connect(),
   executeQuery: executeQuery,
   end: () => pool.end()

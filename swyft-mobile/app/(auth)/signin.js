@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { authService } from '../../src/services/auth';
-import { COLORS } from '../../src/constants/config';
+import { COLORS, API_URL } from '../../src/constants/config';
 
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [debugInfo, setDebugInfo] = useState(API_URL);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -38,6 +39,7 @@ export default function SignInScreen() {
       const result = await authService.login(email.trim(), password);
 
       console.log('Login result:', JSON.stringify(result, null, 2));
+      setDebugInfo(`URL: ${API_URL}\nResult: ${JSON.stringify(result, null, 2)}`);
 
       if (result.success) {
         console.log('Login successful, user role:', result.user.role);
@@ -56,7 +58,8 @@ export default function SignInScreen() {
       console.log('Login exception caught:', err);
       console.log('Exception message:', err.message);
       console.log('Exception code:', err.code);
-      console.log('Full exception:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
+      const detailedError = `URL: ${API_URL}\nError: ${err.message}\nCode: ${err.code || 'N/A'}\nType: ${err.constructor.name}`;
+      setDebugInfo(detailedError);
       setError(`Error: ${err.message || 'Unknown error occurred'}`);
     } finally {
       console.log('=== LOGIN DEBUG END ===');
@@ -100,6 +103,13 @@ export default function SignInScreen() {
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
+          
+          {debugInfo ? (
+            <View style={styles.debugBox}>
+              <Text style={styles.debugTitle}>DEBUG INFO:</Text>
+              <Text style={styles.debugText}>{debugInfo}</Text>
+            </View>
+          ) : null}
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -180,6 +190,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 16,
     textAlign: 'center',
+  },
+  debugBox: {
+    backgroundColor: '#000',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  debugTitle: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  debugText: {
+    color: '#00FF00',
+    fontSize: 11,
+    fontFamily: 'monospace',
   },
   button: {
     backgroundColor: COLORS.primary,

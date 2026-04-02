@@ -2,9 +2,11 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL, STORAGE_KEYS } from '../constants/config';
 
+console.log('API initialized with baseURL:', API_URL);
+
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 60000, // 60 seconds - Render free tier has slow cold starts
   headers: {
     'Content-Type': 'application/json',
   },
