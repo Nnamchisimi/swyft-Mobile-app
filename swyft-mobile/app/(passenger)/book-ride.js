@@ -746,7 +746,7 @@ export default function BookRideScreen() {
             <View style={styles.driverDetails}>
               <Text style={styles.driverName}>{currentRide.driver_name || 'Your Driver'}</Text>
               <Text style={styles.driverPhone}>{currentRide.driver_phone || 'Phone not available'}</Text>
-              <Text style={styles.driverVehicle}>{currentRide.driver_vehicle || 'Vehicle'}</Text>
+              <Text style={styles.driverVehicle}>Courier: {currentRide.driver_vehicle || currentRide.vehicle_type || 'Vehicle'}</Text>
               <View style={styles.ratingContainer}>
                 <Text style={styles.ratingStar}>⭐</Text>
                 <Text style={styles.ratingText}>{currentRide.driver_rating ? Number(currentRide.driver_rating).toFixed(1) : '5.0'}</Text>
@@ -1081,16 +1081,6 @@ export default function BookRideScreen() {
               ]}>
                 {vehicle.name}
               </Text>
-              {pricingLoaded ? (
-                <Text style={[
-                  styles.vehicleTypePrice,
-                  selectedVehicleType === vehicle.id && styles.vehicleTypePriceSelected,
-                ]}>
-                  ₺{vehicle.price}
-                </Text>
-              ) : (
-                <Text style={styles.vehicleTypePrice}>₺...</Text>
-              )}
               <Text style={[
                 styles.vehicleTypeDesc,
                 selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected,
@@ -1111,10 +1101,10 @@ export default function BookRideScreen() {
       {}
       <View style={styles.priceEstimate}>
         <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Estimated Fare</Text>
+          <Text style={styles.priceLabel}>Delivery Price</Text>
           <Text style={styles.priceValue}>₺{estimatedPrice}</Text>
         </View>
-        <Text style={styles.priceNote}>Final price may vary based on traffic and route</Text>
+        <Text style={styles.priceNote}>Matched with nearest courier</Text>
       </View>
 
       <View style={styles.packageSection}>
@@ -1234,7 +1224,7 @@ export default function BookRideScreen() {
         {loading ? (
           <ActivityIndicator color={COLORS.white} />
         ) : (
-          <Text style={styles.bookButtonText}>Book Ride • ₺{estimatedPrice}</Text>
+          <Text style={styles.bookButtonText}>Book • ₺{estimatedPrice}</Text>
         )}
       </TouchableOpacity>
     </>

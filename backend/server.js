@@ -513,6 +513,7 @@ app.post('/api/rides', (req, res) => {
       package_size: packageSize || null,
       package_details: packageDetails || null,
       special_instructions: specialInstructions || null,
+      vehicle_type: vehicleType || null,
       created_at: new Date().toISOString() 
     };
     

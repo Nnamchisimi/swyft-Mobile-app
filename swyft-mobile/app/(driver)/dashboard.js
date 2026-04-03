@@ -631,12 +631,12 @@ export default function DriverDashboard() {
               {(ride.passenger_name || ride.passenger_email || 'P').charAt(0).toUpperCase()}
             </Text>
           </View>
-          <View style={styles.passengerInfo}>
+            <View style={styles.passengerInfo}>
             <Text style={styles.passengerName}>{ride.passenger_name || 'Passenger'}</Text>
             <Text style={styles.passengerPhone}>{ride.passenger_phone || 'No phone'}</Text>
           </View>
           <View style={styles.rideTypeBadge}>
-            <Text style={styles.rideTypeText}>{ride.ride_type || 'Standard'}</Text>
+            <Text style={styles.rideTypeText}>{ride.vehicle_type || ride.ride_type || 'Standard'}</Text>
           </View>
         </View>
 
@@ -765,6 +765,9 @@ export default function DriverDashboard() {
           <View style={styles.passengerInfo}>
             <Text style={styles.passengerName}>{currentRide.passenger_name || 'Passenger'}</Text>
             <Text style={styles.passengerPhone}>{currentRide.passenger_phone || currentRide.passenger_email}</Text>
+            {currentRide.vehicle_type && (
+              <Text style={styles.vehicleTypeBadge}>Vehicle: {currentRide.vehicle_type}</Text>
+            )}
           </View>
           <Text style={styles.ridePriceLarge}>₺{currentRide.price || '15.00'}</Text>
         </View>
@@ -1367,6 +1370,12 @@ const styles = StyleSheet.create({
   passengerPhone: {
     fontSize: 12,
     color: COLORS.textSecondary,
+  },
+  vehicleTypeBadge: {
+    fontSize: 11,
+    color: COLORS.primary,
+    marginTop: 4,
+    fontWeight: '600',
   },
   rideTypeBadge: {
     backgroundColor: COLORS.surface,
