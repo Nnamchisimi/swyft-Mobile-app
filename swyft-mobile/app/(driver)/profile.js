@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { authService } from '../../src/services/auth';
-import { driverAPI } from '../../src/services/api';
+import { driverAPI, ridesAPI } from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 
@@ -26,6 +26,7 @@ export default function DriverProfileScreen() {
     recent_rides: [],
   });
   const [loading, setLoading] = useState(true);
+  const [completedRides, setCompletedRides] = useState([]);
 
   useEffect(() => {
     loadDriverData();
@@ -95,6 +96,18 @@ export default function DriverProfileScreen() {
             recent_rides: [],
           });
         }
+
+        // Fetch ride history
+        try {
+          const ridesResponse = await ridesAPI.getRides({ driver_email: email });
+          const allRides = ridesResponse.data || [];
+          const completed = allRides.filter(r => 
+            r.status === 'completed' || r.status === 'confirmed' || r.status === 'active'
+          );
+          setCompletedRides(completed);
+        } catch (ridesError) {
+          console.error('Error loading ride history:', ridesError);
+        }
       }
     } catch (error) {
       console.error('Error loading driver data:', error);
@@ -117,8 +130,26 @@ export default function DriverProfileScreen() {
     router.push('/(driver)/dashboard');
   };
 
-  const handleRideHistory = () => {
-    Alert.alert('Ride History', 'Your completed rides are shown in the Recent Rides section above.');
+  const handleRideHistory = async () => {
+    try {
+      let email = userEmail;
+      if (!email) {
+        email = await authService.getUserEmail();
+      }
+      if (!email) {
+        Alert.alert('Error', 'Unable to get driver email');
+        return;
+      }
+      
+      const response = await ridesAPI.getRides({ driver_email: email });
+      const allRides = response.data || [];
+      const completed = allRides.filter(r => 
+        r.status === 'completed' || r.status === 'confirmed' || r.status === 'active'
+      );
+      setCompletedRides(completed);
+    } catch (error) {
+      console.error('Error fetching ride history:', error);
+    }
   };
 
   const handlePaymentSettings = () => {
@@ -244,10 +275,10 @@ export default function DriverProfileScreen() {
 
         {}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Rides</Text>
-          {earnings.recent_rides && earnings.recent_rides.length > 0 ? (
+          <Text style={styles.sectionTitle}>Ride History</Text>
+          {completedRides.length > 0 ? (
             <View style={styles.ridesList}>
-              {earnings.recent_rides.slice(0, 5).map((ride, index) => (
+              {completedRides.map((ride, index) => (
                 <View key={ride.id || index} style={styles.rideItem}>
                   <View style={styles.rideInfo}>
                     <Text style={styles.rideName}>{ride.passenger_name || 'Passenger'}</Text>

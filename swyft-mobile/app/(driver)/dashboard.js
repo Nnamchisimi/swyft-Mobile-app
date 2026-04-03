@@ -92,10 +92,12 @@ export default function DriverDashboard() {
     const info = await authService.getDriverInfo();
     setDriverInfo(info);
     const email = await authService.getUserEmail();
+    console.log('Driver email for earnings:', email);
     if (email) {
       socketService.connect();
       socketService.joinRoom(email);
       
+      console.log('Calling loadEarnings for:', email);
       loadEarnings(email);
       
       loadActiveRide(email);
@@ -132,14 +134,18 @@ export default function DriverDashboard() {
   };
 
   const loadEarnings = async (email) => {
+    console.log('loadEarnings called with email:', email);
     try {
+      console.log('Calling driverAPI.getEarnings...');
       const response = await driverAPI.getEarnings(email);
+      console.log('Earnings response:', response);
       const data = response?.data;
       if (data && typeof data === 'object') {
         setEarnings({
           today_earnings: Number(data.today_earnings) || 0,
           total_trips: Number(data.total_trips) || 0,
         });
+        console.log('Earnings set:', data);
       }
     } catch (error) {
       console.error('Error loading earnings:', error);
@@ -262,22 +268,14 @@ export default function DriverDashboard() {
         if (ride.status === 'accepted' || ride.status === 'arrived' || ride.status === 'active') {
           setCurrentRide(ride);
           
-          
           if (ride.pickup_lat && ride.pickup_lng) {
             setPassengerLocation({
               latitude: parseFloat(ride.pickup_lat),
               longitude: parseFloat(ride.pickup_lng),
             });
           }
-          
-          if (ride.pickup_lat && ride.pickup_lng) {
-            setPassengerLocation({
-              latitude: ride.pickup_lat,
-              longitude: ride.pickup_lng,
-            });
-          }
         } else if (ride.status === 'completed') {
-          
+          console.log('Ride completed, reloading earnings');
           loadEarnings(driverInfo?.email);
           setCurrentRide(null);
           setPassengerLocation(null);
@@ -305,6 +303,55 @@ export default function DriverDashboard() {
     
     socketService.on('driverStatusChanged', (data) => {
       console.log('Driver status changed:', data);
+    });
+
+    socketService.on('dispatchAssigned', (dispatch) => {
+      console.log('Dispatch assigned received:', dispatch);
+      if (dispatch && dispatch.status === 'pending') {
+        setPendingRides((prev) => {
+          if (prev.find(d => d.id === dispatch.id)) return prev;
+          return [...prev, dispatch];
+        });
+        
+        if (isOnlineRef.current) {
+          Alert.alert(
+            'New Dispatch!',
+            `Customer: ${dispatch.passenger_name || 'Customer'}\nPickup: ${dispatch.pickup_location || 'Nearby'}\nPrice: ₺${dispatch.price || '0.00'}`,
+            [{ text: 'OK' }]
+          );
+        }
+      }
+    });
+
+    socketService.on('earningsUpdated', (data) => {
+      console.log('Earnings updated received:', data);
+      if (data && data.driver_email === driverInfo?.email) {
+        setEarnings({
+          today_earnings: Number(data.today_earnings) || earnings.today_earnings,
+          total_trips: Number(data.total_trips) || earnings.total_trips,
+        });
+      }
+    });
+
+    socketService.on('dispatchUpdated', (dispatch) => {
+      console.log('Dispatch updated received:', dispatch);
+      if (dispatch.driver_email === driverInfo?.email) {
+        if (dispatch.status === 'accepted' || dispatch.status === 'arrived' || dispatch.status === 'active') {
+          setCurrentRide(dispatch);
+          if (dispatch.pickup_lat && dispatch.pickup_lng) {
+            setPassengerLocation({
+              latitude: parseFloat(dispatch.pickup_lat),
+              longitude: parseFloat(dispatch.pickup_lng),
+            });
+          }
+        } else if (dispatch.status === 'completed') {
+          console.log('Dispatch completed, reloading earnings');
+          loadEarnings(driverInfo?.email);
+          setCurrentRide(null);
+          setPassengerLocation(null);
+          fetchPendingRides();
+        }
+      }
     });
   };
 

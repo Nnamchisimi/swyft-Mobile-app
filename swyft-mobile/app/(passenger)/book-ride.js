@@ -10,7 +10,6 @@ import {
   TextInput,
   ScrollView,
   Dimensions,
-  Platform,
   Linking,
   KeyboardAvoidingView,
 } from 'react-native';
@@ -243,6 +242,28 @@ export default function BookRideScreen() {
           setRideBooked(true);
           setPickupAddress(activeRide.pickup || activeRide.pickup_location || '');
           setDropoffAddress(activeRide.dropoff || activeRide.dropoff_location || '');
+          
+          if (activeRide.price) {
+            setEstimatedPrice(parseFloat(activeRide.price));
+          }
+          if (activeRide.ride_type) {
+            setSelectedRideType(activeRide.ride_type);
+          }
+          if (activeRide.vehicle_type) {
+            setSelectedVehicleType(activeRide.vehicle_type);
+          }
+          if (activeRide.package_type) {
+            setPackageType(activeRide.package_type);
+          }
+          if (activeRide.package_size) {
+            setPackageSize(activeRide.package_size);
+          }
+          if (activeRide.package_details) {
+            setPackageDetails(activeRide.package_details);
+          }
+          if (activeRide.special_instructions) {
+            setSpecialInstructions(activeRide.special_instructions);
+          }
           
           setPickupLockedForRide(true);
           
@@ -553,7 +574,7 @@ export default function BookRideScreen() {
         if (ride.status === 'accepted') {
           Alert.alert(
             'Driver Found!',
-            `Your driver is on the way!\n\nDriver: ${ride.driver_name || 'Driver'}\nRating: ⭐ ${ride.driver_rating ? Number(ride.driver_rating).toFixed(1) : '5.0'}\nPhone: ${ride.driver_phone || 'N/A'}\nVehicle: ${ride.driver_vehicle || 'N/A'}`,
+            `Your driver is on the way!\n\nDriver: ${ride.driver_name || 'Driver'}\nRating: ⭐ ${ride.driver_rating ? Number(ride.driver_rating).toFixed(1) : '5.0'}\nPhone: ${ride.driver_phone || 'N/A'}\nVehicle: ${ride.driver_vehicle || ride.vehicle_type || 'N/A'}`,
             [{ text: 'Great!' }]
           );
           
@@ -587,7 +608,7 @@ export default function BookRideScreen() {
               rideId: ride.id,
               driverName: ride.driver_name,
               driverPhone: ride.driver_phone,
-              driverVehicle: ride.driver_vehicle,
+              driverVehicle: ride.driver_vehicle || ride.vehicle_type,
               pickupAddress: pickupAddress,
               dropoffAddress: dropoffAddress,
               pickupLat: ride.pickup_lat,
@@ -607,7 +628,7 @@ export default function BookRideScreen() {
                 params: { 
                   rideId: ride.id,
                   driverName: ride.driver_name,
-                  driverVehicle: ride.driver_vehicle,
+                  driverVehicle: ride.driver_vehicle || ride.vehicle_type,
                 },
               })
             }]
@@ -618,6 +639,14 @@ export default function BookRideScreen() {
           setDriverDistance(null);
           setPickupManuallySelected(false);
           setPickupLockedForRide(false);
+          setPickupAddress('');
+          setDropoffAddress('');
+          setSelectedRideType('');
+          setSelectedVehicleType('');
+          setPackageType('');
+          setPackageSize('');
+          setPackageDetails('');
+          setSpecialInstructions('');
         } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
           Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
           setRideBooked(false);
@@ -627,6 +656,14 @@ export default function BookRideScreen() {
           setPickupManuallySelected(false);
           setPickupLockedForRide(false);
         }
+      }
+    });
+
+    socketService.on('dispatchUpdated', (dispatch) => {
+      console.log('dispatchUpdated received:', dispatch);
+      if (dispatch.passenger_email === userEmail || dispatch.passengerEmail === userEmail) {
+        setCurrentRide(dispatch);
+        setRideBooked(true);
       }
     });
   };
@@ -1234,8 +1271,8 @@ export default function BookRideScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
         style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        behavior="padding"
+        keyboardVerticalOffset={0}
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>

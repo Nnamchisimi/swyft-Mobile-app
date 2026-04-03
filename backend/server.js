@@ -720,6 +720,7 @@ app.post('/api/rides/:id/start', (req,res)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.rowCount===0) return res.status(400).json({error:"Cannot start ride - ride may already be in progress or completed"});
     io.emit('rideUpdated',{id:rideId,status:"active"});
+    io.emit('dispatchUpdated',{id:rideId,status:"active"});
     res.json({message:"Ride started", rideId});
   });
 });
@@ -732,6 +733,7 @@ app.post('/api/rides/:id/complete', (req,res)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.rowCount===0) return res.status(400).json({error:"Cannot complete ride"});
     io.emit('rideUpdated',{id:rideId,status:"completed"});
+    io.emit('dispatchUpdated',{id:rideId,status:"completed"});
     res.json({message:"Ride marked as completed. Waiting for passenger confirmation.", rideId});
   });
 });
@@ -754,12 +756,31 @@ app.post('/api/rides/:id/confirm', (req,res)=>{
         return res.status(500).json({error:"Server error"});
       }
       const ride = rides.rows[0];
+      
       // Emit ride updated with confirmation
       io.emit('rideUpdated',{
         id:rideId,
         status:"confirmed",
         passenger_confirmed: true
       });
+      
+      // Emit earnings updated to the specific driver
+      if (ride.driver_email) {
+        db.query('SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN ($2, $3, $4) AND DATE(created_at) = CURRENT_DATE',
+          [ride.driver_email, 'completed', 'confirmed', 'active'], (err3, earningsResult) => {
+            const todayEarnings = earningsResult?.rows[0]?.today || 0;
+            db.query('SELECT COUNT(*) as count FROM rides WHERE driver_email = $1 AND status IN ($2, $3, $4)',
+              [ride.driver_email, 'completed', 'confirmed', 'active'], (err4, countResult) => {
+                const totalTrips = countResult?.rows[0]?.count || 0;
+                io.to(ride.driver_email).emit('earningsUpdated', {
+                  driver_email: ride.driver_email,
+                  today_earnings: todayEarnings,
+                  total_trips: totalTrips
+                });
+              });
+          });
+      }
+      
       res.json({message:"Ride confirmed! Driver has been notified.", rideId});
     });
   });
@@ -1145,6 +1166,12 @@ app.post('/api/rides/:id/arrive', (req, res) => {
         driver_rating: ride.driver_rating,
         price: ride.price,
       });
+      io.emit('dispatchUpdated', {
+        id: ride.id,
+        status: 'active',
+        passenger_email: ride.passenger_email,
+        driver_email: ride.driver_email,
+      });
       res.json({ message: 'Driver arrived at pickup', rideId });
     });
   });
@@ -1177,6 +1204,12 @@ app.post('/api/rides/:id/start', (req, res) => {
         driver_phone: ride.driver_phone,
         driver_vehicle: ride.driver_vehicle,
         price: ride.price,
+      });
+      io.emit('dispatchUpdated', {
+        id: ride.id,
+        status: 'active',
+        passenger_email: ride.passenger_email,
+        driver_email: ride.driver_email,
       });
       res.json({ message: 'Ride started', rideId });
     });
