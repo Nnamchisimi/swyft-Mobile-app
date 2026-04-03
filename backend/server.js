@@ -1002,7 +1002,7 @@ app.post('/api/fare/calculate', (req, res) => {
   const vehiclePrices = {
     motorcycle: 50,
     sedan: 150,
-    truck: 300
+    truck: 400
   };
   
   const locationPrice = locationPrices[ride_type] || 350;
