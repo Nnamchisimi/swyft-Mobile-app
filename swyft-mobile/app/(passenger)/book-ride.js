@@ -51,7 +51,7 @@ export default function BookRideScreen() {
   const [rideBooked, setRideBooked] = useState(false);
   const [currentRide, setCurrentRide] = useState(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [selectedRideType, setSelectedRideType] = useState('standard');
+  const [selectedRideType, setSelectedRideType] = useState('');
   const [estimatedPrice, setEstimatedPrice] = useState(0);
   const [packageType, setPackageType] = useState('');
   const [packageSize, setPackageSize] = useState('');
@@ -135,21 +135,14 @@ export default function BookRideScreen() {
 
   useEffect(() => {
     calculateFare();
-  }, [selectedRideType, selectedVehicleType]);
+  }, [selectedRideType, selectedVehicleType, pricingLoaded]);
 
   const calculateFare = async () => {
-    try {
-      const response = await fareAPI.calculate(null, selectedRideType, selectedVehicleType);
-      if (response.data && response.data.total_fare) {
-        setEstimatedPrice(response.data.total_fare);
-      }
-    } catch (error) {
-      const ride = rideTypes.find(r => r.id === selectedRideType);
-      const vehicle = vehicleTypes.find(v => v.id === selectedVehicleType);
-      const ridePrice = ride ? ride.price : 0;
-      const vehiclePrice = vehicle ? vehicle.price : 0;
-      setEstimatedPrice(ridePrice + vehiclePrice);
-    }
+    const ride = rideTypes.find(r => r.id === selectedRideType);
+    const vehicle = vehicleTypes.find(v => v.id === selectedVehicleType);
+    const ridePrice = ride ? ride.price : 0;
+    const vehiclePrice = vehicle ? vehicle.price : 0;
+    setEstimatedPrice(ridePrice + vehiclePrice);
   };
 
   

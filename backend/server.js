@@ -1022,8 +1022,8 @@ app.post('/api/fare/calculate', (req, res) => {
     truck: 400
   };
   
-  const locationPrice = locationPrices[ride_type] || 350;
-  const vehiclePrice = vehiclePrices[vehicle_type] || 150;
+  const locationPrice = ride_type ? (locationPrices[ride_type] || 0) : 0;
+  const vehiclePrice = vehicle_type ? (vehiclePrices[vehicle_type] || 0) : 0;
   
   const totalFare = locationPrice + vehiclePrice;
   
