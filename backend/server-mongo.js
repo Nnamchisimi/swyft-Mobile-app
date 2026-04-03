@@ -213,10 +213,12 @@ app.get('/api/drivers', async (req, res) => {
 // Create a ride
 app.post('/api/rides', async (req, res) => {
   try {
-    const { passenger_email, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, ride_type, distance_km } = req.body;
+    const { passenger_email, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, ride_type, distance_km, package_type, package_size, package_details, special_instructions, vehicle_type, passenger_name, passenger_phone } = req.body;
     
     const ride = new Ride({
       passenger_email,
+      passenger_name,
+      passenger_phone,
       pickup_location,
       dropoff_location,
       pickup_lat,
@@ -225,7 +227,12 @@ app.post('/api/rides', async (req, res) => {
       dropoff_lng,
       ride_type: ride_type || 'economy',
       status: 'requested',
-      distance_km
+      distance_km,
+      package_type,
+      package_size,
+      package_details,
+      special_instructions,
+      vehicle_type
     });
     
     await ride.save();

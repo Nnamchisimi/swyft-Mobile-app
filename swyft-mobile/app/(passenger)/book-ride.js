@@ -67,9 +67,9 @@ export default function BookRideScreen() {
     { id: 'luxury', name: 'Magusa', icon: 'location', time: '1-2 hrs', desc: 'Premium vehicles' },
   ]);
   const [vehicleTypes, setVehicleTypes] = useState([
-    { id: 'motorcycle', name: 'Motorcycle', icon: 'bicycle', desc: 'Fast delivery' },
-    { id: 'sedan', name: 'Sedan', icon: 'car-sport', desc: 'Standard delivery' },
-    { id: 'truck', name: 'Truck', icon: 'bus', desc: 'Large packages' },
+    { id: 'motorcycle', name: 'Motorcycle', icon: 'bicycle', desc: 'Documents, small items', examples: 'Letters, small electronics, keys' },
+    { id: 'sedan', name: 'Sedan', icon: 'car-sport', desc: 'Medium packages', examples: 'Clothing, small boxes, food orders' },
+    { id: 'truck', name: 'Van/Truck', icon: 'bus', desc: 'Large packages', examples: 'Furniture, large boxes, appliances' },
   ]);
 
   
@@ -137,6 +137,18 @@ export default function BookRideScreen() {
   useEffect(() => {
     calculateFare();
   }, [selectedRideType, selectedVehicleType, pricingLoaded]);
+
+  useEffect(() => {
+    if (packageSize) {
+      if (packageSize === 'Small') {
+        setSelectedVehicleType('motorcycle');
+      } else if (packageSize === 'Medium') {
+        setSelectedVehicleType('sedan');
+      } else if (packageSize === 'Large') {
+        setSelectedVehicleType('truck');
+      }
+    }
+  }, [packageSize]);
 
   const calculateFare = async () => {
     const ride = rideTypes.find(r => r.id === selectedRideType);
@@ -658,8 +670,9 @@ export default function BookRideScreen() {
         dropoffLng: dropoffLocation?.longitude,
         packageType: packageType || null,
         packageSize: packageSize || null,
+        vehicleType: selectedVehicleType || null,
         packageDetails: packageDetails || null,
-        specialInstructions: specialInstructions || null,
+        specialInstructions: selectedQuickNote ? `${selectedQuickNote}${specialInstructions ? '. ' + specialInstructions : ''}` : (specialInstructions || null),
       };
 
       const response = await ridesAPI.createRide(rideData);
@@ -1047,20 +1060,19 @@ export default function BookRideScreen() {
       </View>
 
       <View style={styles.vehicleTypesSection}>
-        <Text style={styles.sectionTitle}>Vehicle Type</Text>
+        <Text style={styles.sectionTitle}>Vehicle Required (Based on Size)</Text>
         <View style={styles.vehicleTypeContainer}>
           {vehicleTypes.map((vehicle) => (
-            <TouchableOpacity
+            <View
               key={vehicle.id}
               style={[
                 styles.vehicleTypeCard,
                 selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected,
               ]}
-              onPress={() => setSelectedVehicleType(vehicle.id)}
             >
               <Ionicons 
                 name={vehicle.icon} 
-                size={24} 
+                size={28} 
                 color={selectedVehicleType === vehicle.id ? COLORS.white : COLORS.textSecondary} 
               />
               <Text style={[
@@ -1085,7 +1097,13 @@ export default function BookRideScreen() {
               ]}>
                 {vehicle.desc}
               </Text>
-            </TouchableOpacity>
+              <Text style={[
+                styles.vehicleTypeExamples,
+                selectedVehicleType === vehicle.id && styles.vehicleTypeExamplesSelected,
+              ]}>
+                {vehicle.examples}
+              </Text>
+            </View>
           ))}
         </View>
       </View>
@@ -1162,6 +1180,13 @@ export default function BookRideScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        {packageSize && (
+          <Text style={styles.sizeHelperText}>
+            {packageSize === 'Small' && 'Fits in a backpack or small box (documents, small electronics, keys)'}
+            {packageSize === 'Medium' && 'Fits in a car trunk or large box (clothing, food orders, small items)'}
+            {packageSize === 'Large' && 'Needs a van or truck (furniture, large boxes, appliances)'}
+          </Text>
+        )}
 
         <Text style={styles.inputLabel}>SPECIAL INSTRUCTIONS</Text>
         <View style={styles.specialInstructionsContainer}>
@@ -1172,11 +1197,7 @@ export default function BookRideScreen() {
                 styles.instructionChip,
                 selectedQuickNote === instruction && styles.instructionChipSelected,
               ]}
-              onPress={() => {
-                const newNote = selectedQuickNote === instruction ? '' : instruction;
-                setSelectedQuickNote(newNote);
-                setSpecialInstructions(newNote + (specialInstructions ? '. ' + specialInstructions : ''));
-              }}
+              onPress={() => setSelectedQuickNote(selectedQuickNote === instruction ? '' : instruction)}
             >
               <Ionicons 
                 name={instruction === 'Fragile' ? 'alert-circle-outline' : 'arrow-up-outline'} 
@@ -1223,8 +1244,8 @@ export default function BookRideScreen() {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
         style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -1237,7 +1258,12 @@ export default function BookRideScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent} 
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+        >
           {rideBooked ? renderRideStatus() : renderBookingForm()}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -1740,6 +1766,13 @@ const styles = StyleSheet.create({
   packageSizeTextSelected: {
     color: COLORS.white,
   },
+  sizeHelperText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
   specialInstructionsContainer: {
     flexDirection: 'row',
     gap: 8,
@@ -1842,5 +1875,15 @@ const styles = StyleSheet.create({
   },
   vehicleTypeDescSelected: {
     color: 'rgba(255,255,255,0.8)',
+  },
+  vehicleTypeExamples: {
+    fontSize: 9,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  vehicleTypeExamplesSelected: {
+    color: 'rgba(255,255,255,0.7)',
   },
 });

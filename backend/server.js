@@ -467,7 +467,7 @@ app.get('/api/completed-rides', (req, res) => {
 app.post('/api/rides', (req, res) => {
   console.log('Ride request received:', req.body);
   
-  const { passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, pickupLat, pickupLng, dropoffLat, dropoffLng, packageType, packageSize, packageDetails, specialInstructions } = req.body;
+  const { passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, pickupLat, pickupLng, dropoffLat, dropoffLng, packageType, packageSize, packageDetails, specialInstructions, vehicleType } = req.body;
   
   if (!passengerName || !passengerEmail || !passengerPhone || !pickup || !dropoff || !rideType || ridePrice == null) {
     console.log('Missing required fields');
@@ -483,8 +483,8 @@ app.post('/api/rides', (req, res) => {
     }
     
     // Insert with passenger_id foreign key and package details
-    const query = 'INSERT INTO rides (passenger_id, passenger_name, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id';
-    const values = [passengerId, passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, 'pending', pickupLat || null, pickupLng || null, dropoffLat || null, dropoffLng || null, packageType || null, packageSize || null, packageDetails || null, specialInstructions || null];
+    const query = 'INSERT INTO rides (passenger_id, passenger_name, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id';
+    const values = [passengerId, passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, 'pending', pickupLat || null, pickupLng || null, dropoffLat || null, dropoffLng || null, packageType || null, packageSize || null, packageDetails || null, specialInstructions || null, vehicleType || null];
   
   db.query(query, values, (err, result) => {
     if (err) {

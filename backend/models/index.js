@@ -55,7 +55,12 @@ const rideSchema = new mongoose.Schema({
   driver_assigned: { type: Boolean, default: false },
   completed_at: { type: Date },
   confirmed_at: { type: Date },
-  distance_km: { type: Number }
+  distance_km: { type: Number },
+  package_type: { type: String },
+  package_size: { type: String },
+  package_details: { type: String },
+  special_instructions: { type: String },
+  vehicle_type: { type: String }
 }, { timestamps: true });
 
 // Indexes for ride queries
