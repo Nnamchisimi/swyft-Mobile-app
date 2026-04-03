@@ -520,11 +520,12 @@ export default function DriverDashboard() {
       'Mark this ride as completed?',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
+          {
           text: 'Complete',
           onPress: async () => {
             try {
-              await ridesAPI.completeRide(currentRide.id);
+              const price = currentRide.price || 0;
+              await ridesAPI.completeRide(currentRide.id, price);
               Alert.alert('Success', 'Ride completed! Great job!');
               setCurrentRide(null);
               fetchPendingRides();

@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ridesAPI } from '../../src/services/api';
@@ -32,6 +33,8 @@ export default function RateRideScreen() {
       return;
     }
 
+    Keyboard.dismiss();
+    
     setLoading(true);
     try {
       const email = await authService.getUserEmail();

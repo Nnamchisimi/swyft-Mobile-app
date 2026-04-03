@@ -197,15 +197,15 @@ export default function DriverArrivedScreen() {
           
           Alert.alert(
             'Driver Arrived!',
-            'Your driver has arrived at the pickup location.',
+            'Your Courier has arrived at the pickup location.',
             [{ text: 'OK' }]
           );
         } else if (ride.status === 'completed') {
           
           Alert.alert(
-            '🎉 Arrived at Destination!',
+            'Arrived at Destination!',
             `You have arrived at your destination!\n\nFare: ₺${ride.price || '0.00'}`,
-            [{ text: 'Confirm & Rate Driver', onPress: async () => {
+            [{ text: 'Confirm & Rate Courier', onPress: async () => {
               try {
                 await ridesAPI.confirmRide(rideId);
               } catch (error) {
@@ -215,7 +215,7 @@ export default function DriverArrivedScreen() {
             }}]
           );
         } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
-          Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
+          Alert.alert('Dispatch Cancelled', 'Your dispatch has been cancelled.');
           router.replace('/(passenger)/home');
         }
       }
@@ -229,7 +229,7 @@ export default function DriverArrivedScreen() {
           latitude: data.lat,
           longitude: data.lng,
         };
-        console.log('Updating driver location to:', newLocation);
+        console.log('Updating Courier location to:', newLocation);
         setDriverLocation(newLocation);
         
         
@@ -259,12 +259,12 @@ export default function DriverArrivedScreen() {
       
       Alert.alert(
         'Ride Started!',
-        'Enjoy your trip!',
+        'Dispatch is on the way to destination!',
         [{ text: 'OK', onPress: () => router.replace('/(passenger)/home') }]
       );
     } catch (error) {
       console.error('Confirm pickup error:', error);
-      Alert.alert('Error', 'Failed to confirm pickup. Please try again.');
+      Alert.alert('Error', 'Failed to confirm dispatch pickup. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -274,14 +274,14 @@ export default function DriverArrivedScreen() {
     if (driverPhone) {
       Linking.openURL(`tel:${driverPhone}`);
     } else {
-      Alert.alert('No Phone Number', 'Driver phone number not available.');
+      Alert.alert('No Phone Number', 'Courier phone number not available.');
     }
   };
   
   const handleCancelRide = () => {
     Alert.alert(
-      'Cancel Ride',
-      'Are you sure you want to cancel this ride?',
+      'Cancel Dispatch',
+      'Are you sure you want to cancel this Dispatch service?',
       [
         { text: 'No', style: 'cancel' },
         {
@@ -291,10 +291,10 @@ export default function DriverArrivedScreen() {
             setLoading(true);
             try {
               await ridesAPI.cancelRide(rideId);
-              Alert.alert('Cancelled', 'Your ride has been cancelled.');
+              Alert.alert('Cancelled', 'Your Dispatch has been cancelled.');
               router.replace('/(passenger)/home');
             } catch (error) {
-              Alert.alert('Error', 'Failed to cancel ride');
+              Alert.alert('Error', 'Failed to cancel dispatch');
             } finally {
               setLoading(false);
             }
