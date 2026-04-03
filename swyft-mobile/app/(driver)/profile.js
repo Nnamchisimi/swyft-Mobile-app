@@ -127,7 +127,7 @@ export default function DriverProfileScreen() {
 
   // Handle menu item presses
   const handleEarningsReport = () => {
-    router.push('/(driver)/dashboard');
+    router.push('/(driver)/earnings');
   };
 
   const handleRideHistory = async () => {
@@ -275,10 +275,17 @@ export default function DriverProfileScreen() {
 
         {}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ride History</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Rides</Text>
+            {completedRides.length > 3 && (
+              <TouchableOpacity onPress={() => router.push('/(driver)/history')}>
+                <Text style={styles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           {completedRides.length > 0 ? (
             <View style={styles.ridesList}>
-              {completedRides.map((ride, index) => (
+              {completedRides.slice(0, 3).map((ride, index) => (
                 <View key={ride.id || index} style={styles.rideItem}>
                   <View style={styles.rideInfo}>
                     <Text style={styles.rideName}>{ride.passenger_name || 'Passenger'}</Text>
@@ -368,11 +375,7 @@ export default function DriverProfileScreen() {
               <Text style={styles.menuText}>Earnings Report</Text>
               <Text style={styles.menuArrow}>{'>'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.menuItem} onPress={handleRideHistory}>
-              <Ionicons name="list" size={24} color={COLORS.primary} />
-              <Text style={styles.menuText}>Ride History</Text>
-              <Text style={styles.menuArrow}>{'>'}</Text>
-            </TouchableOpacity>
+            
             <TouchableOpacity style={styles.menuItem} onPress={handlePaymentSettings}>
               <Ionicons name="card" size={24} color={COLORS.primary} />
               <Text style={styles.menuText}>Payment Settings</Text>
@@ -579,6 +582,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
     marginBottom: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewAllText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   ridesList: {
     backgroundColor: COLORS.white,
