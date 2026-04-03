@@ -104,12 +104,7 @@ export default function SignInScreen() {
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
           
-          {debugInfo ? (
-            <View style={styles.debugBox}>
-              <Text style={styles.debugTitle}>DEBUG INFO:</Text>
-              <Text style={styles.debugText}>{debugInfo}</Text>
-            </View>
-          ) : null}
+     
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}

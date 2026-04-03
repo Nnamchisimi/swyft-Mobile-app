@@ -12,6 +12,7 @@ import {
   Dimensions,
   Platform,
   Linking,
+  KeyboardAvoidingView,
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
 import { useRouter } from 'expo-router';
@@ -1171,7 +1172,11 @@ export default function BookRideScreen() {
                 styles.instructionChip,
                 selectedQuickNote === instruction && styles.instructionChipSelected,
               ]}
-              onPress={() => setSelectedQuickNote(selectedQuickNote === instruction ? '' : instruction)}
+              onPress={() => {
+                const newNote = selectedQuickNote === instruction ? '' : instruction;
+                setSelectedQuickNote(newNote);
+                setSpecialInstructions(newNote + (specialInstructions ? '. ' + specialInstructions : ''));
+              }}
             >
               <Ionicons 
                 name={instruction === 'Fragile' ? 'alert-circle-outline' : 'arrow-up-outline'} 
@@ -1194,10 +1199,7 @@ export default function BookRideScreen() {
           placeholder="Any other special requirements..."
           placeholderTextColor={COLORS.textSecondary}
           value={specialInstructions}
-          onChangeText={(text) => {
-            const quickNote = selectedQuickNote ? selectedQuickNote + '. ' : '';
-            setSpecialInstructions(quickNote + text);
-          }}
+          onChangeText={setSpecialInstructions}
           multiline
         />
       </View>
@@ -1219,21 +1221,26 @@ export default function BookRideScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.brandName}>SWYFTinc</Text>
-          <Text style={styles.headerTitle}>Book a Courier</Text>
+      <KeyboardAvoidingView 
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.brandName}>SWYFTinc</Text>
+            <Text style={styles.headerTitle}>Book a Courier</Text>
+          </View>
+          <View style={{ width: 40 }} />
         </View>
-        <View style={{ width: 40 }} />
-      </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {rideBooked ? renderRideStatus() : renderBookingForm()}
-      </ScrollView>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+          {rideBooked ? renderRideStatus() : renderBookingForm()}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -1242,6 +1249,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  keyboardAvoid: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -1281,6 +1291,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 40,
   },
   mapContainer: {
     height: 300,
