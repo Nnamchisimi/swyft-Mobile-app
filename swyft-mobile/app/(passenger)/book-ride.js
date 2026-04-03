@@ -59,22 +59,21 @@ export default function BookRideScreen() {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [selectedQuickNote, setSelectedQuickNote] = useState('');
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
+  const [pricingLoaded, setPricingLoaded] = useState(false);
+  const [rideTypes, setRideTypes] = useState([
+    { id: 'economy', name: 'Lefkosa', icon: 'location', time: '5-60 min', desc: 'Affordable rides' },
+    { id: 'standard', name: 'Girne', icon: 'location', time: '30-60mins', desc: 'Comfortable rides' },
+    { id: 'luxury', name: 'Magusa', icon: 'location', time: '1-2 hrs', desc: 'Premium vehicles' },
+  ]);
+  const [vehicleTypes, setVehicleTypes] = useState([
+    { id: 'motorcycle', name: 'Motorcycle', icon: 'bicycle', desc: 'Fast delivery' },
+    { id: 'sedan', name: 'Sedan', icon: 'car-sport', desc: 'Standard delivery' },
+    { id: 'truck', name: 'Truck', icon: 'bus', desc: 'Large packages' },
+  ]);
 
   
   const pickupDebounceRef = useRef(null);
   const dropoffDebounceRef = useRef(null);
-
-  const rideTypes = [
-    { id: 'economy', name: 'Lefkosa', icon: 'location', price: 350, time: '5-60 min', desc: 'Affordable rides' },
-    { id: 'standard', name: 'Girne', icon: 'location', price: 450, time: '30-60mins', desc: 'Comfortable rides' },
-    { id: 'luxury', name: 'Magusa', icon: 'location', price: 550, time: '1-2 hrs', desc: 'Premium vehicles' },
-  ];
-
-  const vehicleTypes = [
-    { id: 'motorcycle', name: 'Motorcycle', icon: 'bicycle', price: 150, desc: 'Fast delivery' },
-    { id: 'sedan', name: 'Sedan', icon: 'car-sport', price: 350, desc: 'Standard delivery' },
-    { id: 'truck', name: 'Truck', icon: 'bus', price: 550, desc: 'Large packages' },
-  ];
 
   useEffect(() => {
     loadUserData();
@@ -104,6 +103,35 @@ export default function BookRideScreen() {
       socketService.joinRoom(userEmail);
     }
   }, [userEmail]);
+
+  useEffect(() => {
+    loadPricing();
+  }, []);
+
+  const loadPricing = async () => {
+    try {
+      const response = await fareAPI.getPricing();
+      console.log('Pricing response:', response.data);
+      if (response.data) {
+        const { locationPrices, vehiclePrices } = response.data;
+        
+        setRideTypes(prev => prev.map(ride => ({
+          ...ride,
+          price: locationPrices[ride.id] || 0
+        })));
+        
+        setVehicleTypes(prev => prev.map(vehicle => ({
+          ...vehicle,
+          price: vehiclePrices[vehicle.id] || 0
+        })));
+        
+        setPricingLoaded(true);
+        console.log('Prices loaded successfully');
+      }
+    } catch (error) {
+      console.log('Error loading pricing:', error);
+    }
+  };
 
   useEffect(() => {
     calculateFare();
@@ -1008,12 +1036,16 @@ export default function BookRideScreen() {
                 {ride.name}
               </Text>
               <Text style={styles.rideTypeTime}>{ride.time}</Text>
-              <Text style={[
-                styles.rideTypePrice,
-                selectedRideType === ride.id && styles.rideTypePriceSelected,
-              ]}>
-                ₺{ride.price}
-              </Text>
+              {pricingLoaded ? (
+                <Text style={[
+                  styles.rideTypePrice,
+                  selectedRideType === ride.id && styles.rideTypePriceSelected,
+                ]}>
+                  ₺{ride.price}
+                </Text>
+              ) : (
+                <Text style={styles.rideTypePrice}>₺...</Text>
+              )}
               <Text style={styles.rideTypeDesc}>{ride.desc}</Text>
             </TouchableOpacity>
           ))}
@@ -1043,12 +1075,16 @@ export default function BookRideScreen() {
               ]}>
                 {vehicle.name}
               </Text>
-              <Text style={[
-                styles.vehicleTypePrice,
-                selectedVehicleType === vehicle.id && styles.vehicleTypePriceSelected,
-              ]}>
-                ₺{vehicle.price}
-              </Text>
+              {pricingLoaded ? (
+                <Text style={[
+                  styles.vehicleTypePrice,
+                  selectedVehicleType === vehicle.id && styles.vehicleTypePriceSelected,
+                ]}>
+                  ₺{vehicle.price}
+                </Text>
+              ) : (
+                <Text style={styles.vehicleTypePrice}>₺...</Text>
+              )}
               <Text style={[
                 styles.vehicleTypeDesc,
                 selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected,

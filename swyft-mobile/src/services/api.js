@@ -79,6 +79,7 @@ export const driverAPI = {
 export const fareAPI = {
   calculate: (distanceKm, rideType = 'standard', vehicleType = 'sedan') => 
     api.post('/api/fare/calculate', { distance_km: distanceKm, ride_type: rideType, vehicle_type: vehicleType }),
+  getPricing: () => api.get('/api/pricing'),
 };
 
 export const driversAPI = {

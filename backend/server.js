@@ -197,6 +197,23 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// === PRICING CONFIG ===
+app.get('/api/pricing', (req, res) => {
+  res.json({
+    locationPrices: {
+      economy: 100,
+      standard: 150,
+      luxury: 250
+    },
+    vehiclePrices: {
+      motorcycle: 50,
+      sedan: 150,
+      truck: 400
+    },
+    currency: 'TL'
+  });
+});
+
 // === SIGNUP ===
 app.post('/api/users', async (req, res) => {
   const { 
