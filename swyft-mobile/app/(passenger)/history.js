@@ -96,7 +96,7 @@ export default function HistoryScreen() {
   const renderRide = ({ item }) => (
     <View style={styles.rideCard}>
       <View style={styles.rideHeader}>
-        <Text style={styles.rideId}>Ride #{item.id}</Text>
+        <Text style={styles.rideId}>Delivery #{item.id}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{item.status}</Text>
         </View>
@@ -117,7 +117,7 @@ export default function HistoryScreen() {
         </View>
         {item.driver_name && (
           <View style={styles.locationRow}>
-            <Text style={styles.locationLabel}>Driver:</Text>
+            <Text style={styles.locationLabel}>Courier:</Text>
             <Text style={styles.locationText}>{item.driver_name}</Text>
           </View>
         )}
@@ -159,7 +159,7 @@ export default function HistoryScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>My Rides</Text>
+        <Text style={styles.title}>My dispatch History</Text>
         <TouchableOpacity onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -199,7 +199,7 @@ export default function HistoryScreen() {
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="list" size={24} color={COLORS.primary} />
-          <Text style={[styles.navText, styles.navTextActive]}>Rides</Text>
+          <Text style={[styles.navText, styles.navTextActive]}>Dispatches</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.navItem}

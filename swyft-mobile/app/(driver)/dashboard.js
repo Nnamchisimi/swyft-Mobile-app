@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Alert,
   ActivityIndicator,
@@ -13,10 +12,10 @@ import {
   Platform,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import { StatusBar } from 'expo-status-bar';
 import { authService } from '../../src/services/auth';
 import { ridesAPI, driverAPI } from '../../src/services/api';
 import { socketService } from '../../src/services/socket';
@@ -640,6 +639,41 @@ export default function DriverDashboard() {
             <Text style={styles.rideTypeText}>{ride.ride_type || 'Standard'}</Text>
           </View>
         </View>
+
+        {(ride.package_type || ride.package_size || ride.package_details || ride.special_instructions) && (
+          <View style={styles.packageInfo}>
+            <View style={styles.packageHeader}>
+              <Ionicons name="cube-outline" size={16} color={COLORS.primary} />
+              <Text style={styles.packageHeaderText}>Package Details</Text>
+            </View>
+            <View style={styles.packageDetails}>
+              {ride.package_type && (
+                <View style={styles.packageItem}>
+                  <Text style={styles.packageLabel}>Type:</Text>
+                  <Text style={styles.packageValue}>{ride.package_type}</Text>
+                </View>
+              )}
+              {ride.package_size && (
+                <View style={styles.packageItem}>
+                  <Text style={styles.packageLabel}>Size:</Text>
+                  <Text style={styles.packageValue}>{ride.package_size}</Text>
+                </View>
+              )}
+              {ride.package_details && (
+                <View style={styles.packageItem}>
+                  <Text style={styles.packageLabel}>Details:</Text>
+                  <Text style={styles.packageValue}>{ride.package_details}</Text>
+                </View>
+              )}
+              {ride.special_instructions && (
+                <View style={styles.packageItem}>
+                  <Text style={styles.packageLabel}>Note:</Text>
+                  <Text style={[styles.packageValue, styles.packageSpecial]}>{ride.special_instructions}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
         
         <View style={styles.rideActions}>
           <TouchableOpacity
@@ -734,6 +768,38 @@ export default function DriverDashboard() {
           </View>
           <Text style={styles.ridePriceLarge}>₺{currentRide.price || '15.00'}</Text>
         </View>
+
+        {(currentRide.package_type || currentRide.package_size || currentRide.package_details || currentRide.special_instructions) && (
+          <View style={styles.packageInfoCurrent}>
+            <View style={styles.packageHeader}>
+              <Ionicons name="cube-outline" size={16} color={COLORS.primary} />
+              <Text style={styles.packageHeaderText}>Package Details</Text>
+            </View>
+            <View style={styles.packageDetailsRow}>
+              {currentRide.package_type && (
+                <View style={styles.packageChip}>
+                  <Text style={styles.packageChipText}>{currentRide.package_type}</Text>
+                </View>
+              )}
+              {currentRide.package_size && (
+                <View style={styles.packageChip}>
+                  <Text style={styles.packageChipText}>{currentRide.package_size}</Text>
+                </View>
+              )}
+              {currentRide.package_details && (
+                <View style={styles.packageChip}>
+                  <Text style={styles.packageChipText} numberOfLines={1}>{currentRide.package_details}</Text>
+                </View>
+              )}
+              {currentRide.special_instructions && (
+                <View style={[styles.packageChip, styles.packageChipSpecial]}>
+                  <Ionicons name="alert-circle" size={12} color={COLORS.error} />
+                  <Text style={[styles.packageChipText, styles.packageChipTextSpecial]}>{currentRide.special_instructions}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
         
         <View style={styles.currentRideActions}>
           {currentRide.status === 'accepted' && (
@@ -767,15 +833,7 @@ export default function DriverDashboard() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
-      <ScrollView 
-        style={styles.scrollContent}
-        contentContainerStyle={styles.scrollContentContainer}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {}
-        <View style={styles.header}>
+      <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.brandName}>SWYFTinc</Text>
           <Text style={styles.headerTitle}>Driver Mode</Text>
@@ -792,6 +850,12 @@ export default function DriverDashboard() {
           </View>
         </TouchableOpacity>
       </View>
+      <ScrollView 
+        style={styles.scrollContent}
+        contentContainerStyle={styles.scrollContentContainer}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
 
       {}
       <View style={styles.statusCard}>
@@ -1069,9 +1133,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    borderBottomColor: COLORS.border,
   },
   headerLeft: {
     flex: 1,
@@ -1079,18 +1143,18 @@ const styles = StyleSheet.create({
   brandName: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: COLORS.primary,
     letterSpacing: 2,
     marginBottom: 2,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: COLORS.text,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#AAAAAA',
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   profileButton: {
@@ -1562,5 +1626,84 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     backgroundColor: COLORS.border,
+  },
+  packageInfo: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
+  },
+  packageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  packageHeaderText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+    marginLeft: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  packageDetails: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  packageItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  packageLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginRight: 4,
+  },
+  packageValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  packageSpecial: {
+    color: COLORS.error,
+  },
+  packageInfoCurrent: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
+  },
+  packageDetailsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  packageChip: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  packageChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.text,
+  },
+  packageChipSpecial: {
+    backgroundColor: '#FFF5F5',
+    borderColor: COLORS.error,
+  },
+  packageChipTextSpecial: {
+    color: COLORS.error,
   },
 });

@@ -53,15 +53,27 @@ export default function BookRideScreen() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [selectedRideType, setSelectedRideType] = useState('standard');
   const [estimatedPrice, setEstimatedPrice] = useState(0);
+  const [packageType, setPackageType] = useState('');
+  const [packageSize, setPackageSize] = useState('');
+  const [packageDetails, setPackageDetails] = useState('');
+  const [specialInstructions, setSpecialInstructions] = useState('');
+  const [selectedQuickNote, setSelectedQuickNote] = useState('');
+  const [selectedVehicleType, setSelectedVehicleType] = useState('');
 
   
   const pickupDebounceRef = useRef(null);
   const dropoffDebounceRef = useRef(null);
 
   const rideTypes = [
-    { id: 'economy', name: 'Lefkosa', icon: 'sedan', price: 350, time: '5-60 min', desc: 'Affordable rides' },
-    { id: 'standard', name: 'Girne', icon: 'sedan', price: 450, time: '30-60mins', desc: 'Comfortable rides' },
-    { id: 'luxury', name: 'Magusa', icon: 'sedan', price: 550, time: '1-2 hrs', desc: 'Premium vehicles' },
+    { id: 'economy', name: 'Lefkosa', icon: 'location', price: 350, time: '5-60 min', desc: 'Affordable rides' },
+    { id: 'standard', name: 'Girne', icon: 'location', price: 450, time: '30-60mins', desc: 'Comfortable rides' },
+    { id: 'luxury', name: 'Magusa', icon: 'location', price: 550, time: '1-2 hrs', desc: 'Premium vehicles' },
+  ];
+
+  const vehicleTypes = [
+    { id: 'motorcycle', name: 'Motorcycle', icon: 'bicycle', price: 150, desc: 'Fast delivery' },
+    { id: 'sedan', name: 'Sedan', icon: 'car-sport', price: 350, desc: 'Standard delivery' },
+    { id: 'truck', name: 'Truck', icon: 'bus', price: 550, desc: 'Large packages' },
   ];
 
   useEffect(() => {
@@ -94,9 +106,23 @@ export default function BookRideScreen() {
   }, [userEmail]);
 
   useEffect(() => {
-    
     calculateFare();
-  }, [selectedRideType]);
+  }, [selectedRideType, selectedVehicleType]);
+
+  const calculateFare = async () => {
+    try {
+      const response = await fareAPI.calculate(null, selectedRideType, selectedVehicleType);
+      if (response.data && response.data.total_fare) {
+        setEstimatedPrice(response.data.total_fare);
+      }
+    } catch (error) {
+      const ride = rideTypes.find(r => r.id === selectedRideType);
+      const vehicle = vehicleTypes.find(v => v.id === selectedVehicleType);
+      const ridePrice = ride ? ride.price : 0;
+      const vehiclePrice = vehicle ? vehicle.price : 0;
+      setEstimatedPrice(ridePrice + vehiclePrice);
+    }
+  };
 
   
   useEffect(() => {
@@ -151,13 +177,6 @@ export default function BookRideScreen() {
       socketService.off('driverLocationUpdated', handleAllDriverLocation);
     };
   }, [currentRide, currentLocation, dropoffLocation]);
-
-  const calculateFare = async () => {
-    const ride = rideTypes.find(r => r.id === selectedRideType);
-    if (ride) {
-      setEstimatedPrice(ride.price);
-    }
-  };
 
   const loadUserData = async () => {
     const email = await authService.getUserEmail();
@@ -615,6 +634,10 @@ export default function BookRideScreen() {
         pickupLng: pickupLocation?.longitude,
         dropoffLat: dropoffLocation?.latitude,
         dropoffLng: dropoffLocation?.longitude,
+        packageType: packageType || null,
+        packageSize: packageSize || null,
+        packageDetails: packageDetails || null,
+        specialInstructions: specialInstructions || null,
       };
 
       const response = await ridesAPI.createRide(rideData);
@@ -729,7 +752,6 @@ export default function BookRideScreen() {
         </View>
       </View>
 
-      {}
       {driverLocation && driverDistance && (
         <View style={styles.etaContainer}>
           <Ionicons name="car" size={20} color={COLORS.white} />
@@ -919,7 +941,7 @@ export default function BookRideScreen() {
             <Text style={styles.inputLabel}>DROPOFF</Text>
             <TextInput
               style={styles.input}
-              placeholder="Where are you going?"
+              placeholder="Package Destination?"
               placeholderTextColor={COLORS.textSecondary}
               value={dropoffAddress}
               onChangeText={handleDropoffChange}
@@ -963,7 +985,7 @@ export default function BookRideScreen() {
 
       {}
       <View style={styles.rideTypesSection}>
-        <Text style={styles.sectionTitle}>Choose Your Ride</Text>
+        <Text style={styles.sectionTitle}>Choose Your Courier</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {rideTypes.map((ride) => (
             <TouchableOpacity
@@ -975,7 +997,7 @@ export default function BookRideScreen() {
               onPress={() => setSelectedRideType(ride.id)}
             >
               <Ionicons 
-                name={ride.icon === 'car' ? 'car' : ride.icon === 'sedan' ? 'car-sport' : 'star'} 
+                name="location" 
                 size={28} 
                 color={selectedRideType === ride.id ? COLORS.primary : COLORS.textSecondary} 
               />
@@ -998,6 +1020,46 @@ export default function BookRideScreen() {
         </ScrollView>
       </View>
 
+      <View style={styles.vehicleTypesSection}>
+        <Text style={styles.sectionTitle}>Vehicle Type</Text>
+        <View style={styles.vehicleTypeContainer}>
+          {vehicleTypes.map((vehicle) => (
+            <TouchableOpacity
+              key={vehicle.id}
+              style={[
+                styles.vehicleTypeCard,
+                selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected,
+              ]}
+              onPress={() => setSelectedVehicleType(vehicle.id)}
+            >
+              <Ionicons 
+                name={vehicle.icon} 
+                size={24} 
+                color={selectedVehicleType === vehicle.id ? COLORS.white : COLORS.textSecondary} 
+              />
+              <Text style={[
+                styles.vehicleTypeName,
+                selectedVehicleType === vehicle.id && styles.vehicleTypeNameSelected,
+              ]}>
+                {vehicle.name}
+              </Text>
+              <Text style={[
+                styles.vehicleTypePrice,
+                selectedVehicleType === vehicle.id && styles.vehicleTypePriceSelected,
+              ]}>
+                ₺{vehicle.price}
+              </Text>
+              <Text style={[
+                styles.vehicleTypeDesc,
+                selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected,
+              ]}>
+                {vehicle.desc}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
       {}
       <View style={styles.priceEstimate}>
         <View style={styles.priceRow}>
@@ -1005,6 +1067,110 @@ export default function BookRideScreen() {
           <Text style={styles.priceValue}>₺{estimatedPrice}</Text>
         </View>
         <Text style={styles.priceNote}>Final price may vary based on traffic and route</Text>
+      </View>
+
+      <View style={styles.packageSection}>
+        <Text style={styles.sectionTitle}>Package Details</Text>
+        
+        <Text style={styles.inputLabel}>TYPE OF PACKAGE</Text>
+        <View style={styles.packageTypeContainer}>
+          {['Food', 'Document', 'Parcel'].map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[
+                styles.packageTypeButton,
+                packageType === type && styles.packageTypeButtonSelected,
+              ]}
+              onPress={() => setPackageType(type)}
+            >
+              <Text style={[
+                styles.packageTypeText,
+                packageType === type && styles.packageTypeTextSelected,
+              ]}>
+                {type}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {packageType && (
+          <>
+            <Text style={styles.inputLabel}>PACKAGE DETAILS</Text>
+            <TextInput
+              style={styles.packageDetailsInput}
+              placeholder={`e.g., ${packageType === 'Food' ? 'Pizza, Burgers, Groceries...' : packageType === 'Document' ? 'Envelope, Folder, ID card...' : 'Electronics, Clothes, Books...'}`}
+              placeholderTextColor={COLORS.textSecondary}
+              value={packageDetails}
+              onChangeText={setPackageDetails}
+              multiline
+            />
+          </>
+        )}
+
+        <Text style={styles.inputLabel}>SIZE</Text>
+        <View style={styles.packageSizeContainer}>
+          {['Small', 'Medium', 'Large'].map((size) => (
+            <TouchableOpacity
+              key={size}
+              style={[
+                styles.packageSizeButton,
+                packageSize === size && styles.packageSizeButtonSelected,
+              ]}
+              onPress={() => setPackageSize(size)}
+            >
+              <Ionicons 
+                name={size === 'Small' ? 'cube-outline' : size === 'Medium' ? 'cube' : 'cube-sharp'} 
+                size={20} 
+                color={packageSize === size ? COLORS.white : COLORS.textSecondary} 
+              />
+              <Text style={[
+                styles.packageSizeText,
+                packageSize === size && styles.packageSizeTextSelected,
+              ]}>
+                {size}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.inputLabel}>SPECIAL INSTRUCTIONS</Text>
+        <View style={styles.specialInstructionsContainer}>
+          {['Fragile', 'Keep upright'].map((instruction) => (
+            <TouchableOpacity
+              key={instruction}
+              style={[
+                styles.instructionChip,
+                selectedQuickNote === instruction && styles.instructionChipSelected,
+              ]}
+              onPress={() => setSelectedQuickNote(selectedQuickNote === instruction ? '' : instruction)}
+            >
+              <Ionicons 
+                name={instruction === 'Fragile' ? 'alert-circle-outline' : 'arrow-up-outline'} 
+                size={16} 
+                color={selectedQuickNote === instruction ? COLORS.white : COLORS.textSecondary} 
+              />
+              <Text style={[
+                styles.instructionChipText,
+                selectedQuickNote === instruction && styles.instructionChipTextSelected,
+              ]}>
+                {instruction}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.inputLabel}>ADDITIONAL NOTES</Text>
+        <TextInput
+          style={styles.packageDetailsInput}
+          placeholder="Any other special requirements..."
+          placeholderTextColor={COLORS.textSecondary}
+          value={specialInstructions}
+          onChangeText={(text) => {
+            const quickNote = selectedQuickNote ? selectedQuickNote + '. ' : '';
+            setSpecialInstructions(quickNote + text);
+          }}
+          multiline
+        />
       </View>
 
       {}
@@ -1031,7 +1197,7 @@ export default function BookRideScreen() {
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.brandName}>SWYFTinc</Text>
-          <Text style={styles.headerTitle}>Book a Ride</Text>
+          <Text style={styles.headerTitle}>Book a Courier</Text>
         </View>
         <View style={{ width: 40 }} />
       </View>
@@ -1459,5 +1625,182 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
+  },
+  packageSection: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  packageTypeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  packageTypeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  packageTypeButtonSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  packageTypeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  packageTypeTextSelected: {
+    color: COLORS.white,
+  },
+  packageSizeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  packageSizeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  packageSizeButtonSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  packageSizeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  packageSizeTextSelected: {
+    color: COLORS.white,
+  },
+  specialInstructionsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  instructionChip: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 20,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  instructionChipSelected: {
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
+  },
+  instructionChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+  },
+  instructionChipTextSelected: {
+    color: COLORS.white,
+  },
+  packageDetailsInput: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: COLORS.text,
+    minHeight: 60,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  vehicleTypesSection: {
+    marginBottom: 16,
+  },
+  vehicleTypeContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  vehicleTypeCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  vehicleTypeCardSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+  },
+  vehicleTypeName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginTop: 8,
+  },
+  vehicleTypeNameSelected: {
+    color: COLORS.white,
+  },
+  vehicleTypesSection: {
+    marginBottom: 16,
+  },
+  vehicleTypeContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  vehicleTypeCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  vehicleTypePrice: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginTop: 8,
+  },
+  vehicleTypePriceSelected: {
+    color: COLORS.white,
+  },
+  vehicleTypeDesc: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  vehicleTypeDescSelected: {
+    color: 'rgba(255,255,255,0.8)',
   },
 });

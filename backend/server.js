@@ -450,7 +450,7 @@ app.get('/api/completed-rides', (req, res) => {
 app.post('/api/rides', (req, res) => {
   console.log('Ride request received:', req.body);
   
-  const { passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, pickupLat, pickupLng, dropoffLat, dropoffLng } = req.body;
+  const { passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, pickupLat, pickupLng, dropoffLat, dropoffLng, packageType, packageSize, packageDetails, specialInstructions } = req.body;
   
   if (!passengerName || !passengerEmail || !passengerPhone || !pickup || !dropoff || !rideType || ridePrice == null) {
     console.log('Missing required fields');
@@ -465,9 +465,9 @@ app.post('/api/rides', (req, res) => {
       passengerId = userResults.rows[0].id;
     }
     
-    // Insert with passenger_id foreign key
-    const query = 'INSERT INTO rides (passenger_id, passenger_name, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id';
-    const values = [passengerId, passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, 'pending', pickupLat || null, pickupLng || null, dropoffLat || null, dropoffLng || null];
+    // Insert with passenger_id foreign key and package details
+    const query = 'INSERT INTO rides (passenger_id, passenger_name, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id';
+    const values = [passengerId, passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, 'pending', pickupLat || null, pickupLng || null, dropoffLat || null, dropoffLng || null, packageType || null, packageSize || null, packageDetails || null, specialInstructions || null];
   
   db.query(query, values, (err, result) => {
     if (err) {
@@ -492,6 +492,10 @@ app.post('/api/rides', (req, res) => {
       ride_type: rideType, 
       price: ridePrice, 
       status: 'pending', 
+      package_type: packageType || null,
+      package_size: packageSize || null,
+      package_details: packageDetails || null,
+      special_instructions: specialInstructions || null,
       created_at: new Date().toISOString() 
     };
     
@@ -985,34 +989,32 @@ app.get('/api/passengers/:email', (req, res) => {
 // === FARE CALCULATION ===
 
 app.post('/api/fare/calculate', (req, res) => {
-  const { distance_km, ride_type } = req.body;
+  const { distance_km, ride_type, vehicle_type } = req.body;
   
-  // Fare structure
-  const BASE_FARE = 3.00;
-  const PER_KM_RATE = 1.50;
-  const PER_MIN_RATE = 0.25;
-  
-  // Multipliers for ride types
-  const multipliers = {
-    economy: 0.8,
-    standard: 1.0,
-    luxury: 1.5
+  // Base prices for locations
+  const locationPrices = {
+    economy: 100,
+    standard: 150,
+    luxury: 250
   };
   
-  const multiplier = multipliers[ride_type] || 1.0;
-  const distance = parseFloat(distance_km) || 5; // Default 5km if not provided
+  // Vehicle type prices
+  const vehiclePrices = {
+    motorcycle: 50,
+    sedan: 150,
+    truck: 300
+  };
   
-  const fare = (BASE_FARE + (distance * PER_KM_RATE)) * multiplier;
-  const estimatedTime = Math.ceil(distance * 3); // ~3 min per km
+  const locationPrice = locationPrices[ride_type] || 350;
+  const vehiclePrice = vehiclePrices[vehicle_type] || 150;
+  
+  const totalFare = locationPrice + vehiclePrice;
   
   res.json({
-    base_fare: BASE_FARE,
-    distance_km: distance,
-    per_km_rate: PER_KM_RATE,
-    multiplier,
-    total_fare: Math.round(fare * 100) / 100,
-    estimated_time: estimatedTime,
-    currency: 'USD'
+    location_price: locationPrice,
+    vehicle_price: vehiclePrice,
+    total_fare: totalFare,
+    currency: 'TL'
   });
 });
 

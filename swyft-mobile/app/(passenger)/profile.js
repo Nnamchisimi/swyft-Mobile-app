@@ -111,16 +111,16 @@ export default function ProfileScreen() {
             style={styles.actionButton}
             onPress={() => router.push('/(passenger)/history')}
           >
-            <Text style={styles.actionIcon}>Ride History</Text>
-            <Text style={styles.actionArrow}>View past rides</Text>
+            <Text style={styles.actionIcon}>Dispatch History</Text>
+            <Text style={styles.actionArrow}>View past Dispatches</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => router.push('/(passenger)/book-ride')}
           >
-            <Text style={styles.actionIcon}>Book a Ride</Text>
-            <Text style={styles.actionArrow}>Request a new ride</Text>
+            <Text style={styles.actionIcon}>Book a Courier</Text>
+            <Text style={styles.actionArrow}> Find the nearest couriers</Text>
           </TouchableOpacity>
         </View>
 
@@ -137,18 +137,18 @@ export default function ProfileScreen() {
           style={styles.navItem}
           onPress={() => router.push('/(passenger)/home')}
         >
-          <Text style={styles.navIcon}>Home</Text>
+          <Ionicons name="home-outline" size={24} color={COLORS.textSecondary} />
           <Text style={styles.navText}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push('/(passenger)/history')}
         >
-          <Text style={styles.navIcon}>Rides</Text>
-          <Text style={styles.navText}>Rides</Text>
+          <Ionicons name="car-outline" size={24} color={COLORS.textSecondary} />
+          <Text style={styles.navText}>Dispatches</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>Profile</Text>
+          <Ionicons name="person" size={24} color={COLORS.primary} />
           <Text style={[styles.navText, styles.navTextActive]}>Profile</Text>
         </TouchableOpacity>
       </View>
@@ -306,9 +306,6 @@ const styles = StyleSheet.create({
   navItem: {
     flex: 1,
     alignItems: 'center',
-  },
-  navIcon: {
-    fontSize: 24,
   },
   navText: {
     fontSize: 12,

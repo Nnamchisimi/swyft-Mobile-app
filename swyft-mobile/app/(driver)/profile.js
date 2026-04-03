@@ -4,13 +4,12 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { authService } from '../../src/services/auth';
 import { driverAPI } from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -183,7 +182,6 @@ export default function DriverProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backButton}>← Back</Text>
@@ -394,13 +392,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#333333',
+    borderBottomColor: COLORS.border,
   },
   backButton: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: COLORS.primary,
     fontWeight: '500',
   },
   headerTitleContainer: {
@@ -409,13 +407,13 @@ const styles = StyleSheet.create({
   brandName: {
     fontSize: 10,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: COLORS.primary,
     letterSpacing: 2,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: COLORS.text,
   },
   scrollView: {
     flex: 1,

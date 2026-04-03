@@ -28,6 +28,7 @@ export default function PassengerHomeScreen() {
   const [location, setLocation] = useState(null);
   const [locationAddress, setLocationAddress] = useState('');
   const [currentRide, setCurrentRide] = useState(null);
+  const [recentDestinations, setRecentDestinations] = useState([]);
 
   useEffect(() => {
     loadUserData();
@@ -48,6 +49,30 @@ export default function PassengerHomeScreen() {
     
     if (email) {
       loadActiveRide(email);
+      loadRecentDestinations(email);
+    }
+  };
+
+  const loadRecentDestinations = async (email) => {
+    try {
+      const response = await ridesAPI.getRides({ passenger_email: email });
+      if (response.data && response.data.length > 0) {
+        const completedRides = response.data
+          .filter(ride => ride.status === 'completed' || ride.status === 'confirmed')
+          .slice(0, 3);
+        
+        const destinations = completedRides.map((ride, index) => ({
+          id: ride.id,
+          name: `Trip ${index + 1}`,
+          address: ride.dropoff_location || ride.dropoff || 'Unknown',
+          dropoffLat: ride.dropoff_lat,
+          dropoffLng: ride.dropoff_lng,
+        }));
+        
+        setRecentDestinations(destinations);
+      }
+    } catch (error) {
+      console.log('Error loading recent destinations:', error);
     }
   };
 
@@ -217,16 +242,16 @@ Fare: ₺${ride.price || '0.00'}`,
   const quickActions = [
     {
       icon: <Ionicons name="car" size={24} color={'#2196F3'} />,
-      title: 'Book a Ride',
-      description: 'Get a ride to your destination',
+      title: 'Book a Courier',
+      description: 'Get your package to its destination',
       route: '/(passenger)/book-ride',
       color: '#E3F2FD',
       iconBg: '#2196F3',
     },
     {
       icon: <Ionicons name="list" size={24} color={'#FF9800'} />,
-      title: 'My Rides',
-      description: 'View your ride history',
+      title: 'Dispatch history',
+      description: 'Track your past shipments',
       route: '/(passenger)/history',
       color: '#FFF3E0',
       iconBg: '#FF9800',
@@ -247,12 +272,6 @@ Fare: ₺${ride.price || '0.00'}`,
       color: '#E8F5E9',
       iconBg: '#4CAF50',
     },
-  ];
-
-  const recentDestinations = [
-    { id: 1, name: 'Home', address: '123 Main Street', icon: 'home' },
-    { id: 2, name: 'Work', address: '456 Business Ave', icon: 'business' },
-    { id: 3, name: 'Gym', address: '789 Fitness Blvd', icon: 'fitness' },
   ];
 
   return (
@@ -312,7 +331,7 @@ Fare: ₺${ride.price || '0.00'}`,
             </View>
             <View style={styles.bookRideTextContainer}>
               <Text style={styles.bookRideTitle}>Where to?</Text>
-              <Text style={styles.bookRideSubtitle}>Book a ride to your destination</Text>
+              <Text style={styles.bookRideSubtitle}>Book a courier for your package</Text>
             </View>
             <Text style={styles.bookRideArrow}>→</Text>
           </View>
@@ -341,27 +360,34 @@ Fare: ₺${ride.price || '0.00'}`,
         {}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Destinations</Text>
-            <TouchableOpacity>
+            <Text style={styles.sectionTitle}>Recent Drop-Off Locations</Text>
+            <TouchableOpacity onPress={() => router.push('/(passenger)/history')}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
-          {recentDestinations.map((dest) => (
-            <TouchableOpacity key={dest.id} style={styles.destinationItem}>
-              <View style={styles.destinationIcon}>
-                <Ionicons 
-                  name={dest.icon === 'home' ? 'home' : dest.icon === 'work' ? 'business' : 'fitness'} 
-                  size={20} 
-                  color={COLORS.primary} 
-                />
-              </View>
-              <View style={styles.destinationInfo}>
-                <Text style={styles.destinationName}>{dest.name}</Text>
-                <Text style={styles.destinationAddress}>{dest.address}</Text>
-              </View>
-              <Text style={styles.destinationArrow}>→</Text>
-            </TouchableOpacity>
-          ))}
+          {recentDestinations.length > 0 ? (
+            recentDestinations.map((dest) => (
+              <TouchableOpacity 
+                key={dest.id} 
+                style={styles.destinationItem}
+                onPress={() => router.push('/(passenger)/book-ride')}
+              >
+                <View style={styles.destinationIcon}>
+                  <Ionicons name="location" size={20} color={COLORS.primary} />
+                </View>
+                <View style={styles.destinationInfo}>
+                  <Text style={styles.destinationName}>{dest.name}</Text>
+                  <Text style={styles.destinationAddress}>{dest.address}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={styles.emptyDestinations}>
+              <Text style={styles.emptyText}>No recent destinations</Text>
+              <Text style={styles.emptySubtext}>Book your first ride to see locations here</Text>
+            </View>
+          )}
         </View>
 
         {}
@@ -382,8 +408,8 @@ Fare: ₺${ride.price || '0.00'}`,
                 <Text style={[styles.stepNumberText, { color: '#2196F3' }]}>1</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Set Your Location</Text>
-                <Text style={styles.stepDesc}>Enter your pickup and destination</Text>
+                <Text style={styles.stepTitle}>Enter Package Details</Text>
+                <Text style={styles.stepDesc}>Provide pickup and delivery addresses</Text>
               </View>
             </View>
             <View style={styles.step}>
@@ -391,8 +417,8 @@ Fare: ₺${ride.price || '0.00'}`,
                 <Text style={[styles.stepNumberText, { color: '#FF9800' }]}>2</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Get Matched</Text>
-                <Text style={styles.stepDesc}>We'll find nearby drivers for you</Text>
+                <Text style={styles.stepTitle}>Get a Courier</Text>
+                <Text style={styles.stepDesc}>We'll connect you with a nearby courier</Text>
               </View>
             </View>
             <View style={styles.step}>
@@ -400,8 +426,8 @@ Fare: ₺${ride.price || '0.00'}`,
                 <Text style={[styles.stepNumberText, { color: '#4CAF50' }]}>3</Text>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Enjoy Your Ride</Text>
-                <Text style={styles.stepDesc}>Track your driver in real-time</Text>
+                <Text style={styles.stepTitle}>Track Your Delivery</Text>
+                <Text style={styles.stepDesc}>Monitor your package in real-time until it arrives</Text>
               </View>
             </View>
           </View>
@@ -426,7 +452,7 @@ Fare: ₺${ride.price || '0.00'}`,
           onPress={() => router.push('/(passenger)/history')}
         >
           <Ionicons name="list" size={24} color={COLORS.gray} />
-          <Text style={styles.navText}>Rides</Text>
+          <Text style={styles.navText}>Dispatches</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.navItem}
@@ -674,6 +700,22 @@ const styles = StyleSheet.create({
   destinationArrow: {
     fontSize: 18,
     color: COLORS.textSecondary,
+  },
+  emptyDestinations: {
+    backgroundColor: COLORS.white,
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 4,
   },
   promoBanner: {
     flexDirection: 'row',
