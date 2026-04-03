@@ -574,7 +574,7 @@ export default function BookRideScreen() {
         if (ride.status === 'accepted') {
           Alert.alert(
             'Driver Found!',
-            `Your driver is on the way!\n\nDriver: ${ride.driver_name || 'Driver'}\nRating: ⭐ ${ride.driver_rating ? Number(ride.driver_rating).toFixed(1) : '5.0'}\nPhone: ${ride.driver_phone || 'N/A'}\nVehicle: ${ride.driver_vehicle || ride.vehicle_type || 'N/A'}`,
+            `Your courier is on the way!\n\nCourier: ${ride.driver_name || 'Courier'}\nRating: ⭐ ${ride.driver_rating ? Number(ride.driver_rating).toFixed(1) : '5.0'}\nPhone: ${ride.driver_phone || 'N/A'}\nVehicle: ${ride.driver_vehicle || ride.vehicle_type || 'N/A'}`,
             [{ text: 'Great!' }]
           );
           
@@ -622,7 +622,7 @@ export default function BookRideScreen() {
             '🎉 Arrived at Destination!', 
             `You have arrived at your destination!\n\nFare: ₺${ride.price || estimatedPrice}`,
             [{ 
-              text: 'Rate Your Driver',
+              text: 'Rate Your Courier',
               onPress: () => router.push({
                 pathname: '/(passenger)/rate-ride',
                 params: { 
@@ -721,13 +721,13 @@ export default function BookRideScreen() {
       setPickupLockedForRide(true);
       
       Alert.alert(
-        'Ride Requested!',
-        'Looking for nearby drivers...\n\nYou will be notified when a driver accepts your ride.',
+        'Courier Requested!',
+        'Looking for nearby couriers...\n\nYou will be notified when a courier accepts your ride.',
         [{ text: 'OK' }]
       );
     } catch (error) {
       console.error('Booking error:', error);
-      Alert.alert('Error', 'Failed to book ride. Please try again.');
+      Alert.alert('Error', 'Failed to book dispatch. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -737,8 +737,8 @@ export default function BookRideScreen() {
     if (!currentRide) return;
 
     Alert.alert(
-      'Cancel Ride',
-      'Are you sure you want to cancel this ride?',
+      'Cancel Dispatch',
+      'Are you sure you want to cancel this dispatch?',
       [
         { text: 'No', style: 'cancel' },
         {
@@ -766,9 +766,9 @@ export default function BookRideScreen() {
       <View style={styles.statusHeader}>
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.statusTitle}>
-          {currentRide?.status === 'pending' && 'Finding your driver...'}
-          {currentRide?.status === 'accepted' && 'Driver is on the way!'}
-          {currentRide?.status === 'active' && 'Enjoy your ride!'}
+          {currentRide?.status === 'pending' && 'Finding your courier...'}
+          {currentRide?.status === 'accepted' && 'courier is on the way!'}
+          {currentRide?.status === 'active' && 'Delivery is on the way!'}
         </Text>
       </View>
 
@@ -781,7 +781,7 @@ export default function BookRideScreen() {
               </Text>
             </View>
             <View style={styles.driverDetails}>
-              <Text style={styles.driverName}>{currentRide.driver_name || 'Your Driver'}</Text>
+              <Text style={styles.driverName}>{currentRide.driver_name || 'Your Courier'}</Text>
               <Text style={styles.driverPhone}>{currentRide.driver_phone || 'Phone not available'}</Text>
               <Text style={styles.driverVehicle}>Courier: {currentRide.driver_vehicle || currentRide.vehicle_type || 'Vehicle'}</Text>
               <View style={styles.ratingContainer}>
@@ -896,7 +896,7 @@ export default function BookRideScreen() {
                   latitude: driverLocation.latitude,
                   longitude: driverLocation.longitude,
                 }}
-                title="Your Driver"
+                title="Your Courier"
               >
                 <View style={styles.driverMarkerStyle}>
                   <Ionicons name="car" size={16} color="white" />

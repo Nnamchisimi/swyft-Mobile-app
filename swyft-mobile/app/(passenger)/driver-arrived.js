@@ -404,11 +404,11 @@ export default function DriverArrivedScreen() {
       <View style={styles.infoCard}>
         <View style={styles.header}>
           <View style={styles.driverIconContainer}>
-            <Text style={styles.driverIcon}>🚗</Text>
+            <Text style={styles.driverIcon}></Text>
           </View>
           <View style={styles.headerText}>
-            <Text style={styles.title}>Driver Arrived!</Text>
-            <Text style={styles.subtitle}>Your driver is waiting for you</Text>
+            <Text style={styles.title}>Courier Arrived!</Text>
+            <Text style={styles.subtitle}>Your courier is waiting for you</Text>
             {eta && (
               <Text style={styles.etaText}>📍 {eta}</Text>
             )}

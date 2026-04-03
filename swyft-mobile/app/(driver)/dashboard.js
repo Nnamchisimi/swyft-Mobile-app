@@ -253,7 +253,7 @@ export default function DriverDashboard() {
         
         if (isOnlineRef.current) {
           Alert.alert(
-            'New Ride Request!',
+            'New Dispatch service Request!',
             `Passenger: ${ride.passenger_name || 'Customer'}\nPickup: ${ride.pickup_location || ride.pickup || 'Nearby'}\nFare: ₺${ride.price || '0.00'}`,
             [{ text: 'OK' }]
           );
@@ -470,7 +470,7 @@ export default function DriverDashboard() {
     try {
       await ridesAPI.arriveRide(currentRide.id);
       setCurrentRide({ ...currentRide, status: 'arrived' });
-      Alert.alert('Passenger Notified', 'The passenger has been notified that you have arrived.');
+      Alert.alert('Sender Notified', 'The sender has been notified that you have arrived.');
     } catch (error) {
       Alert.alert('Error', 'Failed to update status');
     }
@@ -508,7 +508,7 @@ export default function DriverDashboard() {
       
       Alert.alert('Ride Started', 'Drive safely!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to start ride');
+      Alert.alert('Error', 'Failed to start Dispatch');
     }
   };
 
@@ -516,7 +516,7 @@ export default function DriverDashboard() {
     if (!currentRide) return;
     
     Alert.alert(
-      'Complete Ride',
+      'Complete Dispatch',
       'Mark this ride as completed?',
       [
         { text: 'Cancel', style: 'cancel' },
@@ -526,12 +526,12 @@ export default function DriverDashboard() {
             try {
               const price = currentRide.price || 0;
               await ridesAPI.completeRide(currentRide.id, price);
-              Alert.alert('Success', 'Ride completed! Great job!');
+              Alert.alert('Success', 'Dispatch completed! Great job!');
               setCurrentRide(null);
               fetchPendingRides();
               loadEarnings(driverInfo?.email);
             } catch (error) {
-              Alert.alert('Error', 'Failed to complete ride');
+              Alert.alert('Error', 'Failed to complete Dispatch');
             }
           },
         },
@@ -611,7 +611,7 @@ export default function DriverDashboard() {
               setCurrentRide(null);
               fetchPendingRides();
             } catch (error) {
-              Alert.alert('Error', 'Failed to cancel ride');
+              Alert.alert('Error', 'Failed to cancel dispatch');
             }
           },
         },
