@@ -728,8 +728,9 @@ app.post('/api/rides/:id/start', (req,res)=>{
 // Complete ride - driver marks as complete, but passenger must confirm
 app.post('/api/rides/:id/complete', (req,res)=>{
   const rideId = req.params.id;
+  const { final_price } = req.body;
   // Driver completes ride - status is 'completed' but passenger needs to confirm
-  db.query('UPDATE rides SET status=$1, completed_at = NOW() WHERE id=$2 AND status IN ($3, $4)', ['completed', rideId, 'accepted', 'active'], (err,result)=>{
+  db.query('UPDATE rides SET status=$1, price = COALESCE($2, price), completed_at = NOW() WHERE id=$3 AND status IN ($4, $5)', ['completed', final_price, rideId, 'accepted', 'active'], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.rowCount===0) return res.status(400).json({error:"Cannot complete ride"});
     io.emit('rideUpdated',{id:rideId,status:"completed"});
