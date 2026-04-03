@@ -875,80 +875,78 @@ app.get('/api/drivers/earnings', (req, res) => {
   
   // Include multiple completed statuses: completed, confirmed, active (in case completed but not confirmed)
   const completedStatuses = ['completed', 'confirmed', 'active'];
-  
-  // Try simple queries, return defaults on any error
-  try {
-    const simpleQuery = `SELECT COALESCE(SUM(price), 0) as total FROM rides WHERE driver_email = $1 AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')})`;
-    db.query(simpleQuery, [email], (err, results) => {
-      if (err) {
-        console.log('Earnings query error:', err.message);
-        return res.json({ today_earnings: 0, total_earnings: 0, total_trips: 0, recent_rides: [] });
+  const statusList = completedStatuses.map(s => "'" + s + "'").join(',');
+
+  // Get total earnings
+  const simpleQuery = `SELECT COALESCE(SUM(price), 0) as total FROM rides WHERE driver_email = $1 AND status IN (${statusList})`;
+  db.query(simpleQuery, [email], (err, results) => {
+    if (err) {
+      console.log('Earnings query error:', err.message);
+      return res.json({ today_earnings: 0, total_earnings: 0, total_trips: 0, recent_rides: [] });
+    }
+    const total = results.rows[0]?.total || 0;
+    
+    // Get today's earnings
+    const todayQuery = `SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN (${statusList}) AND DATE(created_at) = CURRENT_DATE`;
+    db.query(todayQuery, [email], (err2, todayResults) => {
+      if (err2) {
+        console.log('Today earnings query error:', err2.message);
       }
-      const total = results.rows[0]?.total || 0;
+      const today = todayResults.rows[0]?.today || 0;
       
-        // Get today's earnings
-        const todayQuery = `SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')}) AND DATE(created_at) = CURRENT_DATE`;
-        db.query(todayQuery, [email], (err2, todayResults) => {
-          if (err2) {
-            console.log('Today earnings query error:', err2.message);
+      // Get this week's earnings (last 7 days)
+      const weekQuery = `SELECT COALESCE(SUM(price), 0) as week FROM rides WHERE driver_email = $1 AND status IN (${statusList}) AND created_at >= CURRENT_DATE - INTERVAL '7 days'`;
+      db.query(weekQuery, [email], (errWeek, weekResults) => {
+        if (errWeek) {
+          console.log('Week earnings query error:', errWeek.message);
+        }
+        const week = weekResults.rows[0]?.week || 0;
+        
+        // Get this month's earnings
+        const monthQuery = `SELECT COALESCE(SUM(price), 0) as month FROM rides WHERE driver_email = $1 AND status IN (${statusList}) AND created_at >= DATE_TRUNC('month', CURRENT_DATE)`;
+        db.query(monthQuery, [email], (errMonth, monthResults) => {
+          if (errMonth) {
+            console.log('Month earnings query error:', errMonth.message);
           }
-          const today = todayResults.rows[0]?.today || 0;
+          const month = monthResults.rows[0]?.month || 0;
           
-          // Get this week's earnings (last 7 days)
-          const weekQuery = `SELECT COALESCE(SUM(price), 0) as week FROM rides WHERE driver_email = $1 AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')}) AND created_at >= CURRENT_DATE - INTERVAL '7 days'`;
-          db.query(weekQuery, [email], (errWeek, weekResults) => {
-            if (errWeek) {
-              console.log('Week earnings query error:', errWeek.message);
+          // Get trip count
+          const countQuery = `SELECT COUNT(*) as count FROM rides WHERE driver_email = $1 AND status IN (${statusList})`;
+          db.query(countQuery, [email], (err3, countResults) => {
+            if (err3) {
+              console.log('Count query error:', err3.message);
             }
-            const week = weekResults.rows[0]?.week || 0;
+            const trips = countResults.rows[0]?.count || 0;
             
-            // Get this month's earnings
-            const monthQuery = `SELECT COALESCE(SUM(price), 0) as month FROM rides WHERE driver_email = $1 AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')}) AND created_at >= DATE_TRUNC('month', CURRENT_DATE)`;
-            db.query(monthQuery, [email], (errMonth, monthResults) => {
-              if (errMonth) {
-                console.log('Month earnings query error:', errMonth.message);
+            // Get recent rides
+            const recentRidesQuery = `
+              SELECT r.id, r.passenger_name, r.price, r.status, r.created_at, 
+                     r.pickup_location, r.dropoff_location
+              FROM rides r 
+              WHERE r.driver_email = $1 AND r.status IN (${statusList})
+              ORDER BY r.created_at DESC 
+              LIMIT 10
+            `;
+            db.query(recentRidesQuery, [email], (err4, ridesResults) => {
+              if (err4) {
+                console.log('Recent rides query error:', err4.message);
               }
-              const month = monthResults.rows[0]?.month || 0;
+              const recentRides = ridesResults?.rows || [];
               
-              // Get trip count
-              const countQuery = `SELECT COUNT(*) as count FROM rides WHERE driver_email = $1 AND status IN (${completedStatuses.map(s => `'${s}'`).join(',')})`;
-              db.query(countQuery, [email], (err3, countResults) => {
-          if (err3) {
-            console.log('Count query error:', err3.message);
-          }
-          const trips = countResults.rows[0]?.count || 0;
-          
-          // Get recent rides
-          const recentRidesQuery = `
-            SELECT r.id, r.passenger_name, r.price, r.status, r.created_at, 
-                   r.pickup_location, r.dropoff_location
-            FROM rides r 
-            WHERE r.driver_email = $1 AND r.status IN (${completedStatuses.map(s => `'${s}'`).join(',')})
-            ORDER BY r.created_at DESC 
-            LIMIT 10
-          `;
-          db.query(recentRidesQuery, [email], (err4, ridesResults) => {
-            if (err4) {
-              console.log('Recent rides query error:', err4.message);
-            }
-            const recentRides = ridesResults?.rows || [];
-            
-            res.json({ 
-              today_earnings: today, 
-              total_earnings: total, 
-              total_trips: trips, 
-              week_earnings: week,
-              month_earnings: month,
-              recent_rides: recentRides
+              res.json({ 
+                today_earnings: today, 
+                total_earnings: total, 
+                total_trips: trips, 
+                week_earnings: week,
+                month_earnings: month,
+                recent_rides: recentRides
+              });
             });
           });
         });
       });
     });
-  } catch (e) {
-    console.log('Earnings catch error:', e.message);
-    res.json({ today_earnings: 0, total_earnings: 0, total_trips: 0, recent_rides: [] });
-  }
+  });
 });
 
 // Get driver stats (today's trips and earnings) - must be defined BEFORE /api/drivers/:email
