@@ -233,7 +233,7 @@ app.post('/api/users', async (req, res) => {
   } = req.body;
   
   if (!first_name || !last_name || !email || !password || !role)
-    return res.status(400).json({ error: 'Missing required fields', missing: {!first_name ? 'first_name' : !last_name ? 'last_name' : !email ? 'email' : !password ? 'password' : !role ? 'role' : ''} });
+    return res.status(400).json({ error: 'Missing required fields: first_name, last_name, email, password, role' });
 
   if (role === 'driver' && (!vehicle_make || !vehicle_model || !vehicle_plate))
     return res.status(400).json({ error: 'Vehicle details required for drivers' });
