@@ -15,9 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.swyft.rideshare",
+      "bundleIdentifier": "com.swyftinc.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Swyft needs access to your location to find rides near you and track your driver."
+        "NSLocationWhenInUseUsageDescription": "Swyft needs access to your location to find rides near you and track your driver.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Swyft needs access to your location to track your delivery in the background."
       },
       "config": {
         "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"

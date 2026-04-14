@@ -88,4 +88,16 @@ export const driversAPI = {
   getDriver: (email) => api.get(`/api/drivers/${email}`),
 };
 
+export const favoritesAPI = {
+  getFavorites: (params) => api.get('/api/favorites', { params }),
+  addFavorite: (data) => api.post('/api/favorites', data),
+  deleteFavorite: (id) => api.delete(`/api/favorites/${id}`),
+};
+
+export const paymentAPI = {
+  getPaymentMethods: (params) => api.get('/api/payment-methods', { params }),
+  addPaymentMethod: (data) => api.post('/api/payment-methods', data),
+  deletePaymentMethod: (id) => api.delete(`/api/payment-methods/${id}`),
+};
+
 export default api;

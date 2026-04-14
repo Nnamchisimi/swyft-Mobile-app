@@ -200,3 +200,28 @@ CREATE TRIGGER update_email_tokens_updated_at BEFORE UPDATE ON email_tokens
 -- Insert some initial data (optional)
 -- INSERT INTO users (first_name, last_name, email, password, role) VALUES 
 -- ('Admin', 'User', 'admin@swyft.com', 'hashed_password_here', 'passenger');
+
+-- Create favorites table
+CREATE TABLE IF NOT EXISTS favorites (
+  id SERIAL PRIMARY KEY,
+  passenger_email VARCHAR(255) NOT NULL,
+  name VARCHAR(255),
+  pickup_location VARCHAR(255),
+  dropoff_location VARCHAR(255),
+  pickup_lat DECIMAL(10, 8),
+  pickup_lng DECIMAL(11, 8),
+  dropoff_lat DECIMAL(10, 8),
+  dropoff_lng DECIMAL(11, 8),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create payment_methods table
+CREATE TABLE IF NOT EXISTS payment_methods (
+  id SERIAL PRIMARY KEY,
+  passenger_email VARCHAR(255) NOT NULL,
+  card_number VARCHAR(20),
+  card_name VARCHAR(255),
+  expiry_date VARCHAR(10),
+  cvv VARCHAR(4),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);

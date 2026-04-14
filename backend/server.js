@@ -236,37 +236,45 @@ app.post('/api/users', async (req, res) => {
   if (role === 'driver' && (!vehicle_make || !vehicle_model || !vehicle_plate))
     return res.status(400).json({ error: 'Vehicle details required for drivers' });
 
-  db.query('SELECT * FROM users WHERE email = $1', [email], async (err, results) => {
-    if (err) return res.status(500).json({ error: 'Server error' });
+  const normalizedRole = (role || 'passenger');
+  
+  db.query('SELECT id FROM users WHERE email = $1', [email], async (err, results) => {
+    if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
     if (results.rows.length > 0) return res.status(400).json({ error: 'Email already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user first
-    const userQuery = 'INSERT INTO users (first_name, last_name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id';
-    const userValues = [first_name, last_name, email, hashedPassword, (role || 'passenger').toLowerCase(), phone || null];
+    // Insert user first - keep role case as sent by client to match database ENUM
+    const userQuery = 'INSERT INTO users (first_name, last_name, email, password, role, phone, is_verified, verified) VALUES ($1, $2, $3, $4, $5, $6, true, true) RETURNING id, role';
+    const userValues = [first_name, last_name, email, hashedPassword, normalizedRole, phone || null];
 
     db.query(userQuery, userValues, (err2, result) => {
-      if (err2) return res.status(500).json({ error: 'Failed to create user', details: err2.message });
+      if (err2) {
+        console.log('User insert error:', err2.message);
+        return res.status(500).json({ error: 'Failed to create user', details: err2.message });
+      }
 
       const userId = result.rows[0].id;
+      const userRole = result.rows[0].role;
+      
+      console.log('User created:', userId, 'Role:', userRole);
 
-      // If driver, insert car details
-      if (role === 'driver') {
+      // If driver, insert car details (check case-insensitive)
+      if (userRole && userRole.toLowerCase() === 'driver') {
         const carQuery = 'INSERT INTO cars (user_id, make, model, year, color, plate_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id';
         const carValues = [userId, vehicle_make, vehicle_model, vehicle_year || '2020', vehicle_color || 'White', vehicle_plate];
         
         db.query(carQuery, carValues, (err3, carResult) => {
-          if (err3) return res.status(500).json({ error: 'Failed to save vehicle details', details: err3.message });
-          
-          // Update user with vehicle_id
-          db.query('UPDATE users SET vehicle_id = $1 WHERE id = $2', [carResult.rows[0].id, userId]);
+          if (err3) console.log('Car insert error (may be missing table):', err3.message);
+          else {
+            db.query('UPDATE users SET vehicle_id = $1 WHERE id = $2', [carResult.rows[0].id, userId]);
+          }
         });
 
         // Create driver profile for tracking online status and location
         const driverProfileQuery = 'INSERT INTO driver_profiles (user_id, is_online, rating, total_trips) VALUES ($1, false, 5.0, 0)';
         db.query(driverProfileQuery, [userId], (err4) => {
-          if (err4) console.error('Error creating driver profile:', err4);
+          if (err4) console.log('Driver profile error (may be missing table):', err4.message);
         });
       }
 
@@ -1243,6 +1251,64 @@ app.post('/api/rides/:id/complete', (req, res) => {
     if (result.rowCount === 0) return res.status(400).json({ error: 'Cannot complete ride' });
     io.emit('rideUpdated', { id: rideId, status: 'completed' });
     res.json({ message: 'Ride completed', rideId });
+  });
+});
+
+// Favorites endpoints
+app.get('/api/favorites', (req, res) => {
+  const { passenger_email } = req.query;
+  db.query('SELECT * FROM favorites WHERE passenger_email = $1 ORDER BY created_at DESC', [passenger_email], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    res.json(result.rows);
+  });
+});
+
+app.post('/api/favorites', (req, res) => {
+  const { passenger_email, name, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng } = req.body;
+  db.query(
+    'INSERT INTO favorites (passenger_email, name, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+    [passenger_email, name, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: 'Server error' });
+      res.json(result.rows[0]);
+    }
+  );
+});
+
+app.delete('/api/favorites/:id', (req, res) => {
+  const id = req.params.id;
+  db.query('DELETE FROM favorites WHERE id = $1', [id], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    res.json({ message: 'Favorite deleted' });
+  });
+});
+
+// Payment methods endpoints
+app.get('/api/payment-methods', (req, res) => {
+  const { passenger_email } = req.query;
+  db.query('SELECT id, passenger_email, card_name, card_number, expiry_date, created_at FROM payment_methods WHERE passenger_email = $1 ORDER BY created_at DESC', [passenger_email], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    res.json(result.rows);
+  });
+});
+
+app.post('/api/payment-methods', (req, res) => {
+  const { passenger_email, card_number, card_name, expiry_date, cvv } = req.body;
+  db.query(
+    'INSERT INTO payment_methods (passenger_email, card_number, card_name, expiry_date, cvv) VALUES ($1, $2, $3, $4, $5) RETURNING id, passenger_email, card_name, card_number, expiry_date',
+    [passenger_email, card_number, card_name, expiry_date, cvv],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: 'Server error' });
+      res.json(result.rows[0]);
+    }
+  );
+});
+
+app.delete('/api/payment-methods/:id', (req, res) => {
+  const id = req.params.id;
+  db.query('DELETE FROM payment_methods WHERE id = $1', [id], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    res.json({ message: 'Payment method deleted' });
   });
 });
 
