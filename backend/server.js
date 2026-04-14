@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
@@ -43,7 +43,7 @@ io.on("connection", (socket) => {
     // Update driver_profiles table with online status and location
     const query = `
       INSERT INTO driver_profiles (user_id, is_online, current_lat, current_lng)
-      SELECT id, true, $1, $2 FROM users WHERE email = $3
+      SELECT id, true, $1, $2 FROM public.users WHERE email = $3
       ON CONFLICT (user_id) DO UPDATE SET is_online = true, current_lat = EXCLUDED.current_lat, current_lng = EXCLUDED.current_lng
     `;
     db.query(query, [data.location?.lat || null, data.location?.lng || null, data.email], (err) => {
@@ -64,7 +64,7 @@ io.on("connection", (socket) => {
     db.query(`
       UPDATE driver_profiles dp
       SET is_online = false, current_lat = NULL, current_lng = NULL
-      FROM users u
+      FROM public.users u
       WHERE dp.user_id = u.id AND u.email = $1
     `, [email], (err) => {
       if (err) console.error('Error updating driver offline status:', err);
@@ -84,7 +84,7 @@ io.on("connection", (socket) => {
     db.query(`
       UPDATE driver_profiles dp
       SET current_lat = $1, current_lng = $2
-      FROM users u
+      FROM public.users u
       WHERE dp.user_id = u.id AND u.email = $3
     `, 
       [data.location?.lat, data.location?.lng, data.email], (err) => {
@@ -139,7 +139,7 @@ io.on("connection", (socket) => {
   // Driver heartbeat to maintain connection status
   socket.on("driverHeartbeat", (data) => {
     if (socket.driverEmail) {
-      db.query('UPDATE users SET last_active = NOW() WHERE email = $1', [socket.driverEmail], (err) => {
+      db.query('UPDATE public.users SET last_active = NOW() WHERE email = $1', [socket.driverEmail], (err) => {
         if (err) console.error('Error updating driver heartbeat:', err);
       });
     }
@@ -154,13 +154,13 @@ io.on("connection", (socket) => {
     io.to("onlineDrivers").emit("newRide", ride);
     io.emit("newRide", ride);
   });
-  
+
   socket.on("rideUpdated", (ride) => {
     io.emit("rideUpdated", ride);
     if (ride.passenger_email) io.to(ride.passenger_email).emit("rideUpdated", ride);
     if (ride.driver_email) io.to(ride.driver_email).emit("rideUpdated", ride);
   });
-  
+
   socket.on("driverLocationUpdated", (data) => io.emit("driverLocationUpdated", data));
   
   socket.on("disconnect", () => {
@@ -172,11 +172,32 @@ io.on("connection", (socket) => {
   });
 });
 
-// Nodemailer
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-});
+// Resend Email Configuration
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Helper function to send verification email via Resend
+async function sendWithResend(toEmail, code) {
+  try {
+    const data = await resend.emails.send({
+      from: 'Swyft <onboarding@resend.dev>',
+      to: toEmail,
+      subject: 'Swyft - Verify Your Account',
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #2563eb;">Verify Your Account</h1>
+          <p>Your verification code is:</p>
+          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;">
+            ${code}
+          </div>
+          <p style="color: #6b7280;">This code expires in 15 minutes.</p>
+        </div>
+      `
+    });
+    console.log('Email sent successfully to:', toEmail, 'Resend ID:', data.data?.id);
+  } catch (err) {
+    console.log('Email send error:', err.message);
+  }
+}
 
 // Health check route
 app.get('/', (req, res) => {
@@ -227,17 +248,26 @@ app.post('/api/users/verify-code', (req, res) => {
     return res.status(400).json({ error: 'Email and code required' });
   }
   
-  db.query('SELECT * FROM email_verification_tokens WHERE user_id IN (SELECT id FROM public.users WHERE email = $1) AND token = $1 AND expires_at > NOW()', [email, code], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Server error' });
-    if (results.rows.length === 0) return res.status(400).json({ error: 'Invalid or expired code' });
+  console.log('Verifying code:', email, code);
+  
+  // First get user by email
+  db.query('SELECT id FROM public.users WHERE email = $1', [email], (err0, userResult) => {
+    if (err0) return res.status(500).json({ error: 'Server error finding user: ' + err0.message });
+    if (userResult.rows.length === 0) return res.status(400).json({ error: 'User not found' });
     
-    // Get user and update verified status
-    db.query('SELECT id FROM public.users WHERE email = $1', [email], (err2, userResult) => {
-      if (err2 || userResult.rows.length === 0) return res.status(400).json({ error: 'User not found' });
+    const userId = userResult.rows[0].id;
+    console.log('Found userId:', userId);
+    
+    // Then check the verification code
+    db.query('SELECT * FROM email_verification_tokens WHERE user_id = $1 AND token = $2 AND expires_at > NOW()', [userId, code], (err, results) => {
+      if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
+      console.log('Token query results:', results.rows);
       
-      const userId = userResult.rows[0].id;
+      if (results.rows.length === 0) return res.status(400).json({ error: 'Invalid or expired code' });
+      
+      // Update user as verified
       db.query('UPDATE public.users SET is_verified = true, verified = true WHERE id = $1', [userId], (err3) => {
-        if (err3) return res.status(500).json({ error: 'Verification failed' });
+        if (err3) return res.status(500).json({ error: 'Verification failed: ' + err3.message });
         
         // Delete used token
         db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
@@ -247,6 +277,8 @@ app.post('/api/users/verify-code', (req, res) => {
           if (err4 || user.rows.length === 0) return res.status(500).json({ error: 'User not found' });
           
           const token = jwt.sign({ id: userId, email, role: user.rows[0].role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+          
+          console.log('Verification successful for user:', userId);
           
           res.json({ 
             message: 'Email verified successfully',
@@ -280,18 +312,9 @@ app.post('/api/users/resend-code', (req, res) => {
     db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, code], (err2) => {
       if (err2) return res.status(500).json({ error: 'Failed to generate code' });
       
-      // Send email
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Swyft - Verification Code',
-        text: `Your verification code is: ${code}\n\nThis code expires in 15 minutes.`
-      };
-      
-      transporter.sendMail(mailOptions, (err3) => {
-        if (err3) return res.status(500).json({ error: 'Failed to send email' });
-        res.json({ message: 'Verification code sent' });
-      });
+      // Send email using helper function
+      sendWithResend(email, code);
+      res.json({ message: 'Verification code sent' });
     });
   });
 });
@@ -325,7 +348,7 @@ app.post('/api/users', async (req, res) => {
   // Capitalize first letter to match database format
   const dbRole = normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1);
   
-  db.query('SELECT id FROM users WHERE email = $1', [email], async (err, results) => {
+  db.query('SELECT id FROM public.users WHERE email = $1', [email], async (err, results) => {
     if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
     if (results.rows.length > 0) return res.status(400).json({ error: 'Email already exists' });
 
@@ -355,16 +378,10 @@ app.post('/api/users', async (req, res) => {
       });
       
       // Send verification email
-      const mailOptions = {
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Swyft - Verify Your Account',
-        text: `Your verification code is: ${verificationCode}\n\nEnter this code in the app to verify your account.\n\nThis code expires in 15 minutes.`
-      };
+      console.log('Attempting to send email to:', email);
       
-      transporter.sendMail(mailOptions, (err6) => {
-        if (err6) console.log('Email send error:', err6.message);
-      });
+      // Send verification email via Resend
+      sendWithResend(email, verificationCode);
 
       // Return response - DON'T log them in yet, require verification
       res.status(201).json({ 
@@ -468,7 +485,7 @@ app.get('/api/user/profile', (req, res) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate, role FROM users WHERE id = $1', [decoded.id], (err, results) => {
+    db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate, role FROM public.users WHERE id = $1', [decoded.id], (err, results) => {
       if (err) return res.status(500).json({ error: 'Database error' });
       if (results.rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
@@ -490,7 +507,7 @@ app.get('/api/user/profile', (req, res) => {
 
 // GET all drivers
 app.get('/api/drivers', (req, res) => {
-  db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate FROM users WHERE role = $1', ['driver'], (err, results) => {
+  db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate FROM public.users WHERE role = $1', ['driver'], (err, results) => {
     if (err) return res.status(500).json({ error: 'Failed to fetch drivers' });
     res.json(results.rows);
   });
@@ -570,7 +587,7 @@ app.post('/api/rides', (req, res) => {
   }
 
   // First get the passenger's user ID from the users table
-  const getUserQuery = 'SELECT id FROM users WHERE email = $1';
+  const getUserQuery = 'SELECT id FROM public.users WHERE email = $1';
   db.query(getUserQuery, [passengerEmail], (errUser, userResults) => {
     let passengerId = null;
     if (userResults && userResults.rows.length > 0) {
@@ -661,7 +678,7 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
     console.log('Driver phone from socket:', phone);
     console.log('Driver vehicle from socket:', vehicle);
     
-    const userQuery = `SELECT id, first_name, phone FROM users WHERE email = $1`;
+    const userQuery = `SELECT id, first_name, phone FROM public.users WHERE email = $1`;
     db.query(userQuery, [email], (errUser, userResults) => {
       console.log('User query error:', errUser);
       console.log('User query results:', userResults);
@@ -918,7 +935,7 @@ app.post('/api/drivers/status', (req, res) => {
   const query = `
     UPDATE driver_profiles dp
     SET is_online = $1, current_lat = $2, current_lng = $3
-    FROM users u
+    FROM public.users u
     WHERE dp.user_id = u.id AND u.email = $4
   `;
   db.query(query, [is_online ? true : false, lat || null, lng || null, email], (err, result) => {
@@ -935,7 +952,7 @@ app.get('/api/drivers/nearby', (req, res) => {
     // Return all online drivers if no location specified
     db.query(`
       SELECT u.id, u.first_name, u.last_name, u.email, u.phone, dp.rating, dp.is_online, dp.current_lat, dp.current_lng
-      FROM users u
+      FROM public.users u
       JOIN driver_profiles dp ON u.id = dp.user_id
       WHERE LOWER(u.role) = $1 AND dp.is_online = true
     `, ['driver'], (err, results) => {
@@ -949,7 +966,7 @@ app.get('/api/drivers/nearby', (req, res) => {
   const query = `
     SELECT u.id, u.first_name, u.last_name, u.email, u.phone, dp.rating, dp.is_online, dp.current_lat, dp.current_lng,
     (6371 * acos(cos(radians(?)) * cos(radians(dp.current_lat)) * cos(radians(dp.current_lng) - radians(?)) + sin(radians(?)) * sin(radians(dp.current_lat)))) AS distance
-    FROM users u
+    FROM public.users u
     JOIN driver_profiles dp ON u.id = dp.user_id
     WHERE LOWER(u.role) = 'driver' AND dp.is_online = true AND dp.current_lat IS NOT NULL
     HAVING distance < ?
@@ -1088,7 +1105,7 @@ app.get('/api/drivers/:email', (req, res) => {
     SELECT u.id, u.first_name, u.last_name, u.email, u.phone, dp.rating, dp.is_online,
            c.make, c.model, c.year, c.color, c.plate_number, 
            u.vehicle_plate, u.vehicle_id
-    FROM users u
+    FROM public.users u
     LEFT JOIN driver_profiles dp ON u.id = dp.user_id
     LEFT JOIN cars c ON (u.vehicle_id = c.id OR u.id = c.user_id)
     WHERE u.email = $1 AND LOWER(u.role) = 'driver'
@@ -1130,7 +1147,7 @@ app.get('/api/drivers/:email', (req, res) => {
 app.get('/api/passengers/:email', (req, res) => {
   const { email } = req.params;
   
-  db.query('SELECT id, first_name, last_name, email, phone, rating FROM users WHERE email = $1', [email], (err, results) => {
+  db.query('SELECT id, first_name, last_name, email, phone, rating FROM public.users WHERE email = $1', [email], (err, results) => {
     if (err) return res.status(500).json({ error: 'Failed to fetch passenger info' });
     if (results.rows.length === 0) return res.status(404).json({ error: 'Passenger not found' });
     res.json(results.rows[0]);
