@@ -193,9 +193,11 @@ async function sendWithResend(toEmail, code) {
         </div>
       `
     });
-    console.log('Email sent successfully to:', toEmail, 'Resend ID:', data.data?.id);
+    console.log('Email sent successfully to:', toEmail);
+    console.log('Resend Response:', JSON.stringify(data, null, 2));
   } catch (err) {
     console.log('Email send error:', err.message);
+    console.log('Full error:', JSON.stringify(err, null, 2));
   }
 }
 
@@ -354,7 +356,7 @@ app.post('/api/users', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user - specify public schema to avoid auth.users conflict
+    // Insert user - auto-verify users (no email verification)
     const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified, verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, role';
     const userValues = [first_name, last_name, email, hashedPassword, dbRole, phone || null, true, true];
 
@@ -367,27 +369,13 @@ app.post('/api/users', async (req, res) => {
       const userId = result.rows[0].id;
       const userRole = result.rows[0].role;
       
-      console.log('User created (unverified):', userId, 'Role:', userRole);
+      console.log('User created (auto-verified):', userId, 'Role:', userRole);
 
-      // Generate verification code
-      const verificationCode = generateVerificationCode();
-      
-      // Save verification code to database
-      db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, verificationCode], (err5) => {
-        if (err5) console.log('Verification code error:', err5.message);
-      });
-      
-      // Send verification email
-      console.log('Attempting to send email to:', email);
-      
-      // Send verification email via Resend
-      sendWithResend(email, verificationCode);
-
-      // Return response - DON'T log them in yet, require verification
+      // Return success - user is automatically verified
       res.status(201).json({ 
-        message: 'Verification code sent to your email',
-        requiresVerification: true,
-        email // Send email back so frontend knows where to send the code
+        message: 'User created successfully',
+        requiresVerification: false,
+        email: email
       });
     });
   });
