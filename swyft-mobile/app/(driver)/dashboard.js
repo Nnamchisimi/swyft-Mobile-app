@@ -1642,7 +1642,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 12,
   },
-  offlineText: {
+  offlineMessage: {
     fontSize: 14,
     color: COLORS.textSecondary,
     textAlign: 'center',

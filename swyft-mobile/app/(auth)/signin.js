@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { signInWithGoogle } from '../../src/services/googleAuth';
 import { authService } from '../../src/services/auth';
 import { COLORS, API_URL } from '../../src/constants/config';
 
@@ -29,18 +29,21 @@ export default function SignInScreen() {
     try {
       setLoading(true);
       setError('');
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
       
-      console.log('Google Sign-In user info:', userInfo);
+      const result = await signInWithGoogle();
       
-      const googleEmail = userInfo.user.email;
+      if (!result.success) {
+        if (result.error === 'cancelled') return;
+        throw new Error(result.error);
+      }
+      
+      const googleEmail = result.user.email;
       
       // Try to login with Google
-      const result = await authService.login(googleEmail, 'google-oauth');
+      const loginResult = await authService.login(googleEmail, 'google-oauth');
       
-      if (result.success) {
-        const role = (result.user.role || 'passenger').toLowerCase();
+      if (loginResult.success) {
+        const role = (loginResult.user.role || 'passenger').toLowerCase();
         if (role === 'driver') {
           router.replace('/(driver)/dashboard');
         } else {
@@ -178,7 +181,7 @@ export default function SignInScreen() {
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
+            <Text style={styles.footerText}>Don&apos;t have an account? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
               <Text style={styles.link}>Sign Up</Text>
             </TouchableOpacity>

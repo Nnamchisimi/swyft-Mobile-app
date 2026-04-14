@@ -11,68 +11,15 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { signInWithGoogle } from '../../src/services/googleAuth';
 import { authService } from '../../src/services/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 
-GoogleSignin.configure({
-  webClientId: '1077024630815-slblerpat1q0ckbv688anvvirhr04r5q.apps.googleusercontent.com',
-  iosClientId: '1077024630815-slblerpat1q0ckbv688anvvirhr04r5q.apps.googleusercontent.com',
-  iosUrlScheme: 'com.googleusercontent.apps.1077024630815-slblerpat1q0ckbv688anvvirhr04r5q',
-  offlinePrompt: false,
-  forceCodeForRefreshToken: true,
-});
-
-const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      
-      console.log('Google Sign-In user info:', userInfo);
-      
-      const googleEmail = userInfo.user.email;
-      const googleFirstName = userInfo.user.givenName || '';
-      const googleLastName = userInfo.user.familyName || '';
-      
-      // Pre-fill form with Google data
-      setFormData(prev => ({
-        ...prev,
-        email: googleEmail,
-        firstName: googleFirstName,
-        lastName: googleLastName,
-      }));
-      
-      // If user already exists, try to login
-      try {
-        const result = await authService.login(googleEmail, 'google-oauth');
-        if (result.success) {
-          if (result.user?.role?.toLowerCase() === 'driver') {
-            router.replace('/(driver)/dashboard');
-          } else {
-            router.replace('/(passenger)/home');
-          }
-          return;
-        }
-      } catch (e) {
-        // User doesn't exist, continue to fill form
-      }
-      
-      Alert.alert('Info', 'Please complete your registration by filling in the remaining details.');
-      
-    } catch (error) {
-      console.log('Google Sign-In error:', error);
-      if (error.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Google Sign-In Error', 'Please try again or register manually.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
+export default function RegisterScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -90,6 +37,55 @@ const handleGoogleSignIn = async () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      
+      const result = await signInWithGoogle();
+      
+      if (!result.success) {
+        if (result.error === 'cancelled') {
+          setLoading(false);
+          return;
+        }
+        throw new Error(result.error);
+      }
+      
+      const googleEmail = result.user.email;
+      const googleFirstName = result.user.given_name || '';
+      const googleLastName = result.user.family_name || '';
+      
+      setFormData(prev => ({
+        ...prev,
+        email: googleEmail,
+        firstName: googleFirstName,
+        lastName: googleLastName,
+      }));
+      
+      try {
+        const loginResult = await authService.login(googleEmail, 'google-oauth');
+        if (loginResult.success) {
+          if (loginResult.user?.role?.toLowerCase() === 'driver') {
+            router.replace('/(driver)/dashboard');
+          } else {
+            router.replace('/(passenger)/home');
+          }
+          return;
+        }
+      } catch (e) {}
+      
+      Alert.alert('Info', 'Please complete your registration by filling in the remaining details.');
+      
+    } catch (error) {
+      console.log('Google Sign-In error:', error);
+      if (error.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Google Sign-In Error', 'Please try again or register manually.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
