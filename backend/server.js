@@ -216,6 +216,8 @@ app.get('/api/pricing', (req, res) => {
 
 // === SIGNUP ===
 app.post('/api/users', async (req, res) => {
+  console.log('Registration request received:', req.body);
+  
   const { 
     first_name, 
     last_name, 
@@ -231,12 +233,15 @@ app.post('/api/users', async (req, res) => {
   } = req.body;
   
   if (!first_name || !last_name || !email || !password || !role)
-    return res.status(400).json({ error: 'Missing required fields' });
+    return res.status(400).json({ error: 'Missing required fields', missing: {!first_name ? 'first_name' : !last_name ? 'last_name' : !email ? 'email' : !password ? 'password' : !role ? 'role' : ''} });
 
   if (role === 'driver' && (!vehicle_make || !vehicle_model || !vehicle_plate))
     return res.status(400).json({ error: 'Vehicle details required for drivers' });
 
   const normalizedRole = (role || 'passenger');
+  
+  // Capitalize first letter to match database format
+  const dbRole = normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1);
   
   db.query('SELECT id FROM users WHERE email = $1', [email], async (err, results) => {
     if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
@@ -244,9 +249,9 @@ app.post('/api/users', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user first - keep role case as sent by client to match database ENUM
-    const userQuery = 'INSERT INTO users (first_name, last_name, email, password, role, phone, is_verified, verified) VALUES ($1, $2, $3, $4, $5, $6, true, true) RETURNING id, role';
-    const userValues = [first_name, last_name, email, hashedPassword, normalizedRole, phone || null];
+    // Insert user - specify public schema to avoid auth.users conflict
+    const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified, verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, role';
+    const userValues = [first_name, last_name, email, hashedPassword, dbRole, phone || null, true, true];
 
     db.query(userQuery, userValues, (err2, result) => {
       if (err2) {

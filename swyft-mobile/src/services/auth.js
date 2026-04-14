@@ -50,11 +50,13 @@ class AuthService {
   async register(userData) {
     try {
       const response = await authAPI.register(userData);
+      console.log('Registration response:', response.data);
       return { success: true, message: response.data.message };
     } catch (error) {
+      console.log('Registration error:', error.response?.data);
       return {
         success: false,
-        error: error.response?.data?.error || error.message || 'Registration failed',
+        error: error.response?.data?.error || error.response?.data?.details || error.message || 'Registration failed',
       };
     }
   }
