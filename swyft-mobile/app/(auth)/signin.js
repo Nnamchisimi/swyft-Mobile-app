@@ -52,7 +52,16 @@ export default function SignInScreen() {
         }
       } else {
         console.log('Login failed with error:', result.error);
-        setError(result.error);
+        
+        // Check if verification is required
+        if (result.requiresVerification) {
+          router.replace({
+            pathname: '/(auth)/verify',
+            params: { email: result.email }
+          });
+        } else {
+          setError(result.error);
+        }
       }
     } catch (err) {
       console.log('Login exception caught:', err);

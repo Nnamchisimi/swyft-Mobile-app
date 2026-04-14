@@ -90,10 +90,20 @@ export default function RegisterScreen() {
       const result = await authService.register(userData);
 
       if (result.success) {
-        if (role === 'driver') {
-          router.replace('/(driver)/dashboard');
+        // Check if verification is required
+        if (result.requiresVerification) {
+          // Navigate to verification screen with email
+          router.replace({
+            pathname: '/(auth)/verify',
+            params: { email: result.email }
+          });
         } else {
-          router.replace('/(passenger)/home');
+          // Direct login (shouldn't happen with email verification enabled)
+          if (role === 'driver') {
+            router.replace('/(driver)/dashboard');
+          } else {
+            router.replace('/(passenger)/home');
+          }
         }
       } else {
         setError(result.error);

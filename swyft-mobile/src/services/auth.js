@@ -29,6 +29,16 @@ class AuthService {
         timeout: error.config?.timeout,
       }, null, 2));
       
+      // Check if email verification is required
+      if (error.response?.data?.requiresVerification) {
+        return {
+          success: false,
+          requiresVerification: true,
+          email: error.response.data.email,
+          error: 'Please verify your email first'
+        };
+      }
+      
       let errorMessage = 'Login failed';
       if (error.code === 'ECONNABORTED') {
         errorMessage = 'Connection timeout - server took too long to respond';
@@ -51,12 +61,55 @@ class AuthService {
     try {
       const response = await authAPI.register(userData);
       console.log('Registration response:', response.data);
+      
+      // Check if verification is required
+      if (response.data.requiresVerification) {
+        return { 
+          success: true, 
+          requiresVerification: true,
+          email: response.data.email,
+          message: response.data.message 
+        };
+      }
+      
+      // If no verification required, save and return success
       return { success: true, message: response.data.message };
     } catch (error) {
       console.log('Registration error:', error.response?.data);
       return {
         success: false,
         error: error.response?.data?.error || error.response?.data?.details || error.message || 'Registration failed',
+      };
+    }
+  }
+
+  async verifyCode(email, code) {
+    try {
+      const response = await authAPI.verifyCode(email, code);
+      console.log('Verification response:', response.data);
+      
+      if (response.data.token && response.data.user) {
+        await this.saveAuthData(response.data.user);
+        return { success: true, user: response.data.user };
+      }
+      
+      return { success: false, error: 'Verification failed' };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Invalid or expired code',
+      };
+    }
+  }
+
+  async resendCode(email) {
+    try {
+      const response = await authAPI.resendCode(email);
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to resend code',
       };
     }
   }

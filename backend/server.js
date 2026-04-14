@@ -214,6 +214,97 @@ app.get('/api/pricing', (req, res) => {
   });
 });
 
+// Email transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+// Generate 6-digit verification code
+const generateVerificationCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// === VERIFY EMAIL CODE ===
+app.post('/api/users/verify-code', (req, res) => {
+  const { email, code } = req.body;
+  
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Email and code required' });
+  }
+  
+  db.query('SELECT * FROM email_verification_tokens WHERE user_id IN (SELECT id FROM public.users WHERE email = $1) AND token = $1 AND expires_at > NOW()', [email, code], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (results.rows.length === 0) return res.status(400).json({ error: 'Invalid or expired code' });
+    
+    // Get user and update verified status
+    db.query('SELECT id FROM public.users WHERE email = $1', [email], (err2, userResult) => {
+      if (err2 || userResult.rows.length === 0) return res.status(400).json({ error: 'User not found' });
+      
+      const userId = userResult.rows[0].id;
+      db.query('UPDATE public.users SET is_verified = true, verified = true WHERE id = $1', [userId], (err3) => {
+        if (err3) return res.status(500).json({ error: 'Verification failed' });
+        
+        // Delete used token
+        db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
+        
+        // Generate login token
+        db.query('SELECT * FROM public.users WHERE id = $1', [userId], (err4, user) => {
+          if (err4 || user.rows.length === 0) return res.status(500).json({ error: 'User not found' });
+          
+          const token = jwt.sign({ id: userId, email, role: user.rows[0].role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+          
+          res.json({ 
+            message: 'Email verified successfully',
+            token,
+            user: user.rows[0]
+          });
+        });
+      });
+    });
+  });
+});
+
+// === RESEND VERIFICATION CODE ===
+app.post('/api/users/resend-code', (req, res) => {
+  const { email } = req.body;
+  
+  if (!email) return res.status(400).json({ error: 'Email required' });
+  
+  db.query('SELECT id, is_verified FROM public.users WHERE email = $1', [email], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (results.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    if (results.rows[0].is_verified) return res.status(400).json({ error: 'Email already verified' });
+    
+    const userId = results.rows[0].id;
+    const code = generateVerificationCode();
+    
+    // Delete old tokens
+    db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
+    
+    // Insert new token
+    db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, code], (err2) => {
+      if (err2) return res.status(500).json({ error: 'Failed to generate code' });
+      
+      // Send email
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Swyft - Verification Code',
+        text: `Your verification code is: ${code}\n\nThis code expires in 15 minutes.`
+      };
+      
+      transporter.sendMail(mailOptions, (err3) => {
+        if (err3) return res.status(500).json({ error: 'Failed to send email' });
+        res.json({ message: 'Verification code sent' });
+      });
+    });
+  });
+});
+
 // === SIGNUP ===
 app.post('/api/users', async (req, res) => {
   console.log('Registration request received:', req.body);
@@ -262,42 +353,33 @@ app.post('/api/users', async (req, res) => {
       const userId = result.rows[0].id;
       const userRole = result.rows[0].role;
       
-      console.log('User created:', userId, 'Role:', userRole);
+      console.log('User created (unverified):', userId, 'Role:', userRole);
 
-      // If driver, insert car details (check case-insensitive)
-      if (userRole && userRole.toLowerCase() === 'driver') {
-        const carQuery = 'INSERT INTO cars (user_id, make, model, year, color, plate_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id';
-        const carValues = [userId, vehicle_make, vehicle_model, vehicle_year || '2020', vehicle_color || 'White', vehicle_plate];
-        
-        db.query(carQuery, carValues, (err3, carResult) => {
-          if (err3) console.log('Car insert error (may be missing table):', err3.message);
-          else {
-            db.query('UPDATE users SET vehicle_id = $1 WHERE id = $2', [carResult.rows[0].id, userId]);
-          }
-        });
+      // Generate verification code
+      const verificationCode = generateVerificationCode();
+      
+      // Save verification code to database
+      db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, verificationCode], (err5) => {
+        if (err5) console.log('Verification code error:', err5.message);
+      });
+      
+      // Send verification email
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: 'Swyft - Verify Your Account',
+        text: `Your verification code is: ${verificationCode}\n\nEnter this code in the app to verify your account.\n\nThis code expires in 15 minutes.`
+      };
+      
+      transporter.sendMail(mailOptions, (err6) => {
+        if (err6) console.log('Email send error:', err6.message);
+      });
 
-        // Create driver profile for tracking online status and location
-        const driverProfileQuery = 'INSERT INTO driver_profiles (user_id, is_online, rating, total_trips) VALUES ($1, false, 5.0, 0)';
-        db.query(driverProfileQuery, [userId], (err4) => {
-          if (err4) console.log('Driver profile error (may be missing table):', err4.message);
-        });
-      }
-
-      const token = jwt.sign({ id: userId, email, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-
+      // Return response - DON'T log them in yet, require verification
       res.status(201).json({ 
-        message: 'User created successfully', 
-        token,
-        first_name,
-        last_name,
-        email,
-        role,
-        phone,
-        vehicle_make,
-        vehicle_model,
-        vehicle_year,
-        vehicle_color,
-        vehicle_plate
+        message: 'Verification code sent to your email',
+        requiresVerification: true,
+        email // Send email back so frontend knows where to send the code
       });
     });
   });
@@ -331,13 +413,22 @@ app.post('/api/users/login', (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
-  db.query('SELECT * FROM users WHERE email = $1', [email], async (err, results) => {
+  db.query('SELECT * FROM public.users WHERE email = $1', [email], async (err, results) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     if (results.rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
     const user = results.rows[0];
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: 'Incorrect password' });
+
+    // Check if user is verified
+    if (!user.is_verified && !user.verified) {
+      return res.status(403).json({ 
+        error: 'Email not verified',
+        requiresVerification: true,
+        email: email
+      });
+    }
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
