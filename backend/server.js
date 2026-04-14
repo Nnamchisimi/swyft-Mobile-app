@@ -350,11 +350,14 @@ app.post('/api/users', async (req, res) => {
   // Capitalize first letter to match database format
   const dbRole = normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1);
   
+  // For Google OAuth users, use a special marker (don't need real password)
+  const finalPassword = password === 'google-oauth' ? 'google-oauth' : password;
+  
   db.query('SELECT id FROM public.users WHERE email = $1', [email], async (err, results) => {
     if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
     if (results.rows.length > 0) return res.status(400).json({ error: 'Email already exists' });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(finalPassword, 10);
 
     // Insert user - auto-verify users (no email verification)
     const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified, verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, role';
@@ -414,8 +417,16 @@ app.post('/api/users/login', (req, res) => {
     if (results.rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
     const user = results.rows[0];
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: 'Incorrect password' });
+    
+    // Handle Google OAuth users specially
+    if (user.password === 'google-oauth') {
+      if (password !== 'google-oauth') {
+        return res.status(401).json({ error: 'Incorrect password' });
+      }
+    } else {
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) return res.status(401).json({ error: 'Incorrect password' });
+    }
 
     // Check if user is verified
     if (!user.is_verified && !user.verified) {

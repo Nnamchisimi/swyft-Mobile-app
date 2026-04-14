@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,69 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { authService } from '../../src/services/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 
-export default function RegisterScreen() {
+GoogleSignin.configure({
+  webClientId: '1077024630815-slblerpat1q0ckbv688anvvirhr04r5q.apps.googleusercontent.com',
+  iosClientId: '1077024630815-slblerpat1q0ckbv688anvvirhr04r5q.apps.googleusercontent.com',
+  iosUrlScheme: 'com.googleusercontent.apps.1077024630815-slblerpat1q0ckbv688anvvirhr04r5q',
+  offlinePrompt: false,
+  forceCodeForRefreshToken: true,
+});
+
+const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      
+      console.log('Google Sign-In user info:', userInfo);
+      
+      const googleEmail = userInfo.user.email;
+      const googleFirstName = userInfo.user.givenName || '';
+      const googleLastName = userInfo.user.familyName || '';
+      
+      // Pre-fill form with Google data
+      setFormData(prev => ({
+        ...prev,
+        email: googleEmail,
+        firstName: googleFirstName,
+        lastName: googleLastName,
+      }));
+      
+      // If user already exists, try to login
+      try {
+        const result = await authService.login(googleEmail, 'google-oauth');
+        if (result.success) {
+          if (result.user?.role?.toLowerCase() === 'driver') {
+            router.replace('/(driver)/dashboard');
+          } else {
+            router.replace('/(passenger)/home');
+          }
+          return;
+        }
+      } catch (e) {
+        // User doesn't exist, continue to fill form
+      }
+      
+      Alert.alert('Info', 'Please complete your registration by filling in the remaining details.');
+      
+    } catch (error) {
+      console.log('Google Sign-In error:', error);
+      if (error.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Google Sign-In Error', 'Please try again or register manually.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const router = useRouter();
   const [formData, setFormData] = useState({
     firstName: '',
@@ -128,6 +184,21 @@ export default function RegisterScreen() {
         </View>
 
         <View style={styles.form}>
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={handleGoogleSignIn}
+            disabled={loading}
+          >
+            <Ionicons name="logo-google" size={24} color={COLORS.white} />
+            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           <View style={styles.row}>
             <View style={styles.halfInput}>
               <Text style={styles.label}>First Name *</Text>
@@ -438,6 +509,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 16,
     textAlign: 'center',
+  },
+  googleButton: {
+    backgroundColor: '#4285F4',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  googleButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.border,
+  },
+  dividerText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    marginHorizontal: 16,
   },
   button: {
     backgroundColor: COLORS.primary,

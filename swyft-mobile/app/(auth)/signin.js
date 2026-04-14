@@ -9,8 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { authService } from '../../src/services/auth';
 import { COLORS, API_URL } from '../../src/constants/config';
 
@@ -21,6 +24,45 @@ export default function SignInScreen() {
   const [error, setError] = useState('');
   const [debugInfo, setDebugInfo] = useState(API_URL);
   const [loading, setLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
+      
+      console.log('Google Sign-In user info:', userInfo);
+      
+      const googleEmail = userInfo.user.email;
+      
+      // Try to login with Google
+      const result = await authService.login(googleEmail, 'google-oauth');
+      
+      if (result.success) {
+        const role = (result.user.role || 'passenger').toLowerCase();
+        if (role === 'driver') {
+          router.replace('/(driver)/dashboard');
+        } else {
+          router.replace('/(passenger)/home');
+        }
+      } else {
+        // User doesn't exist, redirect to register with pre-filled email
+        router.replace({
+          pathname: '/(auth)/register',
+          params: { googleEmail: googleEmail }
+        });
+      }
+      
+    } catch (error) {
+      console.log('Google Sign-In error:', error);
+      if (error.code !== 'SIGN_IN_CANCELLED') {
+        Alert.alert('Google Sign-In Error', 'Please try again or sign in manually.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -111,9 +153,17 @@ export default function SignInScreen() {
             placeholderTextColor={COLORS.textSecondary}
           />
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+{error ? <Text style={styles.error}>{error}</Text> : null}
           
-     
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={handleGoogleSignIn}
+            disabled={loading}
+          >
+            <Ionicons name="logo-google" size={24} color={COLORS.white} />
+            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
+      
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -240,5 +290,20 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  googleButton: {
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 16,
+  },
+  googleButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 12,
   },
 });
