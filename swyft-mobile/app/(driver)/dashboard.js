@@ -37,7 +37,13 @@ export default function DriverDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [location, setLocation] = useState(null);
   const [passengerLocation, setPassengerLocation] = useState(null);
-  const [earnings, setEarnings] = useState({ today_earnings: 0, total_trips: 0 });
+  const [earnings, setEarnings] = useState({ 
+    today_earnings: 0, 
+    total_trips: 0,
+    week_earnings: 0,
+    month_earnings: 0,
+    total_earnings: 0,
+  });
   const [eta, setEta] = useState(null);
   const [etaDropoff, setEtaDropoff] = useState(null);
   
@@ -142,8 +148,11 @@ export default function DriverDashboard() {
       const data = response?.data;
       if (data && typeof data === 'object') {
         setEarnings({
-          today_earnings: Number(data.today_earnings) || 0,
-          total_trips: Number(data.total_trips) || 0,
+          today_earnings: parseFloat(data.today_earnings) || 0,
+          total_trips: parseInt(data.total_trips) || 0,
+          week_earnings: parseFloat(data.week_earnings) || 0,
+          month_earnings: parseFloat(data.month_earnings) || 0,
+          total_earnings: parseFloat(data.total_earnings) || 0,
         });
         console.log('Earnings set:', data);
       }
@@ -159,8 +168,11 @@ export default function DriverDashboard() {
               const data = response?.data;
               if (data && typeof data === 'object') {
                 setEarnings({
-                  today_earnings: Number(data.today_earnings) || 0,
-                  total_trips: Number(data.total_trips) || 0,
+                  today_earnings: parseFloat(data.today_earnings) || 0,
+                  total_trips: parseInt(data.total_trips) || 0,
+                  week_earnings: parseFloat(data.week_earnings) || 0,
+                  month_earnings: parseFloat(data.month_earnings) || 0,
+                  total_earnings: parseFloat(data.total_earnings) || 0,
                 });
               }
             })
@@ -326,10 +338,13 @@ export default function DriverDashboard() {
     socketService.on('earningsUpdated', (data) => {
       console.log('Earnings updated received:', data);
       if (data && data.driver_email === driverInfo?.email) {
-        setEarnings({
-          today_earnings: Number(data.today_earnings) || earnings.today_earnings,
-          total_trips: Number(data.total_trips) || earnings.total_trips,
-        });
+        setEarnings(prev => ({
+          today_earnings: parseFloat(data.today_earnings) || prev.today_earnings,
+          total_trips: parseInt(data.total_trips) || prev.total_trips,
+          week_earnings: parseFloat(data.week_earnings) || prev.week_earnings,
+          month_earnings: parseFloat(data.month_earnings) || prev.month_earnings,
+          total_earnings: parseFloat(data.total_earnings) || prev.total_earnings,
+        }));
       }
     });
 

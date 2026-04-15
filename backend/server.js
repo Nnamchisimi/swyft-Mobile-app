@@ -985,7 +985,8 @@ app.get('/api/drivers/earnings', (req, res) => {
 
   console.log('Fetching earnings for:', email);
   
-  // Include multiple completed statuses: completed, confirmed, active (in case completed but not confirmed)
+  // Include completed statuses: completed, confirmed (passenger confirmed), active
+  // Earnings are counted when ride is COMPLETED (driver marks complete), not just confirmed
   const completedStatuses = ['completed', 'confirmed', 'active'];
   const statusList = completedStatuses.map(s => "'" + s + "'").join(',');
 
@@ -998,7 +999,7 @@ app.get('/api/drivers/earnings', (req, res) => {
     }
     const total = results.rows[0]?.total || 0;
     
-    // Get today's earnings
+    // Get today's earnings - count on COMPLETED status (driver marks complete)
     const todayQuery = `SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN (${statusList}) AND DATE(created_at) = CURRENT_DATE`;
     db.query(todayQuery, [email], (err2, todayResults) => {
       if (err2) {

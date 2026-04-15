@@ -13,7 +13,7 @@ import {
   Linking,
   KeyboardAvoidingView,
 } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_APPLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { ridesAPI, fareAPI } from '../../src/services/api';
@@ -854,7 +854,7 @@ export default function BookRideScreen() {
           <MapView
             ref={mapRef}
             style={styles.map}
-            provider={PROVIDER_APPLE}
+            provider={PROVIDER_OSM}
             initialRegion={{
               latitude: (pickupLocation || currentLocation)?.latitude,
               longitude: (pickupLocation || currentLocation)?.longitude,

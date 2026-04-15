@@ -81,9 +81,9 @@ export default function DriverProfileScreen() {
           const data = response?.data;
           if (data && typeof data === 'object') {
             setEarnings({
-              today_earnings: Number(data.today_earnings) || 0,
-              total_earnings: Number(data.total_earnings) || 0,
-              total_trips: Number(data.total_trips) || 0,
+              today_earnings: parseFloat(data.today_earnings) || 0,
+              total_earnings: parseFloat(data.total_earnings) || 0,
+              total_trips: parseInt(data.total_trips) || 0,
               recent_rides: Array.isArray(data.recent_rides) ? data.recent_rides : [],
             });
           }

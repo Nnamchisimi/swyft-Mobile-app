@@ -19,18 +19,11 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Swyft needs access to your location to find rides near you and track your driver.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Swyft needs access to your location to track your delivery in the background.",
-        "CFBundleURLTypes": [
-          {
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.1077024630815-slblerpat1q0ckbv688anvvirhr04r5q"
-            ]
-          }
-        ]
+        "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
         "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
-      },
-      "googleServicesPlist": "GoogleService-Info.plist"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -70,13 +63,6 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Swyft to use your location."
-        }
-      ],
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "webClientId": "1077024630815-slblerpat1q0ckbv688anvvirhr04r5q.apps.googleusercontent.com",
-          "iosClientId": "1077024630815-slblerpat1q0ckbv688anvvirhr04r5q.apps.googleusercontent.com"
         }
       ]
     ],

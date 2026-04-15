@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
 import { authService } from '../../src/services/auth';
 import { COLORS, API_URL } from '../../src/constants/config';
 
@@ -25,43 +25,10 @@ export default function SignInScreen() {
   const [debugInfo, setDebugInfo] = useState(API_URL);
   const [loading, setLoading] = useState(false);
 
+  // Google Sign-In disabled - requires native configuration
+  
   const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      
-      console.log('Google Sign-In user info:', userInfo);
-      
-      const googleEmail = userInfo.user.email;
-      
-      // Try to login with Google
-      const result = await authService.login(googleEmail, 'google-oauth');
-      
-      if (result.success) {
-        const role = (result.user.role || 'passenger').toLowerCase();
-        if (role === 'driver') {
-          router.replace('/(driver)/dashboard');
-        } else {
-          router.replace('/(passenger)/home');
-        }
-      } else {
-        // User doesn't exist, redirect to register with pre-filled email
-        router.replace({
-          pathname: '/(auth)/register',
-          params: { googleEmail: googleEmail }
-        });
-      }
-      
-    } catch (error) {
-      console.log('Google Sign-In error:', error);
-      if (error.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Google Sign-In Error', 'Please try again or sign in manually.');
-      }
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert('Google Sign-In Unavailable', 'Please sign in with your email.');
   };
 
   const handleLogin = async () => {
