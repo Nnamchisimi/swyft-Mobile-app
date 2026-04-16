@@ -37,8 +37,10 @@ export default function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Google Sign-In will be available with native setup for TestFlight builds
+  
   const handleGoogleSignIn = async () => {
-    Alert.alert('Google Sign-In Unavailable', 'Please register with your email.');
+    Alert.alert('Google Sign-In', 'Google Sign-In is being configured. Use email to register.');
   };
 
   const handleChange = (field, value) => {
@@ -137,7 +139,6 @@ export default function Register() {
           <TouchableOpacity
             style={styles.googleButton}
             onPress={handleGoogleSignIn}
-            disabled={loading}
           >
             <Ionicons name="logo-google" size={24} color={COLORS.white} />
             <Text style={styles.googleButtonText}>Continue with Google</Text>

@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { authService } from '../src/services/auth';
 import { COLORS } from '../src/constants/config';
+import { useAppReady } from '../src/context/AppReadyContext';
 
 export default function Index() {
+  const { setAppReady } = useAppReady();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState('passenger');
@@ -20,13 +22,13 @@ export default function Index() {
       
       if (authenticated) {
         const role = await authService.getUserRole();
-        
         setUserRole((role || 'passenger').toLowerCase());
       }
     } catch (error) {
       console.error('Auth check error:', error);
     } finally {
       setIsLoading(false);
+      setTimeout(() => setAppReady(true), 500);
     }
   };
 
@@ -41,7 +43,6 @@ export default function Index() {
   if (!isAuthenticated) {
     return <Redirect href="/(auth)/signin" />;
   }
-
   
   if (userRole === 'driver') {
     return <Redirect href="/(driver)/dashboard" />;
@@ -55,6 +56,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.primary,
   },
 });

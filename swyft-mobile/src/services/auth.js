@@ -22,12 +22,6 @@ class AuthService {
       console.log('Error code:', error.code);
       console.log('Response status:', error.response?.status);
       console.log('Response data:', JSON.stringify(error.response?.data, null, 2));
-      console.log('Request config:', JSON.stringify({
-        url: error.config?.url,
-        method: error.config?.method,
-        baseURL: error.config?.baseURL,
-        timeout: error.config?.timeout,
-      }, null, 2));
       
       // Check if email verification is required
       if (error.response?.data?.requiresVerification) {

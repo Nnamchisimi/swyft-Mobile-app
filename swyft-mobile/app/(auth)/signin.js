@@ -25,10 +25,10 @@ export default function SignInScreen() {
   const [debugInfo, setDebugInfo] = useState(API_URL);
   const [loading, setLoading] = useState(false);
 
-  // Google Sign-In disabled - requires native configuration
+  // Google Sign-In will be available with native setup for TestFlight builds
   
   const handleGoogleSignIn = async () => {
-    Alert.alert('Google Sign-In Unavailable', 'Please sign in with your email.');
+    Alert.alert('Google Sign-In', 'Google Sign-In is being configured. Use email/password for now.');
   };
 
   const handleLogin = async () => {
@@ -125,7 +125,6 @@ export default function SignInScreen() {
           <TouchableOpacity
             style={styles.googleButton}
             onPress={handleGoogleSignIn}
-            disabled={loading}
           >
             <Ionicons name="logo-google" size={24} color={COLORS.white} />
             <Text style={styles.googleButtonText}>Continue with Google</Text>
