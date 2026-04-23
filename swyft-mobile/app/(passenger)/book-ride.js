@@ -21,7 +21,7 @@ import { ridesAPI, fareAPI } from '../../src/services/api';
 import { authService } from '../../src/services/auth';
 import { socketService } from '../../src/services/socket';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../src/constants/config';
+import { COLORS, GOOGLE_MAPS_API_KEY } from '../../src/constants/config';
 import geoService from '../../src/services/geo';
 
 const { width } = Dimensions.get('window');
@@ -595,16 +595,16 @@ export default function BookRideScreen() {
               longitude: parseFloat(ride.driver_lng),
             });
             
-             if (currentLocation) {
-               const distanceKm = geoService.calculateDistance(
-                 parseFloat(ride.driver_lat),
-                 parseFloat(ride.driver_lng),
-                 currentLocation.latitude,
-                 currentLocation.longitude
-               );
-               const estimatedMinutes = Math.round(distanceKm * 2);
-               setDriverDistance(estimatedMinutes);
-             }
+            if (currentLocation) {
+              const distanceKm = calculateDistance(
+                parseFloat(ride.driver_lat),
+                parseFloat(ride.driver_lng),
+                currentLocation.latitude,
+                currentLocation.longitude
+              );
+              const estimatedMinutes = Math.round(distanceKm * 2);
+              setDriverDistance(estimatedMinutes);
+            }
           } else if (ride.pickup_lat && ride.pickup_lng) {
             setDriverLocation({
               latitude: ride.pickup_lat,
@@ -778,10 +778,22 @@ export default function BookRideScreen() {
       console.log('Error parsing Google Maps URL:', error);
       return null;
     }
-   };
+  };
+
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
 
 
-   const handleBookRide = async () => {
+
+  const handleBookRide = async () => {
     if (!pickupAddress.trim()) {
       Alert.alert('Error', 'Please enter a pickup location');
       return;
@@ -1470,6 +1482,7 @@ export default function BookRideScreen() {
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
