@@ -13,14 +13,16 @@ import {
   Linking,
   KeyboardAvoidingView,
 } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import { ridesAPI, fareAPI } from '../../src/services/api';
 import { authService } from '../../src/services/auth';
 import { socketService } from '../../src/services/socket';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
+import geoService from '../../src/services/geo';
 
 const { width } = Dimensions.get('window');
 
@@ -59,6 +61,10 @@ export default function BookRideScreen() {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [selectedQuickNote, setSelectedQuickNote] = useState('');
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
+  const [showPickupMapsLink, setShowPickupMapsLink] = useState(false);
+  const [showDropoffMapsLink, setShowDropoffMapsLink] = useState(false);
+  const [pickupMapsUrl, setPickupMapsUrl] = useState('');
+  const [dropoffMapsUrl, setDropoffMapsUrl] = useState('');
   const [pricingLoaded, setPricingLoaded] = useState(false);
   const [rideTypes, setRideTypes] = useState([
     { id: 'economy', name: 'Lefkosa', icon: 'location', time: '5-60 min', desc: 'Affordable rides' },
@@ -74,6 +80,8 @@ export default function BookRideScreen() {
   
   const pickupDebounceRef = useRef(null);
   const dropoffDebounceRef = useRef(null);
+
+
 
   useEffect(() => {
     loadUserData();
@@ -158,51 +166,51 @@ export default function BookRideScreen() {
   };
 
   
-  useEffect(() => {
-    const handleAllDriverLocation = (data) => {
-      console.log('Received driverLocationUpdated:', data);
-      console.log('Current ride ID:', currentRide?.id);
-      
-      
-      if (currentRide && data.rideId === currentRide.id) {
-        const newDriverLoc = { latitude: data.lat, longitude: data.lng };
-        setDriverLocation(newDriverLoc);
-        
-        
-        if (data.status) {
-          setDriverStatus(data.status);
-        }
-        
-        
-        const pickupLoc = pickupLocation ? { latitude: pickupLocation.latitude, longitude: pickupLocation.longitude } : (currentLocation ? { latitude: currentLocation.latitude, longitude: currentLocation.longitude } : null);
-        const dropoffLoc = dropoffLocation;
-        
-        const newRoute = [];
-        
-        newRoute.push(newDriverLoc);
-        
-        if (pickupLoc) {
-          newRoute.push(pickupLoc);
-        }
-        
-        if (dropoffLoc) {
-          newRoute.push(dropoffLoc);
-        }
-        setRouteCoordinates(newRoute);
-        
-        
-        if (currentLocation) {
-          const distanceKm = calculateDistance(
-            newDriverLoc.latitude,
-            newDriverLoc.longitude,
-            currentLocation.latitude,
-            currentLocation.longitude
-          );
-          const estimatedMinutes = Math.round(distanceKm * 2);
-          setDriverDistance(estimatedMinutes);
-        }
-      }
-    };
+   useEffect(() => {
+     const handleAllDriverLocation = (data) => {
+       console.log('Received driverLocationUpdated:', data);
+       console.log('Current ride ID:', currentRide?.id);
+       
+       
+       if (currentRide && data.rideId === currentRide.id) {
+         const newDriverLoc = { latitude: data.lat, longitude: data.lng };
+         setDriverLocation(newDriverLoc);
+         
+         
+         if (data.status) {
+           setDriverStatus(data.status);
+         }
+         
+         
+         const pickupLoc = pickupLocation ? { latitude: pickupLocation.latitude, longitude: pickupLocation.longitude } : (currentLocation ? { latitude: currentLocation.latitude, longitude: currentLocation.longitude } : null);
+         const dropoffLoc = dropoffLocation;
+         
+         const newRoute = [];
+         
+         newRoute.push(newDriverLoc);
+         
+         if (pickupLoc) {
+           newRoute.push(pickupLoc);
+         }
+         
+         if (dropoffLoc) {
+           newRoute.push(dropoffLoc);
+         }
+         setRouteCoordinates(newRoute);
+         
+         
+         if (currentLocation) {
+           const distanceKm = geoService.calculateDistance(
+             newDriverLoc.latitude,
+             newDriverLoc.longitude,
+             currentLocation.latitude,
+             currentLocation.longitude
+           );
+           const estimatedMinutes = Math.round(distanceKm * 2);
+           setDriverDistance(estimatedMinutes);
+         }
+       }
+     };
     
     socketService.on('driverLocationUpdated', handleAllDriverLocation);
     
@@ -303,54 +311,59 @@ export default function BookRideScreen() {
     setUserDataLoading(false);
   };
 
-  const getCurrentLocation = async () => {
-    setLocationLoading(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required for automatic location detection.');
-        setLocationLoading(false);
-        return;
-      }
+   const getCurrentLocation = async () => {
+     setLocationLoading(true);
+     try {
+       const { status } = await Location.requestForegroundPermissionsAsync();
+       if (status !== 'granted') {
+         Alert.alert('Permission Denied', 'Location permission is required for automatic location detection.');
+         setLocationLoading(false);
+         return;
+       }
 
-      const location = await Location.getCurrentPositionAsync({});
-      const coords = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
-      setCurrentLocation(coords);
-      
-      
-      if (dropoffLocation) {
-        setRouteCoordinates([coords, dropoffLocation]);
-      }
-      
-      
-      try {
-        const addresses = await Location.reverseGeocodeAsync(coords);
-        if (addresses.length > 0) {
-          const addr = addresses[0];
-          const addressStr = `${addr.street || ''} ${addr.name || ''}, ${addr.city || ''}`.trim();
-          
-          
-          
-          
-          if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
-            setPickupAddress(addressStr || `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
-          }
-        }
-      } catch (e) {
-        if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
-          setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your current location. Please enter manually.');
-    } finally {
-      setLocationLoading(false);
-    }
-  };
+       const location = await Location.getCurrentPositionAsync({});
+       const coords = {
+         latitude: location.coords.latitude,
+         longitude: location.coords.longitude,
+       };
+       setCurrentLocation(coords);
+       
+       
+       if (dropoffLocation) {
+         // Get actual route from Google Directions API
+         const routeCoords = await geoService.getRouteCoordinates(coords, dropoffLocation);
+         if (routeCoords && routeCoords.length > 0) {
+           setRouteCoordinates(routeCoords);
+         } else {
+           // Fallback to direct line
+           setRouteCoordinates([coords, dropoffLocation]);
+         }
+       }
+       
+       
+       try {
+         const addressStr = await geoService.reverseGeocode(coords.latitude, coords.longitude);
+         if (addressStr) {
+           if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
+             setPickupAddress(addressStr);
+           }
+         } else {
+           if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
+             setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+           }
+         }
+       } catch (e) {
+         if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
+           setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+         }
+       }
+     } catch (error) {
+       console.error('Error getting location:', error);
+       Alert.alert('Error', 'Could not get your current location. Please enter manually.');
+     } finally {
+       setLocationLoading(false);
+     }
+   };
 
   
   useEffect(() => {
@@ -378,72 +391,30 @@ export default function BookRideScreen() {
 
   
   const fetchLocationSuggestions = async (query, userLat = null, userLon = null) => {
-    if (!query || query.length < 2) return [];
-    
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      
-      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
-      
-      
-      
-      if (userLat && userLon) {
-        
-        const latDelta = 0.5;
-        const lonDelta = 0.5;
-        const viewbox = `${userLon - lonDelta},${userLat - latDelta},${userLon + lonDelta},${userLat + latDelta}`;
-        url += `&viewbox=${viewbox}&bounded=1`;
-      }
-      
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'SwyftApp/1.0',
-        },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      
-      const data = await response.json();
-      if (data && Array.isArray(data)) {
-        return data.map(item => ({
-          display_name: item.display_name,
-          short_name: item.address?.city || item.address?.town || item.address?.village || item.name || item.display_name.split(',')[0],
-          lat: parseFloat(item.lat),
-          lon: parseFloat(item.lon),
-          type: item.type,
-        }));
-      }
-      return [];
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.log('Autocomplete error:', error.message);
-      }
-      return [];
-    }
+    return await geoService.getPlaceSuggestions(query, userLat, userLon);
   };
 
   
   const handlePickupChange = (address) => {
     setPickupAddress(address);
-    
+
     if (address.length > 0) {
       setPickupManuallySelected(true);
     }
+
     setShowPickupSuggestions(address.length > 2);
-    
-    
+
+    // Clear previous timeout
     if (pickupDebounceRef.current) {
       clearTimeout(pickupDebounceRef.current);
     }
-    
+
     if (address.length < 2) {
       setPickupSuggestions([]);
       return;
     }
-    
-    
+
+    // Debounce the API call
     pickupDebounceRef.current = setTimeout(async () => {
       const suggestions = await fetchLocationSuggestions(
         address,
@@ -457,20 +428,21 @@ export default function BookRideScreen() {
   
   const handleDropoffChange = (address) => {
     setDropoffAddress(address);
+
     setShowDropoffSuggestions(address.length > 2);
-    
-    
+
+    // Clear previous timeout
     if (dropoffDebounceRef.current) {
       clearTimeout(dropoffDebounceRef.current);
     }
-    
+
     if (address.length < 2) {
       setDropoffSuggestions([]);
       setDropoffLocation(null);
       return;
     }
-    
-    
+
+    // Debounce the API call
     dropoffDebounceRef.current = setTimeout(async () => {
       const suggestions = await fetchLocationSuggestions(
         address,
@@ -478,8 +450,8 @@ export default function BookRideScreen() {
         currentLocation?.longitude
       );
       setDropoffSuggestions(suggestions);
-      
-      
+
+      // Auto-select first suggestion for dropoff
       if (suggestions.length > 0) {
         setDropoffLocation({
           latitude: suggestions[0].lat,
@@ -490,49 +462,88 @@ export default function BookRideScreen() {
   };
 
   
-  const handleSelectPickupSuggestion = (suggestion) => {
-    setPickupAddress(suggestion.display_name);
-    setPickupLocation({
-      latitude: suggestion.lat,
-      longitude: suggestion.lon,
-    });
-    setPickupSuggestions([]);
-    setShowPickupSuggestions(false);
-    
-    setPickupManuallySelected(true);
-    
-    
-    if (dropoffLocation) {
-      setRouteCoordinates([
-        { latitude: suggestion.lat, longitude: suggestion.lon },
-        dropoffLocation
-      ]);
-    }
-  };
+   const handleSelectPickupSuggestion = async (suggestion) => {
+     if (suggestion.place_id) {
+       // Google Places suggestion
+       const details = await geoService.getPlaceDetails(suggestion.place_id);
+       if (details) {
+         const pickupCoords = { latitude: details.lat, longitude: details.lon };
+         setPickupAddress(details.display_name);
+         setPickupLocation(pickupCoords);
+         setPickupSuggestions([]);
+         setShowPickupSuggestions(false);
+         setPickupManuallySelected(true);
+
+         if (dropoffLocation) {
+           const routeCoords = await geoService.getRouteCoordinates(pickupCoords, dropoffLocation);
+           setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [pickupCoords, dropoffLocation]);
+         }
+       }
+     } else {
+       // Fallback for old format
+       const pickupCoords = { latitude: suggestion.lat, longitude: suggestion.lon };
+       setPickupAddress(suggestion.display_name);
+       setPickupLocation(pickupCoords);
+       setPickupSuggestions([]);
+       setShowPickupSuggestions(false);
+       setPickupManuallySelected(true);
+
+       if (dropoffLocation) {
+         const routeCoords = await geoService.getRouteCoordinates(pickupCoords, dropoffLocation);
+         setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [pickupCoords, dropoffLocation]);
+       }
+     }
+   };
 
   
-  const handleSelectDropoffSuggestion = (suggestion) => {
-    setDropoffAddress(suggestion.display_name);
-    setDropoffLocation({
-      latitude: suggestion.lat,
-      longitude: suggestion.lon,
-    });
-    setDropoffSuggestions([]);
-    setShowDropoffSuggestions(false);
-    
-    
-    if (pickupLocation) {
-      setRouteCoordinates([
-        pickupLocation,
-        { latitude: suggestion.lat, longitude: suggestion.lon }
-      ]);
-    } else if (currentLocation) {
-      setRouteCoordinates([
-        { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
-        { latitude: suggestion.lat, longitude: suggestion.lon }
-      ]);
-    }
-  };
+   const handleSelectDropoffSuggestion = async (suggestion) => {
+     if (suggestion.place_id) {
+       // Google Places suggestion
+       const details = await geoService.getPlaceDetails(suggestion.place_id);
+       if (details) {
+         const dropoffCoords = { latitude: details.lat, longitude: details.lon };
+         setDropoffAddress(details.display_name);
+         setDropoffLocation(dropoffCoords);
+         setDropoffSuggestions([]);
+         setShowDropoffSuggestions(false);
+
+         if (pickupLocation) {
+           const routeCoords = await geoService.getRouteCoordinates(pickupLocation, dropoffCoords);
+           setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [pickupLocation, dropoffCoords]);
+         } else if (currentLocation) {
+           const routeCoords = await geoService.getRouteCoordinates(
+             { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+             dropoffCoords
+           );
+           setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [
+             { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+             dropoffCoords
+           ]);
+         }
+       }
+     } else {
+       // Fallback
+       const dropoffCoords = { latitude: suggestion.lat, longitude: suggestion.lon };
+       setDropoffAddress(suggestion.display_name);
+       setDropoffLocation(dropoffCoords);
+       setDropoffSuggestions([]);
+       setShowDropoffSuggestions(false);
+
+       if (pickupLocation) {
+         const routeCoords = await geoService.getRouteCoordinates(pickupLocation, dropoffCoords);
+         setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [pickupLocation, dropoffCoords]);
+       } else if (currentLocation) {
+         const routeCoords = await geoService.getRouteCoordinates(
+           { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+           dropoffCoords
+         );
+         setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [
+           { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+           dropoffCoords
+         ]);
+       }
+     }
+   };
 
   const setupSocketListeners = () => {
     socketService.connect();
@@ -584,16 +595,16 @@ export default function BookRideScreen() {
               longitude: parseFloat(ride.driver_lng),
             });
             
-            if (currentLocation) {
-              const distanceKm = calculateDistance(
-                parseFloat(ride.driver_lat),
-                parseFloat(ride.driver_lng),
-                currentLocation.latitude,
-                currentLocation.longitude
-              );
-              const estimatedMinutes = Math.round(distanceKm * 2);
-              setDriverDistance(estimatedMinutes);
-            }
+             if (currentLocation) {
+               const distanceKm = geoService.calculateDistance(
+                 parseFloat(ride.driver_lat),
+                 parseFloat(ride.driver_lng),
+                 currentLocation.latitude,
+                 currentLocation.longitude
+               );
+               const estimatedMinutes = Math.round(distanceKm * 2);
+               setDriverDistance(estimatedMinutes);
+             }
           } else if (ride.pickup_lat && ride.pickup_lng) {
             setDriverLocation({
               latitude: ride.pickup_lat,
@@ -669,18 +680,108 @@ export default function BookRideScreen() {
   };
 
   
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; 
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
+   const getPlaceDetails = async (placeId) => {
+     return await geoService.getPlaceDetails(placeId);
+   };
+
+  const handlePickupMapsLink = async () => {
+    if (!pickupMapsUrl.trim()) {
+      Alert.alert('Error', 'Please enter a Google Maps URL');
+      return;
+    }
+
+    const coords = parseGoogleMapsUrl(pickupMapsUrl);
+    if (coords) {
+      setPickupLocation(coords);
+
+      // Reverse geocode to get address
+      try {
+        const addressStr = await reverseGeocode(coords.latitude, coords.longitude);
+        if (addressStr) {
+          setPickupAddress(addressStr);
+        } else {
+          setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+        }
+      } catch (error) {
+        console.log('Error reverse geocoding Google Maps URL:', error);
+        setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+      }
+
+      setShowPickupMapsLink(false);
+      setPickupMapsUrl('');
+      Alert.alert('Success', 'Pickup location set from Google Maps link');
+    } else {
+      Alert.alert('Error', 'Invalid Google Maps URL. Please ensure it contains coordinates (e.g., @lat,lng).');
+    }
   };
 
-  const handleBookRide = async () => {
+  const handleDropoffMapsLink = async () => {
+    if (!dropoffMapsUrl.trim()) {
+      Alert.alert('Error', 'Please enter a Google Maps URL');
+      return;
+    }
+
+    const coords = parseGoogleMapsUrl(dropoffMapsUrl);
+    if (coords) {
+      setDropoffLocation(coords);
+
+      // Reverse geocode to get address
+      try {
+        const addressStr = await reverseGeocode(coords.latitude, coords.longitude);
+        if (addressStr) {
+          setDropoffAddress(addressStr);
+        } else {
+          setDropoffAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+        }
+      } catch (error) {
+        console.log('Error reverse geocoding Google Maps URL:', error);
+        setDropoffAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+      }
+
+      setShowDropoffMapsLink(false);
+      setDropoffMapsUrl('');
+      Alert.alert('Success', 'Dropoff location set from Google Maps link');
+    } else {
+      Alert.alert('Error', 'Invalid Google Maps URL. Please ensure it contains coordinates (e.g., @lat,lng).');
+    }
+  };
+
+   const reverseGeocode = async (lat, lng) => {
+     return await geoService.reverseGeocode(lat, lng);
+   };
+
+   const parseGoogleMapsUrl = (url) => {
+     return geoService.parseGoogleMapsUrl(url);
+   };
+      }
+
+      // Check for q=lat,lng pattern
+      const qMatch = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (qMatch) {
+        return {
+          latitude: parseFloat(qMatch[1]),
+          longitude: parseFloat(qMatch[2])
+        };
+      }
+
+      // Check for ll=lat,lng pattern
+      const llMatch = url.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (llMatch) {
+        return {
+          latitude: parseFloat(llMatch[1]),
+          longitude: parseFloat(llMatch[2])
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.log('Error parsing Google Maps URL:', error);
+      return null;
+    }
+   };
+
+
+   const handleBookRide = async () => {
     if (!pickupAddress.trim()) {
       Alert.alert('Error', 'Please enter a pickup location');
       return;
@@ -714,12 +815,12 @@ export default function BookRideScreen() {
 
       const response = await ridesAPI.createRide(rideData);
       const ride = response.data;
-      
+
       setCurrentRide({ id: ride.rideId, ...rideData, status: 'pending' });
       setRideBooked(true);
-      
+
       setPickupLockedForRide(true);
-      
+
       Alert.alert(
         'Courier Requested!',
         'Looking for nearby couriers...\n\nYou will be notified when a courier accepts your ride.',
@@ -985,6 +1086,42 @@ export default function BookRideScreen() {
               onChangeText={handlePickupChange}
               onFocus={() => setShowPickupSuggestions(true)}
             />
+            <TouchableOpacity
+              style={styles.mapsLinkButton}
+              onPress={() => setShowPickupMapsLink(!showPickupMapsLink)}
+            >
+              <Ionicons name="map" size={16} color={COLORS.primary} />
+              <Text style={styles.mapsLinkText}>Use Google Maps Link</Text>
+            </TouchableOpacity>
+            {showPickupMapsLink && (
+              <View style={styles.mapsLinkContainer}>
+                <TextInput
+                  style={styles.mapsLinkInput}
+                  placeholder="Paste Google Maps URL here"
+                  placeholderTextColor={COLORS.textSecondary}
+                  value={pickupMapsUrl}
+                  onChangeText={setPickupMapsUrl}
+                  multiline
+                />
+                <View style={styles.mapsLinkActions}>
+                  <TouchableOpacity
+                    style={styles.mapsLinkCancel}
+                    onPress={() => {
+                      setShowPickupMapsLink(false);
+                      setPickupMapsUrl('');
+                    }}
+                  >
+                    <Text style={styles.mapsLinkCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.mapsLinkSubmit}
+                    onPress={handlePickupMapsLink}
+                  >
+                    <Text style={styles.mapsLinkSubmitText}>Set Location</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
             {}
             {showPickupSuggestions && pickupSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
@@ -1013,12 +1150,48 @@ export default function BookRideScreen() {
             <Text style={styles.inputLabel}>DROPOFF</Text>
             <TextInput
               style={styles.input}
-              placeholder="Package Destination?"
+              placeholder="Package destination"
               placeholderTextColor={COLORS.textSecondary}
               value={dropoffAddress}
               onChangeText={handleDropoffChange}
               onFocus={() => setShowDropoffSuggestions(true)}
             />
+            <TouchableOpacity
+              style={styles.mapsLinkButton}
+              onPress={() => setShowDropoffMapsLink(!showDropoffMapsLink)}
+            >
+              <Ionicons name="map" size={16} color={COLORS.primary} />
+              <Text style={styles.mapsLinkText}>Use Google Maps Link</Text>
+            </TouchableOpacity>
+            {showDropoffMapsLink && (
+              <View style={styles.mapsLinkContainer}>
+                <TextInput
+                  style={styles.mapsLinkInput}
+                  placeholder="Paste Google Maps URL here"
+                  placeholderTextColor={COLORS.textSecondary}
+                  value={dropoffMapsUrl}
+                  onChangeText={setDropoffMapsUrl}
+                  multiline
+                />
+                <View style={styles.mapsLinkActions}>
+                  <TouchableOpacity
+                    style={styles.mapsLinkCancel}
+                    onPress={() => {
+                      setShowDropoffMapsLink(false);
+                      setDropoffMapsUrl('');
+                    }}
+                  >
+                    <Text style={styles.mapsLinkCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.mapsLinkSubmit}
+                    onPress={handleDropoffMapsLink}
+                  >
+                    <Text style={styles.mapsLinkSubmitText}>Set Location</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
             {}
             {showDropoffSuggestions && dropoffSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
@@ -1450,6 +1623,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.text,
     paddingVertical: 8,
+  },
+  mapsLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  mapsLinkText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  mapsLinkContainer: {
+    marginTop: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+    padding: 12,
+  },
+  mapsLinkInput: {
+    fontSize: 14,
+    color: COLORS.text,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.white,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  mapsLinkActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  mapsLinkCancel: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: 6,
+  },
+  mapsLinkCancelText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  mapsLinkSubmit: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.primary,
+    borderRadius: 6,
+  },
+  mapsLinkSubmitText: {
+    fontSize: 14,
+    color: COLORS.white,
+    fontWeight: '600',
   },
   inputConnector: {
     width: 2,

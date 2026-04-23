@@ -1,70 +1,67 @@
-import React, { useState } from 'react';
-import { Box, Button, Container, TextField, Typography, Link, CircularProgress } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import axios from 'axios';
+import React, { useState } from 'react'
+import { Box, Button, Container, TextField, Typography, Link, CircularProgress } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
+import useMediaQuery from '@mui/material/useMediaQuery'
+import axios from 'axios'
 
-export default function SignIn() {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const isMobile = useMediaQuery('(max-width:600px)');
+export default function SignIn () {
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const isMobile = useMediaQuery('(max-width:600px)')
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+    e.preventDefault()
+    setError('')
+    setLoading(true)
 
     try {
       const response = await axios.post('http://localhost:3001/api/users/login', {
         email,
-        password,
-      });
+        password
+      })
 
-      const user = response.data;
+      const user = response.data
 
       if (user.token) {
-        sessionStorage.setItem('authToken', user.token);
+        sessionStorage.setItem('authToken', user.token)
       }
 
-      const savedEmail = user.email || user.user?.email;
+      const savedEmail = user.email || user.user?.email
       if (savedEmail) {
-        sessionStorage.setItem('userEmail', savedEmail);
+        sessionStorage.setItem('userEmail', savedEmail)
       }
 
-    const driverData = {
-  name: user.name || (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.user?.name),
-  email: user.email || user.user?.email,
-  phone: user.phone || user.user?.phone,
-  vehicle: user.vehicle || user.user?.vehicle,
-};
+      const driverData = {
+        name: user.name || (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : user.user?.name),
+        email: user.email || user.user?.email,
+        phone: user.phone || user.user?.phone,
+        vehicle: user.vehicle || user.user?.vehicle
+      }
 
-sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
+      sessionStorage.setItem('driverInfo', JSON.stringify(driverData))
 
-
-
-      const role = user.role || user.user?.role;
+      const role = user.role || user.user?.role
       if (role === 'Passenger') {
-        navigate('/ride-booking');
+        navigate('/ride-booking')
       } else if (role === 'Driver') {
-        navigate('/driver');
+        navigate('/driver')
       } else {
-        setError('Unknown user role');
+        setError('Unknown user role')
       }
-
     } catch (err) {
-      console.error(err);
+      console.error(err)
       if (err.response) {
-        setError(err.response.data.error || 'Login failed');
+        setError(err.response.data.error || 'Login failed')
       } else {
-        setError('Server error');
+        setError('Server error')
       }
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
     <>
@@ -81,17 +78,17 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          flexWrap: 'wrap'
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Box
-            component="img"
-            src="/taxifav.png"
-            alt="Taxi Icon"
+            component='img'
+            src='/taxifav.png'
+            alt='Taxi Icon'
             sx={{ width: 35, height: 35, mt: -1.25, ml: { xs: 1, sm: 15 } }}
           />
-          <Box component="span" sx={{ fontWeight: 'bold', fontSize: { xs: '1.25rem', sm: '1.75rem' }, ml: '10px' }}>
+          <Box component='span' sx={{ fontWeight: 'bold', fontSize: { xs: '1.25rem', sm: '1.75rem' }, ml: '10px' }}>
             SWYFT
           </Box>
         </Box>
@@ -103,11 +100,11 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
             flexDirection: { xs: 'column', sm: 'row' },
             alignItems: 'center',
             mr: { xs: 0, sm: 15 },
-            mt: { xs: 2, sm: 0 },
+            mt: { xs: 2, sm: 0 }
           }}
         >
           <Button
-            variant="outlined"
+            variant='outlined'
             onClick={() => navigate('/')}
             sx={{
               borderRadius: '15px',
@@ -118,8 +115,8 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
               py: { xs: 1, sm: 1.25 },
               '&:hover': {
                 backgroundColor: 'rgba(255,255,255,0.15)',
-                borderColor: '#ffffff',
-              },
+                borderColor: '#ffffff'
+              }
             }}
           >
             Home
@@ -128,25 +125,25 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
       </Box>
 
       {}
-      <Container maxWidth="xs" sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 8 }}>
-        <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ color: '#4e4e4eff' }}>
+      <Container maxWidth='xs' sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 8 }}>
+        <Typography variant='h4' fontWeight='bold' gutterBottom sx={{ color: '#4e4e4eff' }}>
           Sign In
         </Typography>
 
         {error && (
-          <Typography color="error" variant="body2" textAlign="center" sx={{ mb: 1 }}>
+          <Typography color='error' variant='body2' textAlign='center' sx={{ mb: 1 }}>
             {error}
           </Typography>
         )}
 
         <Box
-          component="form"
+          component='form'
           onSubmit={handleSubmit}
           sx={{ mt: 2, width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}
         >
           <TextField
-            label="Email"
-            type="email"
+            label='Email'
+            type='email'
             fullWidth
             required
             value={email}
@@ -154,8 +151,8 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
           />
 
           <TextField
-            label="Password"
-            type="password"
+            label='Password'
+            type='password'
             fullWidth
             required
             value={password}
@@ -163,8 +160,8 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
           />
 
           <Button
-            type="submit"
-            variant="contained"
+            type='submit'
+            variant='contained'
             fullWidth
             disabled={loading}
             sx={{
@@ -178,18 +175,18 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
               justifyContent: 'center',
               '&:hover': {
                 backgroundColor: 'rgba(255,255,255,0.15)',
-                borderColor: '#ffffff',
-              },
+                borderColor: '#ffffff'
+              }
             }}
           >
             {loading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Sign In'}
           </Button>
 
-          <Typography variant="body2" textAlign="center">
+          <Typography variant='body2' textAlign='center'>
             Don’t have an account?{' '}
             <Link
-              component="button"
-              type="button"
+              component='button'
+              type='button'
               onClick={() => navigate('/getstarted')}
               sx={{ color: '#82b1ff', fontWeight: 'bold' }}
             >
@@ -199,5 +196,5 @@ sessionStorage.setItem('driverInfo', JSON.stringify(driverData));
         </Box>
       </Container>
     </>
-  );
+  )
 }

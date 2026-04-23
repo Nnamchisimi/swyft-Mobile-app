@@ -22,7 +22,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
-        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        "googleMapsApiKey": "AIzaSyBrptwerlWpVYRC3P9hsxm415pTkqIEfME"
       }
     },
     "android": {
@@ -40,7 +40,7 @@
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+          "apiKey": "AIzaSyBrptwerlWpVYRC3P9hsxm415pTkqIEfME"
         }
       }
     },
