@@ -224,15 +224,73 @@ app.get('/api/health', (req, res) => {
 app.get('/api/pricing', (req, res) => {
   res.json({
     locationPrices: {
-      economy: 100,
-      standard: 150,
-      luxury: 250
+      // City Hub Areas (Intra-city)
+      lefkosa: 180,
+      girne: 220,
+      magusa: 180,
+      iskele: 200,
+      // Inter-City Routes
+      'lefkosa-girne': 350,
+      'lefkosa-magusa': 450,
+      'girne-magusa': 650,
+      'lefkosa-ercan': 300
     },
     vehiclePrices: {
       motorcycle: 50,
       sedan: 150,
       truck: 400
     },
+    currency: 'TL'
+  });
+});
+
+// === FARE CALCULATION ===
+
+app.post('/api/fare/calculate', (req, res) => {
+  const { distance_km, ride_type, vehicle_type, mountain_village, night_shift } = req.body;
+  
+  // Base prices for city hub areas and inter-city routes
+  const locationPrices = {
+    // City Hub Areas (Intra-city)
+    lefkosa: 180,
+    girne: 220,
+    magusa: 180,
+    iskele: 200,
+    // Inter-City Routes
+    'lefkosa-girne': 350,
+    'lefkosa-magusa': 450,
+    'girne-magusa': 650,
+    'lefkosa-ercan': 300
+  };
+  
+  // Vehicle type prices
+  const vehiclePrices = {
+    motorcycle: 50,
+    sedan: 150,
+    truck: 400
+  };
+  
+  const locationPrice = ride_type ? (locationPrices[ride_type] || 0) : 0;
+  const vehiclePrice = vehicle_type ? (vehiclePrices[vehicle_type] || 0) : 0;
+  
+  // Apply surcharges
+  let surcharge = 0;
+  
+  if (mountain_village) {
+    surcharge += 80;
+  }
+  
+  if (night_shift) {
+    surcharge += 50;
+  }
+  
+  const totalFare = locationPrice + vehiclePrice + surcharge;
+  
+  res.json({
+    location_price: locationPrice,
+    vehicle_price: vehiclePrice,
+    surcharge: surcharge,
+    total_fare: totalFare,
     currency: 'TL'
   });
 });
@@ -1159,11 +1217,18 @@ app.get('/api/passengers/:email', (req, res) => {
 app.post('/api/fare/calculate', (req, res) => {
   const { distance_km, ride_type, vehicle_type } = req.body;
   
-  // Base prices for locations
+  // Base prices for city hub areas and inter-city routes
   const locationPrices = {
-    economy: 100,
-    standard: 150,
-    luxury: 250
+    // City Hub Areas (Intra-city)
+    lefkosa: 180,
+    girne: 220,
+    magusa: 180,
+    iskele: 200,
+    // Inter-City Routes
+    'lefkosa-girne': 350,
+    'lefkosa-magusa': 450,
+    'girne-magusa': 650,
+    'lefkosa-ercan': 300
   };
   
   // Vehicle type prices
@@ -1176,11 +1241,24 @@ app.post('/api/fare/calculate', (req, res) => {
   const locationPrice = ride_type ? (locationPrices[ride_type] || 0) : 0;
   const vehiclePrice = vehicle_type ? (vehiclePrices[vehicle_type] || 0) : 0;
   
-  const totalFare = locationPrice + vehiclePrice;
+  // Apply surcharges
+  let surcharge = 0;
+  const { mountain_village, night_shift } = req.body;
+  
+  if (mountain_village) {
+    surcharge += 80;
+  }
+  
+  if (night_shift) {
+    surcharge += 50;
+  }
+  
+  const totalFare = locationPrice + vehiclePrice + surcharge;
   
   res.json({
     location_price: locationPrice,
     vehicle_price: vehiclePrice,
+    surcharge: surcharge,
     total_fare: totalFare,
     currency: 'TL'
   });
