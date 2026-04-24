@@ -15,11 +15,12 @@ class SocketService {
 
     console.log('Connecting to socket server:', SOCKET_URL);
     this.socket = io(SOCKET_URL, {
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
+      timeout: 10000,
     });
 
     this.socket.on('connect', () => {
@@ -31,7 +32,8 @@ class SocketService {
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
+      console.log('Socket connection error:', error.message);
+      // Don't log full error object to avoid circular reference
     });
   }
 

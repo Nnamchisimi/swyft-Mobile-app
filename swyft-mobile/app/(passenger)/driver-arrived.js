@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import * as Location from 'expo-location';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import Constants from 'expo-constants';
 import { ridesAPI } from '../../src/services/api';
 import { authService } from '../../src/services/auth';
 import { socketService } from '../../src/services/socket';
 import { COLORS } from '../../src/constants/config';
+import geoService from '../../src/services/geo';
 
 export default function DriverArrivedScreen() {
   const router = useRouter();
@@ -37,32 +39,12 @@ export default function DriverArrivedScreen() {
   const [driverLocation, setDriverLocation] = useState(null);
   const [rideData, setRideData] = useState(null);
   const [userEmail, setUserEmail] = useState(null);
-  const [eta, setEta] = useState(null);
-  const mapRef = useRef(null);
-  
-  
-  const calculateDistance = (lat1, lng1, lat2, lng2) => {
-    const R = 6371; 
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
-  
-  
-  const calculateETA = (distanceKm, avgSpeedKmh = 30) => {
-    const timeHours = distanceKm / avgSpeedKmh;
-    const timeMinutes = Math.round(timeHours * 60);
-    if (timeMinutes < 1) return 'Less than 1 min';
-    if (timeMinutes === 1) return '1 min away';
-    if (timeMinutes < 60) return `${timeMinutes} mins away`;
-    const hours = Math.floor(timeMinutes / 60);
-    const mins = timeMinutes % 60;
-    return `${hours}h ${mins}m away`;
-  };
+   const [eta, setEta] = useState(null);
+   const mapRef = useRef(null);
+
+   // Use centralized geoService for all location operations
+   const calculateDistance = geoService.calculateDistance;
+   const formatETA = geoService.formatETA;
   
   useEffect(() => {
     
@@ -137,15 +119,15 @@ export default function DriverArrivedScreen() {
           });
           
           
-          if (ride.pickup_lat && ride.pickup_lng) {
-            const distance = calculateDistance(
-              parseFloat(ride.driver_lat),
-              parseFloat(ride.driver_lng),
-              parseFloat(ride.pickup_lat),
-              parseFloat(ride.pickup_lng)
-            );
-            setEta(calculateETA(distance));
-          }
+           if (ride.pickup_lat && ride.pickup_lng) {
+             const distanceKm = geoService.calculateDistance(
+               parseFloat(ride.driver_lat),
+               parseFloat(ride.driver_lng),
+               parseFloat(ride.pickup_lat),
+               parseFloat(ride.pickup_lng)
+             );
+             setEta(geoService.formatETAFromDistance(distanceKm));
+           }
         }
         
         console.log('Loaded ride details:', ride.id, ride.status);
@@ -222,33 +204,46 @@ export default function DriverArrivedScreen() {
     });
     
     
-    socketService.on('driverLocationUpdated', (data) => {
-      console.log('driverLocationUpdated received in driver-arrived:', data);
-      if (data.rideId === rideId) {
-        const newLocation = {
-          latitude: data.lat,
-          longitude: data.lng,
-        };
-        console.log('Updating Courier location to:', newLocation);
-        setDriverLocation(newLocation);
-        
-        
-        if (pickupLocation) {
-          const distance = calculateDistance(newLocation.latitude, newLocation.longitude, pickupLocation.latitude, pickupLocation.longitude);
-          setEta(calculateETA(distance));
-        }
-        
-        
-        if (mapRef.current && newLocation) {
-          mapRef.current.animateToRegion({
-            latitude: newLocation.latitude,
-            longitude: newLocation.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }, 1000);
-        }
-      }
-    });
+     socketService.on('driverLocationUpdated', async (data) => {
+       console.log('driverLocationUpdated received in driver-arrived:', data);
+       if (data.rideId === rideId) {
+         const newLocation = {
+           latitude: data.lat,
+           longitude: data.lng,
+         };
+         console.log('Updating Courier location to:', newLocation);
+         setDriverLocation(newLocation);
+         
+         
+         if (pickupLocation) {
+           // Use Google Directions API for accurate ETA
+           const etaResult = await geoService.getETA(newLocation, pickupLocation);
+           if (etaResult?.duration) {
+             setEta(geoService.formatETA(etaResult.duration));
+           } else {
+             // Fallback: calculate rough estimate from straight-line distance
+             const distance = geoService.calculateDistance(
+               newLocation.latitude,
+               newLocation.longitude,
+               pickupLocation.latitude,
+               pickupLocation.longitude
+             );
+             // Assume average speed of 5 km/h for walking/courier
+             setEta(geoService.formatETAFromDistance(distance));
+           }
+         }
+         
+         
+         if (mapRef.current && newLocation) {
+           mapRef.current.animateToRegion({
+             latitude: newLocation.latitude,
+             longitude: newLocation.longitude,
+             latitudeDelta: 0.01,
+             longitudeDelta: 0.01,
+           }, 1000);
+         }
+       }
+     });
   };
   
   const handleConfirmPickup = async () => {
@@ -329,7 +324,7 @@ export default function DriverArrivedScreen() {
           ref={mapRef}
           style={styles.map}
           initialRegion={initialRegion}
-          provider={PROVIDER_OSM}
+          provider={PROVIDER_GOOGLE}
           showsUserLocation={true}
           showsMyLocationButton={true}
         >

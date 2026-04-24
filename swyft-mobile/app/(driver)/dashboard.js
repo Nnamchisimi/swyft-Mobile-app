@@ -1,26 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-  Dimensions,
-  Platform,
-  Linking,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
-import { useRouter } from 'expo-router';
-import * as Location from 'expo-location';
-import { authService } from '../../src/services/auth';
-import { ridesAPI, driverAPI } from '../../src/services/api';
-import { socketService } from '../../src/services/socket';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../src/constants/config';
+import DriverDashboardScreen from '../../src/screens/driver/DriverDashboardScreen';
 
 export default function DriverDashboard() {
   const router = useRouter();
@@ -1764,3 +1742,6 @@ const styles = StyleSheet.create({
     color: COLORS.error,
   },
 });
+
+export default DriverDashboardScreen;
+

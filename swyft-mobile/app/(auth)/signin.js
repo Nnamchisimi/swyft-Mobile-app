@@ -13,7 +13,11 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+<<<<<<< HEAD
 import { signInWithGoogle } from '../../src/services/googleAuth';
+=======
+
+>>>>>>> recovery
 import { authService } from '../../src/services/auth';
 import { COLORS, API_URL } from '../../src/constants/config';
 
@@ -25,7 +29,10 @@ export default function SignInScreen() {
   const [debugInfo, setDebugInfo] = useState(API_URL);
   const [loading, setLoading] = useState(false);
 
+  // Google Sign-In will be available with native setup for TestFlight builds
+  
   const handleGoogleSignIn = async () => {
+<<<<<<< HEAD
     try {
       setLoading(true);
       setError('');
@@ -65,6 +72,9 @@ export default function SignInScreen() {
     } finally {
       setLoading(false);
     }
+=======
+    Alert.alert('Google Sign-In', 'Google Sign-In is being configured. Use email/password for now.');
+>>>>>>> recovery
   };
 
   const handleLogin = async () => {
@@ -161,7 +171,6 @@ export default function SignInScreen() {
           <TouchableOpacity
             style={styles.googleButton}
             onPress={handleGoogleSignIn}
-            disabled={loading}
           >
             <Ionicons name="logo-google" size={24} color={COLORS.white} />
             <Text style={styles.googleButtonText}>Continue with Google</Text>

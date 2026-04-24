@@ -37,3 +37,8 @@ export const STORAGE_KEYS = {
   USER_ROLE: 'userRole',
   DRIVER_INFO: 'driverInfo',
 };
+
+// Google Maps API key
+export const GOOGLE_MAPS_API_KEY = Constants.expoConfig?.android?.config?.googleMaps?.apiKey || 
+                                    Constants.expoConfig?.ios?.config?.googleMaps?.apiKey || 
+                                    'AIzaSyBrptwerlWpVYRC3P9hsxm415pTkqIEfME';

@@ -45,12 +45,12 @@ export default function DriverEarningsScreen() {
       
       if (data && typeof data === 'object') {
         setEarnings({
-          today_earnings: Number(data.today_earnings) || 0,
-          total_earnings: Number(data.total_earnings) || 0,
-          total_trips: Number(data.total_trips) || 0,
-          week_earnings: Number(data.week_earnings || data.today_earnings * 7) || 0,
-          month_earnings: Number(data.month_earnings || data.today_earnings * 30) || 0,
-          withdrawn: Number(data.withdrawn || 0) || 0,
+          today_earnings: parseFloat(data.today_earnings) || 0,
+          total_earnings: parseFloat(data.total_earnings) || 0,
+          total_trips: parseInt(data.total_trips) || 0,
+          week_earnings: parseFloat(data.week_earnings) || 0,
+          month_earnings: parseFloat(data.month_earnings) || 0,
+          withdrawn: parseFloat(data.withdrawn) || 0,
         });
       }
 

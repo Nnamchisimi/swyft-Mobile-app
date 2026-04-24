@@ -13,14 +13,16 @@ import {
   Linking,
   KeyboardAvoidingView,
 } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_APPLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, PROVIDER_APPLE, PROVIDER_NONE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import { ridesAPI, fareAPI } from '../../src/services/api';
 import { authService } from '../../src/services/auth';
 import { socketService } from '../../src/services/socket';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../src/constants/config';
+import { COLORS, GOOGLE_MAPS_API_KEY } from '../../src/constants/config';
+import geoService from '../../src/services/geo';
 
 const { width } = Dimensions.get('window');
 
@@ -58,12 +60,96 @@ export default function BookRideScreen() {
   const [packageDetails, setPackageDetails] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [selectedQuickNote, setSelectedQuickNote] = useState('');
-  const [selectedVehicleType, setSelectedVehicleType] = useState('');
+  const [interCityMode, setInterCityMode] = useState(false);
+  const [interCityRoute, setInterCityRoute] = useState('');
   const [pricingLoaded, setPricingLoaded] = useState(false);
+  const [selectedVehicleType, setSelectedVehicleType] = useState('');
+  const [surchargeDetails, setSurchargeDetails] = useState([]);
   const [rideTypes, setRideTypes] = useState([
-    { id: 'economy', name: 'Lefkosa', icon: 'location', time: '5-60 min', desc: 'Affordable rides' },
-    { id: 'standard', name: 'Girne', icon: 'location', time: '30-60mins', desc: 'Comfortable rides' },
-    { id: 'luxury', name: 'Magusa', icon: 'location', time: '1-2 hrs', desc: 'Premium vehicles' },
+    { 
+      id: 'lefkosa', 
+      name: 'Lefkoşa', 
+      icon: 'location', 
+      time: '15-30 min', 
+      desc: 'City Hub - Inner-City Fee',
+      basePrice: 180,
+      coverageArea: 'Hamitköy to Gönyeli Çemberi',
+      type: 'intra-city'
+    },
+    { 
+      id: 'girne', 
+      name: 'Girne', 
+      icon: 'location', 
+      time: '45-60 min', 
+      desc: 'Zeytinlik to Karakum',
+      basePrice: 220,
+      coverageArea: 'Higher due to traffic/hills',
+      type: 'intra-city'
+    },
+    { 
+      id: 'magusa', 
+      name: 'Gazimağusa', 
+      icon: 'location', 
+      time: '20-35 min', 
+      desc: 'City Center to Sakarya',
+      basePrice: 180,
+      coverageArea: 'City Center to Sakarya',
+      type: 'intra-city'
+    },
+    { 
+      id: 'iskele', 
+      name: 'İskele', 
+      icon: 'location', 
+      time: '35-50 min', 
+      desc: 'Long Beach area to Center',
+      basePrice: 200,
+      coverageArea: 'Long Beach area to Center',
+      type: 'intra-city'
+    },
+    { 
+      id: 'lefkosa-girne', 
+      name: 'Lefkoşa ↔ Girne', 
+      icon: 'car', 
+      time: '75-90 min', 
+      desc: 'Inter-City Route',
+      basePrice: 350,
+      coverageArea: 'Mountain pass route',
+      type: 'inter-city',
+      notes: 'Account for mountain pass fuel'
+    },
+    { 
+      id: 'lefkosa-magusa', 
+      name: 'Lefkoşa ↔ Mağusa', 
+      icon: 'car', 
+      time: '60-75 min', 
+      desc: 'Inter-City Route',
+      basePrice: 450,
+      coverageArea: 'Long straight drive',
+      type: 'inter-city',
+      notes: 'High mileage route'
+    },
+    { 
+      id: 'girne-magusa', 
+      name: 'Girne ↔ Mağusa', 
+      icon: 'car', 
+      time: '90-110 min', 
+      desc: 'Inter-City Route',
+      basePrice: 650,
+      coverageArea: 'Coast Road or via Lefkoşa',
+      type: 'inter-city',
+      notes: 'The longest route'
+    },
+    { 
+      id: 'lefkosa-ercan', 
+      name: 'Lefkoşa ↔ Ercan', 
+      icon: 'airplane', 
+      time: '25-35 min', 
+      desc: 'Airport Logistics',
+      basePrice: 300,
+      coverageArea: 'Special airport rate',
+      type: 'airport',
+      notes: 'Airport/logistic rate'
+    }
   ]);
   const [vehicleTypes, setVehicleTypes] = useState([
     { id: 'motorcycle', name: 'Motorcycle', icon: 'bicycle', desc: 'Documents, small items', examples: 'Letters, small electronics, keys' },
@@ -74,6 +160,8 @@ export default function BookRideScreen() {
   
   const pickupDebounceRef = useRef(null);
   const dropoffDebounceRef = useRef(null);
+
+
 
   useEffect(() => {
     loadUserData();
@@ -135,7 +223,7 @@ export default function BookRideScreen() {
 
   useEffect(() => {
     calculateFare();
-  }, [selectedRideType, selectedVehicleType, pricingLoaded]);
+  }, [selectedRideType, selectedVehicleType, interCityMode, interCityRoute, pricingLoaded, dropoffAddress]);
 
   useEffect(() => {
     if (packageSize) {
@@ -150,59 +238,108 @@ export default function BookRideScreen() {
   }, [packageSize]);
 
   const calculateFare = async () => {
-    const ride = rideTypes.find(r => r.id === selectedRideType);
-    const vehicle = vehicleTypes.find(v => v.id === selectedVehicleType);
-    const ridePrice = ride ? ride.price : 0;
-    const vehiclePrice = vehicle ? vehicle.price : 0;
-    setEstimatedPrice(ridePrice + vehiclePrice);
+    let totalPrice = 0;
+    let basePrice = 0;
+    let vehiclePrice = 0;
+
+    if (interCityMode && interCityRoute) {
+      // Inter-city route pricing
+      const interCityPrices = {
+        'lefkosa-girne': 350,
+        'lefkosa-magusa': 450,
+        'girne-magusa': 650,
+        'lefkosa-ercan': 300,
+      };
+      basePrice = interCityPrices[interCityRoute] || 0;
+      totalPrice = basePrice;
+    } else {
+      // City hub pricing
+      const ride = rideTypes.find(r => r.id === selectedRideType);
+      const vehicle = vehicleTypes.find(v => v.id === selectedVehicleType);
+      basePrice = ride ? ride.basePrice || 0 : 0;
+      vehiclePrice = vehicle ? vehicle.price || 0 : 0;
+      totalPrice = basePrice + vehiclePrice;
+    }
+
+    // Apply surcharges
+    let surcharge = 0;
+    const surchargeDetails = [];
+
+    // Mountain/Village Fee (+80 TL)
+    if (dropoffAddress) {
+      const mountainKeywords = [
+        'bellapais', 'karaman', 'edremit', 'lapta', 'alsancak',
+        'beylerbeyi', 'ciftlik', 'kaynakkaya', 'tepebaşı'
+      ];
+      const isMountain = mountainKeywords.some(kw => 
+        dropoffAddress.toLowerCase().includes(kw.toLowerCase())
+      );
+      if (isMountain) {
+        surcharge += 80;
+        surchargeDetails.push({ name: 'Mountain/Village Fee', amount: 80 });
+      }
+    }
+
+    // Night Shift (+50 TL after 9:00 PM)
+    const currentHour = new Date().getHours();
+    if (currentHour >= 21 || currentHour < 6) {
+      surcharge += 50;
+      surchargeDetails.push({ name: 'Night Shift (after 9PM)', amount: 50 });
+    }
+
+    // Note: Waiting Fee is applied at delivery time, not in estimate
+
+    totalPrice += surcharge;
+    setEstimatedPrice(totalPrice);
+    setSurchargeDetails(surchargeDetails);
   };
 
   
-  useEffect(() => {
-    const handleAllDriverLocation = (data) => {
-      console.log('Received driverLocationUpdated:', data);
-      console.log('Current ride ID:', currentRide?.id);
-      
-      
-      if (currentRide && data.rideId === currentRide.id) {
-        const newDriverLoc = { latitude: data.lat, longitude: data.lng };
-        setDriverLocation(newDriverLoc);
-        
-        
-        if (data.status) {
-          setDriverStatus(data.status);
-        }
-        
-        
-        const pickupLoc = pickupLocation ? { latitude: pickupLocation.latitude, longitude: pickupLocation.longitude } : (currentLocation ? { latitude: currentLocation.latitude, longitude: currentLocation.longitude } : null);
-        const dropoffLoc = dropoffLocation;
-        
-        const newRoute = [];
-        
-        newRoute.push(newDriverLoc);
-        
-        if (pickupLoc) {
-          newRoute.push(pickupLoc);
-        }
-        
-        if (dropoffLoc) {
-          newRoute.push(dropoffLoc);
-        }
-        setRouteCoordinates(newRoute);
-        
-        
-        if (currentLocation) {
-          const distanceKm = calculateDistance(
-            newDriverLoc.latitude,
-            newDriverLoc.longitude,
-            currentLocation.latitude,
-            currentLocation.longitude
-          );
-          const estimatedMinutes = Math.round(distanceKm * 2);
-          setDriverDistance(estimatedMinutes);
-        }
-      }
-    };
+   useEffect(() => {
+     const handleAllDriverLocation = (data) => {
+       console.log('Received driverLocationUpdated:', data);
+       console.log('Current ride ID:', currentRide?.id);
+       
+       
+       if (currentRide && data.rideId === currentRide.id) {
+         const newDriverLoc = { latitude: data.lat, longitude: data.lng };
+         setDriverLocation(newDriverLoc);
+         
+         
+         if (data.status) {
+           setDriverStatus(data.status);
+         }
+         
+         
+         const pickupLoc = pickupLocation ? { latitude: pickupLocation.latitude, longitude: pickupLocation.longitude } : (currentLocation ? { latitude: currentLocation.latitude, longitude: currentLocation.longitude } : null);
+         const dropoffLoc = dropoffLocation;
+         
+         const newRoute = [];
+         
+         newRoute.push(newDriverLoc);
+         
+         if (pickupLoc) {
+           newRoute.push(pickupLoc);
+         }
+         
+         if (dropoffLoc) {
+           newRoute.push(dropoffLoc);
+         }
+         setRouteCoordinates(newRoute);
+         
+         
+         if (currentLocation) {
+           const distanceKm = geoService.calculateDistance(
+             newDriverLoc.latitude,
+             newDriverLoc.longitude,
+             currentLocation.latitude,
+             currentLocation.longitude
+           );
+           const estimatedMinutes = Math.round(distanceKm * 2);
+           setDriverDistance(estimatedMinutes);
+         }
+       }
+     };
     
     socketService.on('driverLocationUpdated', handleAllDriverLocation);
     
@@ -303,147 +440,117 @@ export default function BookRideScreen() {
     setUserDataLoading(false);
   };
 
-  const getCurrentLocation = async () => {
-    setLocationLoading(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required for automatic location detection.');
-        setLocationLoading(false);
-        return;
-      }
+   const getCurrentLocation = async () => {
+     setLocationLoading(true);
+     try {
+       const { status } = await Location.requestForegroundPermissionsAsync();
+       if (status !== 'granted') {
+         Alert.alert('Permission Denied', 'Location permission is required for automatic location detection.');
+         setLocationLoading(false);
+         return;
+       }
 
-      const location = await Location.getCurrentPositionAsync({});
-      const coords = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      };
-      setCurrentLocation(coords);
-      
-      
-      if (dropoffLocation) {
-        setRouteCoordinates([coords, dropoffLocation]);
-      }
-      
-      
-      try {
-        const addresses = await Location.reverseGeocodeAsync(coords);
-        if (addresses.length > 0) {
-          const addr = addresses[0];
-          const addressStr = `${addr.street || ''} ${addr.name || ''}, ${addr.city || ''}`.trim();
-          
-          
-          
-          
-          if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
-            setPickupAddress(addressStr || `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
-          }
-        }
-      } catch (e) {
-        if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
-          setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your current location. Please enter manually.');
-    } finally {
-      setLocationLoading(false);
-    }
-  };
+       const location = await Location.getCurrentPositionAsync({});
+       const coords = {
+         latitude: location.coords.latitude,
+         longitude: location.coords.longitude,
+       };
+       setCurrentLocation(coords);
+       
+       
+       if (dropoffLocation) {
+         // Get actual route from Google Directions API
+         const routeCoords = await geoService.getRouteCoordinates(coords, dropoffLocation);
+         if (routeCoords && routeCoords.length > 0) {
+           setRouteCoordinates(routeCoords);
+         } else {
+           // Fallback to direct line
+           setRouteCoordinates([coords, dropoffLocation]);
+         }
+       }
+       
+       
+       try {
+         const addressStr = await geoService.reverseGeocode(coords.latitude, coords.longitude);
+         if (addressStr) {
+           if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
+             setPickupAddress(addressStr);
+           }
+         } else {
+           if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
+             setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+           }
+         }
+       } catch (e) {
+         if (!pickupManuallySelected && !pickupLockedForRide && !pickupAddress) {
+           setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+         }
+       }
+     } catch (error) {
+       console.error('Error getting location:', error);
+       Alert.alert('Error', 'Could not get your current location. Please enter manually.');
+     } finally {
+       setLocationLoading(false);
+     }
+   };
 
   
   useEffect(() => {
-    let locationInterval = null;
+    let etaInterval = null;
     
-    
-    if (currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived' || currentRide.status === 'active') && currentLocation) {
-      
-      socketService.updatePassengerLocation(userEmail, currentLocation, currentRide.id);
-      
-      
-      locationInterval = setInterval(() => {
-        if (currentLocation && currentRide?.id) {
-          socketService.updatePassengerLocation(userEmail, currentLocation, currentRide.id);
+    if (currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived' || currentRide.status === 'active') && driverLocation && pickupLocation) {
+      // Calculate initial ETA
+      geoService.getETA(driverLocation, pickupLocation).then(result => {
+        if (result && result.duration) {
+          setDriverDistance(Math.round(result.duration / 60));
         }
-      }, 5000);
+      });
+      
+      // Update ETA every 30 seconds
+      etaInterval = setInterval(() => {
+        if (driverLocation && pickupLocation && currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived' || currentRide.status === 'active')) {
+          geoService.getETA(driverLocation, pickupLocation).then(result => {
+            if (result && result.duration) {
+              setDriverDistance(Math.round(result.duration / 60));
+            }
+          });
+        }
+      }, 30000);
     }
     
     return () => {
-      if (locationInterval) {
-        clearInterval(locationInterval);
+      if (etaInterval) {
+        clearInterval(etaInterval);
       }
     };
-  }, [currentRide, currentLocation, userEmail]);
+  }, [driverLocation, pickupLocation, currentRide]);
 
   
   const fetchLocationSuggestions = async (query, userLat = null, userLon = null) => {
-    if (!query || query.length < 2) return [];
-    
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      
-      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
-      
-      
-      
-      if (userLat && userLon) {
-        
-        const latDelta = 0.5;
-        const lonDelta = 0.5;
-        const viewbox = `${userLon - lonDelta},${userLat - latDelta},${userLon + lonDelta},${userLat + latDelta}`;
-        url += `&viewbox=${viewbox}&bounded=1`;
-      }
-      
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'SwyftApp/1.0',
-        },
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      
-      const data = await response.json();
-      if (data && Array.isArray(data)) {
-        return data.map(item => ({
-          display_name: item.display_name,
-          short_name: item.address?.city || item.address?.town || item.address?.village || item.name || item.display_name.split(',')[0],
-          lat: parseFloat(item.lat),
-          lon: parseFloat(item.lon),
-          type: item.type,
-        }));
-      }
-      return [];
-    } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.log('Autocomplete error:', error.message);
-      }
-      return [];
-    }
+    return await geoService.getPlaceSuggestions(query, userLat, userLon);
   };
 
   
   const handlePickupChange = (address) => {
     setPickupAddress(address);
-    
+
     if (address.length > 0) {
       setPickupManuallySelected(true);
     }
+
     setShowPickupSuggestions(address.length > 2);
-    
-    
+
+    // Clear previous timeout
     if (pickupDebounceRef.current) {
       clearTimeout(pickupDebounceRef.current);
     }
-    
+
     if (address.length < 2) {
       setPickupSuggestions([]);
       return;
     }
-    
-    
+
+    // Debounce the API call
     pickupDebounceRef.current = setTimeout(async () => {
       const suggestions = await fetchLocationSuggestions(
         address,
@@ -457,20 +564,21 @@ export default function BookRideScreen() {
   
   const handleDropoffChange = (address) => {
     setDropoffAddress(address);
+
     setShowDropoffSuggestions(address.length > 2);
-    
-    
+
+    // Clear previous timeout
     if (dropoffDebounceRef.current) {
       clearTimeout(dropoffDebounceRef.current);
     }
-    
+
     if (address.length < 2) {
       setDropoffSuggestions([]);
       setDropoffLocation(null);
       return;
     }
-    
-    
+
+    // Debounce the API call
     dropoffDebounceRef.current = setTimeout(async () => {
       const suggestions = await fetchLocationSuggestions(
         address,
@@ -478,8 +586,8 @@ export default function BookRideScreen() {
         currentLocation?.longitude
       );
       setDropoffSuggestions(suggestions);
-      
-      
+
+      // Auto-select first suggestion for dropoff
       if (suggestions.length > 0) {
         setDropoffLocation({
           latitude: suggestions[0].lat,
@@ -490,49 +598,88 @@ export default function BookRideScreen() {
   };
 
   
-  const handleSelectPickupSuggestion = (suggestion) => {
-    setPickupAddress(suggestion.display_name);
-    setPickupLocation({
-      latitude: suggestion.lat,
-      longitude: suggestion.lon,
-    });
-    setPickupSuggestions([]);
-    setShowPickupSuggestions(false);
-    
-    setPickupManuallySelected(true);
-    
-    
-    if (dropoffLocation) {
-      setRouteCoordinates([
-        { latitude: suggestion.lat, longitude: suggestion.lon },
-        dropoffLocation
-      ]);
-    }
-  };
+   const handleSelectPickupSuggestion = async (suggestion) => {
+     if (suggestion.place_id) {
+       // Google Places suggestion
+       const details = await geoService.getPlaceDetails(suggestion.place_id);
+       if (details) {
+         const pickupCoords = { latitude: details.lat, longitude: details.lon };
+         setPickupAddress(details.display_name);
+         setPickupLocation(pickupCoords);
+         setPickupSuggestions([]);
+         setShowPickupSuggestions(false);
+         setPickupManuallySelected(true);
+
+         if (dropoffLocation) {
+           const routeCoords = await geoService.getRouteCoordinates(pickupCoords, dropoffLocation);
+           setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [pickupCoords, dropoffLocation]);
+         }
+       }
+     } else {
+       // Fallback for old format
+       const pickupCoords = { latitude: suggestion.lat, longitude: suggestion.lon };
+       setPickupAddress(suggestion.display_name);
+       setPickupLocation(pickupCoords);
+       setPickupSuggestions([]);
+       setShowPickupSuggestions(false);
+       setPickupManuallySelected(true);
+
+       if (dropoffLocation) {
+         const routeCoords = await geoService.getRouteCoordinates(pickupCoords, dropoffLocation);
+         setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [pickupCoords, dropoffLocation]);
+       }
+     }
+   };
 
   
-  const handleSelectDropoffSuggestion = (suggestion) => {
-    setDropoffAddress(suggestion.display_name);
-    setDropoffLocation({
-      latitude: suggestion.lat,
-      longitude: suggestion.lon,
-    });
-    setDropoffSuggestions([]);
-    setShowDropoffSuggestions(false);
-    
-    
-    if (pickupLocation) {
-      setRouteCoordinates([
-        pickupLocation,
-        { latitude: suggestion.lat, longitude: suggestion.lon }
-      ]);
-    } else if (currentLocation) {
-      setRouteCoordinates([
-        { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
-        { latitude: suggestion.lat, longitude: suggestion.lon }
-      ]);
-    }
-  };
+   const handleSelectDropoffSuggestion = async (suggestion) => {
+     if (suggestion.place_id) {
+       // Google Places suggestion
+       const details = await geoService.getPlaceDetails(suggestion.place_id);
+       if (details) {
+         const dropoffCoords = { latitude: details.lat, longitude: details.lon };
+         setDropoffAddress(details.display_name);
+         setDropoffLocation(dropoffCoords);
+         setDropoffSuggestions([]);
+         setShowDropoffSuggestions(false);
+
+         if (pickupLocation) {
+           const routeCoords = await geoService.getRouteCoordinates(pickupLocation, dropoffCoords);
+           setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [pickupLocation, dropoffCoords]);
+         } else if (currentLocation) {
+           const routeCoords = await geoService.getRouteCoordinates(
+             { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+             dropoffCoords
+           );
+           setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [
+             { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+             dropoffCoords
+           ]);
+         }
+       }
+     } else {
+       // Fallback
+       const dropoffCoords = { latitude: suggestion.lat, longitude: suggestion.lon };
+       setDropoffAddress(suggestion.display_name);
+       setDropoffLocation(dropoffCoords);
+       setDropoffSuggestions([]);
+       setShowDropoffSuggestions(false);
+
+       if (pickupLocation) {
+         const routeCoords = await geoService.getRouteCoordinates(pickupLocation, dropoffCoords);
+         setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [pickupLocation, dropoffCoords]);
+       } else if (currentLocation) {
+         const routeCoords = await geoService.getRouteCoordinates(
+           { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+           dropoffCoords
+         );
+         setRouteCoordinates(routeCoords && routeCoords.length > 0 ? routeCoords : [
+           { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+           dropoffCoords
+         ]);
+       }
+     }
+   };
 
   const setupSocketListeners = () => {
     socketService.connect();
@@ -584,15 +731,16 @@ export default function BookRideScreen() {
               longitude: parseFloat(ride.driver_lng),
             });
             
-            if (currentLocation) {
-              const distanceKm = calculateDistance(
-                parseFloat(ride.driver_lat),
-                parseFloat(ride.driver_lng),
-                currentLocation.latitude,
-                currentLocation.longitude
-              );
-              const estimatedMinutes = Math.round(distanceKm * 2);
-              setDriverDistance(estimatedMinutes);
+            // Calculate ETA when driver is assigned
+            if (pickupLocation) {
+              geoService.getETA(
+                { latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) },
+                pickupLocation
+              ).then(result => {
+                if (result && result.duration) {
+                  setDriverDistance(Math.round(result.duration / 60));
+                }
+              });
             }
           } else if (ride.pickup_lat && ride.pickup_lng) {
             setDriverLocation({
@@ -669,8 +817,114 @@ export default function BookRideScreen() {
   };
 
   
+   const getPlaceDetails = async (placeId) => {
+     return await geoService.getPlaceDetails(placeId);
+   };
+
+  const handlePickupMapsLink = async () => {
+    if (!pickupMapsUrl.trim()) {
+      Alert.alert('Error', 'Please enter a Google Maps URL');
+      return;
+    }
+
+    const coords = parseGoogleMapsUrl(pickupMapsUrl);
+    if (coords) {
+      setPickupLocation(coords);
+
+      // Reverse geocode to get address
+      try {
+        const addressStr = await reverseGeocode(coords.latitude, coords.longitude);
+        if (addressStr) {
+          setPickupAddress(addressStr);
+        } else {
+          setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+        }
+      } catch (error) {
+        console.log('Error reverse geocoding Google Maps URL:', error);
+        setPickupAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+      }
+
+      setShowPickupMapsLink(false);
+      setPickupMapsUrl('');
+      Alert.alert('Success', 'Pickup location set from Google Maps link');
+    } else {
+      Alert.alert('Error', 'Invalid Google Maps URL. Please ensure it contains coordinates (e.g., @lat,lng).');
+    }
+  };
+
+  const handleDropoffMapsLink = async () => {
+    if (!dropoffMapsUrl.trim()) {
+      Alert.alert('Error', 'Please enter a Google Maps URL');
+      return;
+    }
+
+    const coords = parseGoogleMapsUrl(dropoffMapsUrl);
+    if (coords) {
+      setDropoffLocation(coords);
+
+      // Reverse geocode to get address
+      try {
+        const addressStr = await reverseGeocode(coords.latitude, coords.longitude);
+        if (addressStr) {
+          setDropoffAddress(addressStr);
+        } else {
+          setDropoffAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+        }
+      } catch (error) {
+        console.log('Error reverse geocoding Google Maps URL:', error);
+        setDropoffAddress(`${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+      }
+
+      setShowDropoffMapsLink(false);
+      setDropoffMapsUrl('');
+      Alert.alert('Success', 'Dropoff location set from Google Maps link');
+    } else {
+      Alert.alert('Error', 'Invalid Google Maps URL. Please ensure it contains coordinates (e.g., @lat,lng).');
+    }
+  };
+
+   const reverseGeocode = async (lat, lng) => {
+     return await geoService.reverseGeocode(lat, lng);
+   };
+
+    const parseGoogleMapsUrl = (url) => {
+      try {
+        // Check for @lat,lng pattern
+        const atMatch = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (atMatch) {
+          return {
+            latitude: parseFloat(atMatch[1]),
+            longitude: parseFloat(atMatch[2])
+          };
+        }
+
+        // Check for q=lat,lng pattern
+        const qMatch = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (qMatch) {
+          return {
+            latitude: parseFloat(qMatch[1]),
+            longitude: parseFloat(qMatch[2])
+          };
+        }
+
+        // Check for ll=lat,lng pattern
+        const llMatch = url.match(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (llMatch) {
+          return {
+            latitude: parseFloat(llMatch[1]),
+            longitude: parseFloat(llMatch[2])
+          };
+        }
+
+        return null;
+      } catch (error) {
+        console.log('Error parsing Google Maps URL:', error);
+        return null;
+      }
+    };
+
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; 
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -681,45 +935,47 @@ export default function BookRideScreen() {
   };
 
   const handleBookRide = async () => {
-    if (!pickupAddress.trim()) {
-      Alert.alert('Error', 'Please enter a pickup location');
+    if (!selectedRideType || (!interCityMode && !selectedVehicleType)) {
+      Alert.alert('Error', 'Please select all required options');
       return;
     }
-
-    if (!dropoffAddress.trim()) {
-      Alert.alert('Error', 'Please enter a dropoff location');
+    if (!pickupAddress || !dropoffAddress) {
+      Alert.alert('Error', 'Please enter both pickup and dropoff locations');
       return;
     }
 
     setLoading(true);
     try {
       const rideData = {
-        passengerName: userName,
-        passengerEmail: userEmail,
-        passengerPhone: userPhone || 'N/A',
+        passenger_email: userEmail,
+        passenger_name: userName,
+        passenger_phone: userPhone,
         pickup: pickupAddress,
         dropoff: dropoffAddress,
-        rideType: selectedRideType,
-        ridePrice: estimatedPrice,
-        pickupLat: pickupLocation?.latitude,
-        pickupLng: pickupLocation?.longitude,
-        dropoffLat: dropoffLocation?.latitude,
-        dropoffLng: dropoffLocation?.longitude,
-        packageType: packageType || null,
-        packageSize: packageSize || null,
-        vehicleType: selectedVehicleType || null,
-        packageDetails: packageDetails || null,
-        specialInstructions: selectedQuickNote ? `${selectedQuickNote}${specialInstructions ? '. ' + specialInstructions : ''}` : (specialInstructions || null),
+        pickup_lat: pickupLocation?.latitude || currentLocation?.latitude,
+        pickup_lng: pickupLocation?.longitude || currentLocation?.longitude,
+        dropoff_lat: dropoffLocation?.latitude,
+        dropoff_lng: dropoffLocation?.longitude,
+        ride_type: interCityMode ? interCityRoute : selectedRideType,
+        vehicle_type: selectedVehicleType,
+        package_type: packageType,
+        package_size: packageSize,
+        package_details: packageDetails,
+        special_instructions: specialInstructions,
+        price: estimatedPrice,
+        status: 'pending',
+        inter_city: interCityMode,
       };
 
       const response = await ridesAPI.createRide(rideData);
+
       const ride = response.data;
-      
+
       setCurrentRide({ id: ride.rideId, ...rideData, status: 'pending' });
       setRideBooked(true);
-      
+
       setPickupLockedForRide(true);
-      
+
       Alert.alert(
         'Courier Requested!',
         'Looking for nearby couriers...\n\nYou will be notified when a courier accepts your ride.',
@@ -824,16 +1080,23 @@ export default function BookRideScreen() {
         </View>
       </View>
 
-      {driverLocation && driverDistance && (
-        <View style={styles.etaContainer}>
-          <Ionicons name="car" size={20} color={COLORS.white} />
-          <Text style={styles.etaText}>
-            {driverStatus === 'arrived' ? 'Driver has arrived!' : 
-             driverStatus === 'in_progress' ? 'Ride in progress' : 
-             `Driver arriving in ${driverDistance} min`}
-          </Text>
-        </View>
-      )}
+       {driverLocation && (driverDistance || driverDistance === 0) && (
+         <View style={styles.etaContainer}>
+           <Ionicons name="car" size={20} color={COLORS.white} />
+           <Text style={styles.etaText}>
+             {driverStatus === 'arrived' ? 'Driver has arrived!' : 
+              driverStatus === 'in_progress' ? 'Ride in progress' : 
+              `Driver arriving in ${driverDistance} min`}
+           </Text>
+         </View>
+       )}
+
+       {driverLocation && !driverDistance && (
+         <View style={[styles.etaContainer, { backgroundColor: COLORS.secondary }]}>
+           <Ionicons name="time" size={20} color={COLORS.white} />
+           <Text style={styles.etaText}>Calculating ETA...</Text>
+         </View>
+       )}
 
       <View style={styles.priceRow}>
         <Text style={styles.priceLabel}>Estimated Fare</Text>
@@ -854,7 +1117,7 @@ export default function BookRideScreen() {
           <MapView
             ref={mapRef}
             style={styles.map}
-            provider={PROVIDER_APPLE}
+            provider={PROVIDER_GOOGLE}
             initialRegion={{
               latitude: (pickupLocation || currentLocation)?.latitude,
               longitude: (pickupLocation || currentLocation)?.longitude,
@@ -977,14 +1240,14 @@ export default function BookRideScreen() {
           <View style={[styles.inputDot, { backgroundColor: COLORS.success }]} />
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>PICKUP</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter pickup location"
-              placeholderTextColor={COLORS.textSecondary}
-              value={pickupAddress}
-              onChangeText={handlePickupChange}
-              onFocus={() => setShowPickupSuggestions(true)}
-            />
+             <TextInput
+               style={styles.input}
+               placeholder="Enter pickup location"
+               placeholderTextColor={COLORS.textSecondary}
+               value={pickupAddress}
+               onChangeText={handlePickupChange}
+               onFocus={() => setShowPickupSuggestions(true)}
+             />
             {}
             {showPickupSuggestions && pickupSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
@@ -1011,14 +1274,14 @@ export default function BookRideScreen() {
           <View style={[styles.inputDot, { backgroundColor: COLORS.error }]} />
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>DROPOFF</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Package Destination?"
-              placeholderTextColor={COLORS.textSecondary}
-              value={dropoffAddress}
-              onChangeText={handleDropoffChange}
-              onFocus={() => setShowDropoffSuggestions(true)}
-            />
+             <TextInput
+               style={styles.input}
+               placeholder="Package destination"
+               placeholderTextColor={COLORS.textSecondary}
+               value={dropoffAddress}
+               onChangeText={handleDropoffChange}
+               onFocus={() => setShowDropoffSuggestions(true)}
+             />
             {}
             {showDropoffSuggestions && dropoffSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
@@ -1055,94 +1318,271 @@ export default function BookRideScreen() {
         </TouchableOpacity>
       </View>
 
-      {}
-      <View style={styles.rideTypesSection}>
-        <Text style={styles.sectionTitle}>Choose Your Courier</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {rideTypes.map((ride) => (
-            <TouchableOpacity
-              key={ride.id}
-              style={[
-                styles.rideTypeCard,
-                selectedRideType === ride.id && styles.rideTypeCardSelected,
-              ]}
-              onPress={() => setSelectedRideType(ride.id)}
-            >
-              <Ionicons 
-                name="location" 
-                size={28} 
-                color={selectedRideType === ride.id ? COLORS.primary : COLORS.textSecondary} 
-              />
-              <Text style={[
-                styles.rideTypeName,
-                selectedRideType === ride.id && styles.rideTypeNameSelected,
-              ]}>
-                {ride.name}
-              </Text>
-              <Text style={styles.rideTypeTime}>{ride.time}</Text>
-              {pricingLoaded ? (
-                <Text style={[
-                  styles.rideTypePrice,
-                  selectedRideType === ride.id && styles.rideTypePriceSelected,
-                ]}>
-                  ₺{ride.price}
-                </Text>
-              ) : (
-                <Text style={styles.rideTypePrice}>₺...</Text>
-              )}
-              <Text style={styles.rideTypeDesc}>{ride.desc}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+       {}
+       {/* Inter-City Toggle */}
+       <View style={styles.interCityToggleContainer}>
+         <TouchableOpacity
+           style={[
+             styles.interCityToggleButton,
+             !interCityMode && styles.interCityToggleButtonActive
+           ]}
+           onPress={() => {
+             setInterCityMode(false);
+             setInterCityRoute('');
+             setSelectedRideType('');
+             setSelectedVehicleType('');
+           }}
+         >
+           <Text style={[
+             styles.interCityToggleText,
+             !interCityMode && styles.interCityToggleTextActive
+           ]}>City Hub</Text>
+         </TouchableOpacity>
+         <TouchableOpacity
+           style={[
+             styles.interCityToggleButton,
+             interCityMode && styles.interCityToggleButtonActive
+           ]}
+           onPress={() => {
+             setInterCityMode(true);
+             setInterCityRoute('');
+             setSelectedRideType('');
+             setSelectedVehicleType('');
+           }}
+         >
+           <Text style={[
+             styles.interCityToggleText,
+             interCityMode && styles.interCityToggleTextActive
+           ]}>Inter-City</Text>
+         </TouchableOpacity>
+       </View>
 
-      <View style={styles.vehicleTypesSection}>
-        <Text style={styles.sectionTitle}>Vehicle Required (Based on Size)</Text>
-        <View style={styles.vehicleTypeContainer}>
-          {vehicleTypes.map((vehicle) => (
-            <View
-              key={vehicle.id}
-              style={[
-                styles.vehicleTypeCard,
-                selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected,
-              ]}
-            >
-              <Ionicons 
-                name={vehicle.icon} 
-                size={28} 
-                color={selectedVehicleType === vehicle.id ? COLORS.white : COLORS.textSecondary} 
-              />
-              <Text style={[
-                styles.vehicleTypeName,
-                selectedVehicleType === vehicle.id && styles.vehicleTypeNameSelected,
-              ]}>
-                {vehicle.name}
-              </Text>
-              <Text style={[
-                styles.vehicleTypeDesc,
-                selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected,
-              ]}>
-                {vehicle.desc}
-              </Text>
-              <Text style={[
-                styles.vehicleTypeExamples,
-                selectedVehicleType === vehicle.id && styles.vehicleTypeExamplesSelected,
-              ]}>
-                {vehicle.examples}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View>
+        {interCityMode ? (
+          <View style={styles.interCitySection}>
+           <Text style={styles.sectionTitle}>Choose Route</Text>
+           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+             <TouchableOpacity
+               style={[
+                 styles.interCityCard,
+                 interCityRoute === 'lefkosa-girne' && styles.interCityCardSelected,
+               ]}
+               onPress={() => setInterCityRoute('lefkosa-girne')}
+             >
+               <Ionicons name="location" size={28} color={interCityRoute === 'lefkosa-girne' ? COLORS.primary : COLORS.textSecondary} />
+               <Text style={styles.interCityCardTitle}>Lefkosa</Text>
+               <Text style={styles.interCityCardSubtitle}>→ Girne</Text>
+               <Text style={[styles.interCityCardPrice, interCityRoute === 'lefkosa-girne' && styles.interCityCardPriceSelected]}>₺350</Text>
+             </TouchableOpacity>
+
+             <TouchableOpacity
+               style={[
+                 styles.interCityCard,
+                 interCityRoute === 'lefkosa-magusa' && styles.interCityCardSelected,
+               ]}
+               onPress={() => setInterCityRoute('lefkosa-magusa')}
+             >
+               <Ionicons name="location" size={28} color={interCityRoute === 'lefkosa-magusa' ? COLORS.primary : COLORS.textSecondary} />
+               <Text style={styles.interCityCardTitle}>Lefkosa</Text>
+               <Text style={styles.interCityCardSubtitle}>→ Magusa</Text>
+               <Text style={[styles.interCityCardPrice, interCityRoute === 'lefkosa-magusa' && styles.interCityCardPriceSelected]}>₺450</Text>
+             </TouchableOpacity>
+
+             <TouchableOpacity
+               style={[
+                 styles.interCityCard,
+                 interCityRoute === 'girne-magusa' && styles.interCityCardSelected,
+               ]}
+               onPress={() => setInterCityRoute('girne-magusa')}
+             >
+               <Ionicons name="location" size={28} color={interCityRoute === 'girne-magusa' ? COLORS.primary : COLORS.textSecondary} />
+               <Text style={styles.interCityCardTitle}>Girne</Text>
+               <Text style={styles.interCityCardSubtitle}>→ Magusa</Text>
+               <Text style={[styles.interCityCardPrice, interCityRoute === 'girne-magusa' && styles.interCityCardPriceSelected]}>₺650</Text>
+             </TouchableOpacity>
+
+             <TouchableOpacity
+               style={[
+                 styles.interCityCard,
+                 interCityRoute === 'lefkosa-ercan' && styles.interCityCardSelected,
+               ]}
+               onPress={() => setInterCityRoute('lefkosa-ercan')}
+             >
+               <Ionicons name="location" size={28} color={interCityRoute === 'lefkosa-ercan' ? COLORS.primary : COLORS.textSecondary} />
+               <Text style={styles.interCityCardTitle}>Lefkosa</Text>
+               <Text style={styles.interCityCardSubtitle}>→ Ercan</Text>
+               <Text style={[styles.interCityCardPrice, interCityRoute === 'lefkosa-ercan' && styles.interCityCardPriceSelected]}>₺300</Text>
+             </TouchableOpacity>
+           </ScrollView>
+         </View>
+       ) : (
+         <>
+           {/* City Hub Areas */}
+           <View style={styles.rideTypesSection}>
+             <Text style={styles.sectionTitle}>Choose City Hub Area</Text>
+             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+               {rideTypes.map((ride) => (
+                 <TouchableOpacity
+                   key={ride.id}
+                   style={[
+                     styles.rideTypeCard,
+                     selectedRideType === ride.id && styles.rideTypeCardSelected,
+                   ]}
+                   onPress={() => setSelectedRideType(ride.id)}
+                 >
+                   <Ionicons 
+                     name="location" 
+                     size={28} 
+                     color={selectedRideType === ride.id ? COLORS.primary : COLORS.textSecondary} 
+                   />
+                   <Text style={[
+                     styles.rideTypeName,
+                     selectedRideType === ride.id && styles.rideTypeNameSelected,
+                   ]}>
+                     {ride.name}
+                   </Text>
+                   <Text style={styles.rideTypeTime}>{ride.time}</Text>
+                   {pricingLoaded ? (
+                     <Text style={[
+                       styles.rideTypePrice,
+                       selectedRideType === ride.id && styles.rideTypePriceSelected,
+                     ]}>
+                       ₺{ride.price}
+                     </Text>
+                   ) : (
+                     <Text style={styles.rideTypePrice}>₺...</Text>
+                   )}
+                   <Text style={styles.rideTypeDesc}>{ride.desc}</Text>
+                 </TouchableOpacity>
+               ))}
+             </ScrollView>
+           </View>
+
+           {/* Vehicle Types - Only show when a city is picked */}
+           {selectedRideType ? (
+             <View style={styles.vehicleTypesSection}>
+               <Text style={styles.sectionTitle}>Vehicle Required (Based on Size)</Text>
+               <View style={styles.vehicleTypeContainer}>
+                  {vehicleTypes.map((vehicle) => (
+                    <TouchableOpacity
+                      key={vehicle.id}
+                      style={[
+                        styles.vehicleTypeCard,
+                        selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected,
+                      ]}
+                      onPress={() => setSelectedVehicleType(vehicle.id)}
+                    >
+                      <Ionicons 
+                        name={vehicle.icon} 
+                        size={28} 
+                        color={selectedVehicleType === vehicle.id ? COLORS.white : COLORS.textSecondary} 
+                      />
+                      <Text style={[
+                        styles.vehicleTypeName,
+                        selectedVehicleType === vehicle.id && styles.vehicleTypeNameSelected,
+                      ]}>
+                        {vehicle.name}
+                      </Text>
+                      <Text style={[
+                        styles.vehicleTypeDesc,
+                        selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected,
+                      ]}>
+                        {vehicle.desc}
+                      </Text>
+                      <Text style={[
+                        styles.vehicleTypeExamples,
+                        selectedVehicleType === vehicle.id && styles.vehicleTypeExamplesSelected,
+                      ]}>
+                        {vehicle.examples}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+               </View>
+             </View>
+           ) : (
+             <View style={styles.vehicleTypesSection}>
+               <Text style={styles.sectionTitle}>Vehicle Required (Based on Size)</Text>
+               <Text style={styles.vehicleTypePlaceholder}>Please select a city hub area first</Text>
+             </View>
+           )}
+         </>
+       )}
+
+       {/* Surcharge Info Section */}
+       <View style={styles.surchargeSection}>
+         <Text style={styles.sectionTitle}>Additional Fees</Text>
+         <View style={styles.surchargeRow}>
+           <Ionicons name="snow" size={20} color={COLORS.textSecondary} />
+           <Text style={styles.surchargeLabel}>Mountain/Village Fee</Text>
+           <Text style={styles.surchargeValue}>+₺80</Text>
+         </View>
+         <View style={styles.surchargeRow}>
+           <Ionicons name="moon" size={20} color={COLORS.textSecondary} />
+           <Text style={styles.surchargeLabel}>Night Shift (After 9:00 PM)</Text>
+           <Text style={styles.surchargeValue}>+₺50</Text>
+         </View>
+         <View style={styles.surchargeRow}>
+           <Ionicons name="timer" size={20} color={COLORS.textSecondary} />
+           <Text style={styles.surchargeLabel}>Waiting Fee</Text>
+           <Text style={styles.surchargeValue}>₺20/5min</Text>
+         </View>
+       </View>
 
       {}
-      <View style={styles.priceEstimate}>
-        <View style={styles.priceRow}>
-          <Text style={styles.priceLabel}>Delivery Price</Text>
-          <Text style={styles.priceValue}>₺{estimatedPrice}</Text>
-        </View>
-        <Text style={styles.priceNote}>Matched with nearest courier</Text>
-      </View>
+       <View style={styles.priceEstimate}>
+         <View style={styles.priceBreakdown}>
+           <Text style={styles.priceBreakdownTitle}>Price Breakdown</Text>
+           
+           {interCityMode && interCityRoute ? (
+             <View style={styles.priceRow}>
+               <Text style={styles.priceLabel}>Base Route Fare</Text>
+               <Text style={styles.priceValue}>₺{estimatedPrice}</Text>
+             </View>
+           ) : (
+             <>
+               <View style={styles.priceRow}>
+                 <Text style={styles.priceLabel}>City Hub Base Fare</Text>
+                 <Text style={styles.priceValue}>₺{selectedRideType ? (rideTypes.find(r => r.id === selectedRideType)?.price || rideTypes.find(r => r.id === selectedRideType)?.basePrice || 0) : 0}</Text>
+               </View>
+               {selectedVehicleType && (
+                 <View style={styles.priceRow}>
+                   <Text style={styles.priceLabel}>Vehicle Type</Text>
+                   <Text style={styles.priceValue}>₺{vehicleTypes.find(v => v.id === selectedVehicleType)?.price || 0}</Text>
+                 </View>
+               )}
+             </>
+           )}
+           
+           {/* Surcharges */}
+           {(() => {
+             const surcharges = [];
+             const mountainKeywords = ['bellapais', 'karaman', 'edremit', 'lapta', 'alsancak', 'beylerbeyi', 'ciftlik', 'kaynakkaya', 'tepebaşı'];
+             const isMountain = dropoffAddress && mountainKeywords.some(kw => dropoffAddress.toLowerCase().includes(kw.toLowerCase()));
+             const currentHour = new Date().getHours();
+             const isNight = currentHour >= 21 || currentHour < 6;
+             
+             if (isMountain) {
+               surcharges.push({ name: 'Mountain/Village Fee', amount: 80 });
+             }
+             if (isNight) {
+               surcharges.push({ name: 'Night Shift (after 9PM)', amount: 50 });
+             }
+             
+             return surcharges.map((surcharge, index) => (
+               <View key={index} style={styles.priceRow}>
+                 <Text style={styles.surchargeLabel}>+ {surcharge.name}</Text>
+                 <Text style={styles.surchargeAmount}>₺{surcharge.amount}</Text>
+               </View>
+             ));
+           })()}
+         </View>
+         
+         <View style={styles.totalPriceRow}>
+           <Text style={styles.totalPriceLabel}>Total Estimated Fare</Text>
+           <Text style={styles.totalPriceValue}>₺{estimatedPrice}</Text>
+         </View>
+         
+         <Text style={styles.priceNote}>Final price may vary based on actual route and conditions</Text>
+       </View>
 
       <View style={styles.packageSection}>
         <Text style={styles.sectionTitle}>Package Details</Text>
@@ -1298,6 +1738,7 @@ export default function BookRideScreen() {
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1451,6 +1892,67 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     paddingVertical: 8,
   },
+  mapsLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  mapsLinkText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  mapsLinkContainer: {
+    marginTop: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+    padding: 12,
+  },
+  mapsLinkInput: {
+    fontSize: 14,
+    color: COLORS.text,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.white,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  mapsLinkActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  mapsLinkCancel: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.surface,
+    borderRadius: 6,
+  },
+  mapsLinkCancelText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  mapsLinkSubmit: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.primary,
+    borderRadius: 6,
+  },
+  mapsLinkSubmitText: {
+    fontSize: 14,
+    color: COLORS.white,
+    fontWeight: '600',
+  },
   inputConnector: {
     width: 2,
     height: 24,
@@ -1537,19 +2039,52 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  priceRow: {
+  priceBreakdown: {
+    marginBottom: 15,
+  },
+  priceBreakdownTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+  },
+  surchargeLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
+  surchargeAmount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  totalPriceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 2,
+    borderTopColor: COLORS.primary,
+    marginTop: 10,
   },
-  priceLabel: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+  totalPriceLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.text,
   },
-  priceValue: {
+  totalPriceValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.success,
+    color: COLORS.primary,
+  },
+  priceNote: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   priceNote: {
     fontSize: 12,
@@ -1900,17 +2435,107 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  vehicleTypeDescSelected: {
-    color: 'rgba(255,255,255,0.8)',
-  },
-  vehicleTypeExamples: {
-    fontSize: 9,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  vehicleTypeExamplesSelected: {
-    color: 'rgba(255,255,255,0.7)',
-  },
+   vehicleTypeDescSelected: {
+     color: 'rgba(255,255,255,0.8)',
+   },
+   vehicleTypeExamples: {
+     fontSize: 9,
+     color: COLORS.textSecondary,
+     marginTop: 4,
+     textAlign: 'center',
+     fontStyle: 'italic',
+   },
+   vehicleTypeExamplesSelected: {
+     color: 'rgba(255,255,255,0.7)',
+   },
+   interCityToggleContainer: {
+     flexDirection: 'row',
+     backgroundColor: COLORS.surface,
+     borderRadius: 12,
+     padding: 3,
+     marginBottom: 16,
+   },
+   interCityToggleButton: {
+     flex: 1,
+     paddingVertical: 10,
+     alignItems: 'center',
+     borderRadius: 10,
+   },
+   interCityToggleButtonActive: {
+     backgroundColor: COLORS.primary,
+   },
+   interCityToggleText: {
+     fontSize: 13,
+     fontWeight: '600',
+     color: COLORS.textSecondary,
+   },
+   interCityToggleTextActive: {
+     color: COLORS.white,
+   },
+   interCitySection: {
+     marginBottom: 16,
+   },
+   interCityCard: {
+     width: 130,
+     backgroundColor: COLORS.white,
+     borderRadius: 16,
+     padding: 16,
+     marginRight: 12,
+     alignItems: 'center',
+     borderWidth: 2,
+     borderColor: 'transparent',
+   },
+   interCityCardSelected: {
+     borderColor: COLORS.primary,
+     backgroundColor: '#E3F2FD',
+   },
+   interCityCardTitle: {
+     fontSize: 14,
+     fontWeight: '600',
+     color: COLORS.text,
+     marginTop: 8,
+   },
+   interCityCardSubtitle: {
+     fontSize: 11,
+     color: COLORS.textSecondary,
+     marginTop: 2,
+   },
+   interCityCardPrice: {
+     fontSize: 18,
+     fontWeight: 'bold',
+     color: COLORS.text,
+     marginTop: 8,
+   },
+   interCityCardPriceSelected: {
+     color: COLORS.primary,
+   },
+   vehicleTypePlaceholder: {
+     fontSize: 13,
+     color: COLORS.textSecondary,
+     fontStyle: 'italic',
+     textAlign: 'center',
+     paddingVertical: 20,
+   },
+   surchargeSection: {
+     backgroundColor: COLORS.white,
+     borderRadius: 16,
+     padding: 16,
+     marginBottom: 16,
+   },
+   surchargeRow: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     marginBottom: 12,
+   },
+   surchargeLabel: {
+     flex: 1,
+     fontSize: 14,
+     color: COLORS.text,
+     marginLeft: 8,
+   },
+   surchargeValue: {
+     fontSize: 14,
+     fontWeight: '600',
+     color: COLORS.primary,
+   },
 });

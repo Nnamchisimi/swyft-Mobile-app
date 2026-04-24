@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -11,13 +11,22 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+<<<<<<< HEAD
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { signInWithGoogle } from '../../src/services/googleAuth';
+=======
+import { useRouter } from 'expo-router';
+
+>>>>>>> recovery
 import { authService } from '../../src/services/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 
+<<<<<<< HEAD
 export default function RegisterScreen() {
+=======
+export default function Register() {
+>>>>>>> recovery
   const router = useRouter();
   const params = useLocalSearchParams();
   const [formData, setFormData] = useState({
@@ -38,6 +47,7 @@ export default function RegisterScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+<<<<<<< HEAD
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
@@ -85,6 +95,12 @@ export default function RegisterScreen() {
     } finally {
       setLoading(false);
     }
+=======
+  // Google Sign-In will be available with native setup for TestFlight builds
+  
+  const handleGoogleSignIn = async () => {
+    Alert.alert('Google Sign-In', 'Google Sign-In is being configured. Use email to register.');
+>>>>>>> recovery
   };
 
   const handleChange = (field, value) => {
@@ -183,7 +199,6 @@ export default function RegisterScreen() {
           <TouchableOpacity
             style={styles.googleButton}
             onPress={handleGoogleSignIn}
-            disabled={loading}
           >
             <Ionicons name="logo-google" size={24} color={COLORS.white} />
             <Text style={styles.googleButtonText}>Continue with Google</Text>
