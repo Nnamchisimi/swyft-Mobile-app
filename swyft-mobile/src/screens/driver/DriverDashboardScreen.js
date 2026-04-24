@@ -16,6 +16,8 @@ import { authService } from '../../services/auth';
 import { ridesAPI, driverAPI } from '../../services/api';
 import { socketService } from '../../services/socket';
 import { COLORS } from '../../constants/config';
+import geoService from '../../services/geo';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
@@ -165,29 +167,57 @@ export default function DriverDashboardScreen() {
     );
   };
 
-  const renderRideItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.rideCard}
-      onPress={() => handleAcceptRide(item)}
-    >
-      <View style={styles.rideHeader}>
-        <Text style={styles.rideId}>Ride #{item.id}</Text>
-        <Text style={styles.rideStatus}>{item.status}</Text>
-      </View>
-      <Text style={styles.rideRoute}>
-        From: {JSON.parse(item.pickup_location || '{}').latitude?.toFixed(4)}
-      </Text>
-      <Text style={styles.rideRoute}>
-        To: {JSON.parse(item.dropoff_location || '{}').latitude?.toFixed(4)}
-      </Text>
+  const renderRideItem = ({ item }) => {
+    const [eta, setEta] = useState(null);
+    const [etaLoading, setEtaLoading] = useState(false);
+    
+    useEffect(() => {
+      if (location && item.pickup_location) {
+        const pickupLoc = JSON.parse(item.pickup_location || '{}');
+        if (pickupLoc.latitude && pickupLoc.longitude) {
+          setEtaLoading(true);
+          geoService.getETA(location, pickupLoc).then(result => {
+            if (result && result.duration) {
+              setEta(Math.round(result.duration / 60));
+            }
+            setEtaLoading(false);
+          }).catch(() => setEtaLoading(false));
+        }
+      }
+    }, [location, item.pickup_location]);
+    
+    return (
       <TouchableOpacity
-        style={styles.acceptButton}
+        style={styles.rideCard}
         onPress={() => handleAcceptRide(item)}
       >
-        <Text style={styles.acceptButtonText}>Accept Ride</Text>
+        <View style={styles.rideHeader}>
+          <Text style={styles.rideId}>Ride #{item.id}</Text>
+          <Text style={styles.rideStatus}>{item.status}</Text>
+        </View>
+        <Text style={styles.rideRoute}>
+          From: {JSON.parse(item.pickup_location || '{}').latitude?.toFixed(4)}, {JSON.parse(item.pickup_location || '{}').longitude?.toFixed(4)}
+        </Text>
+        <Text style={styles.rideRoute}>
+          To: {JSON.parse(item.dropoff_location || '{}').latitude?.toFixed(4)}, {JSON.parse(item.dropoff_location || '{}').longitude?.toFixed(4)}
+        </Text>
+        {eta !== null && (
+          <Text style={styles.etaText}>
+            <Ionicons name="time" size={14} color={COLORS.primary} /> {eta} min away
+          </Text>
+        )}
+        {etaLoading && (
+          <Text style={styles.etaText}>Calculating ETA...</Text>
+        )}
+        <TouchableOpacity
+          style={styles.acceptButton}
+          onPress={() => handleAcceptRide(item)}
+        >
+          <Text style={styles.acceptButtonText}>Accept Ride</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -450,6 +480,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     marginBottom: 4,
+  },
+  etaText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    marginTop: 4,
+    fontWeight: '600',
   },
   acceptButton: {
     backgroundColor: COLORS.success,
