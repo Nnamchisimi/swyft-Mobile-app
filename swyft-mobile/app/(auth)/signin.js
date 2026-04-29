@@ -13,11 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-<<<<<<< HEAD
 import { signInWithGoogle } from '../../src/services/googleAuth';
-=======
-
->>>>>>> recovery
 import { authService } from '../../src/services/auth';
 import { COLORS, API_URL } from '../../src/constants/config';
 
@@ -31,51 +27,47 @@ export default function SignInScreen() {
 
   // Google Sign-In will be available with native setup for TestFlight builds
   
-  const handleGoogleSignIn = async () => {
-<<<<<<< HEAD
-    try {
-      setLoading(true);
-      setError('');
-      
-      const result = await signInWithGoogle();
-      
-      if (!result.success) {
-        if (result.error === 'cancelled') return;
-        throw new Error(result.error);
-      }
-      
-      const googleEmail = result.user.email;
-      
-      // Try to login with Google
-      const loginResult = await authService.login(googleEmail, 'google-oauth');
-      
-      if (loginResult.success) {
-        const role = (loginResult.user.role || 'passenger').toLowerCase();
-        if (role === 'driver') {
-          router.replace('/(driver)/dashboard');
-        } else {
-          router.replace('/(passenger)/home');
-        }
-      } else {
-        // User doesn't exist, redirect to register with pre-filled email
-        router.replace({
-          pathname: '/(auth)/register',
-          params: { googleEmail: googleEmail }
-        });
-      }
-      
-    } catch (error) {
-      console.log('Google Sign-In error:', error);
-      if (error.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Google Sign-In Error', 'Please try again or sign in manually.');
-      }
-    } finally {
-      setLoading(false);
-    }
-=======
-    Alert.alert('Google Sign-In', 'Google Sign-In is being configured. Use email/password for now.');
->>>>>>> recovery
-  };
+   const handleGoogleSignIn = async () => {
+     try {
+       setLoading(true);
+       setError('');
+       
+       const result = await signInWithGoogle();
+       
+       if (!result.success) {
+         if (result.error === 'cancelled') return;
+         throw new Error(result.error);
+       }
+       
+       const googleEmail = result.user.email;
+       
+       // Try to login with Google
+       const loginResult = await authService.login(googleEmail, 'google-oauth');
+       
+       if (loginResult.success) {
+         const role = (loginResult.user.role || 'passenger').toLowerCase();
+         if (role === 'driver') {
+           router.replace('/(driver)/dashboard');
+         } else {
+           router.replace('/(passenger)/home');
+         }
+       } else {
+         // User doesn't exist, redirect to register with pre-filled email
+         router.replace({
+           pathname: '/(auth)/register',
+           params: { googleEmail: googleEmail }
+         });
+       }
+       
+     } catch (error) {
+       console.log('Google Sign-In error:', error);
+       if (error.code !== 'SIGN_IN_CANCELLED') {
+         Alert.alert('Google Sign-In Error', 'Please try again or sign in manually.');
+       }
+     } finally {
+       setLoading(false);
+     }
+   };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {

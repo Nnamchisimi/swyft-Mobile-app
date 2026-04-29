@@ -188,30 +188,37 @@ export default function HistoryScreen() {
         />
       )}
 
-      {}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/(passenger)/home')}
-        >
-          <Ionicons name="home" size={24} color={COLORS.gray} />
-          <Text style={styles.navText}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="list" size={24} color={COLORS.primary} />
-          <Text style={[styles.navText, styles.navTextActive]}>Dispatches</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={() => router.push('/(passenger)/profile')}
-        >
-          <Ionicons name="person" size={24} color={COLORS.gray} />
-          <Text style={styles.navText}>Profile</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
-}
+           {}
+            <View style={styles.bottomNav}>
+              <TouchableOpacity style={styles.navItem}
+              onPress={() => router.push('/(passenger)/home')}>
+                <Ionicons name="home" size={24} color={COLORS.gray} />
+                <Text style={styles.navText}>Home</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.navItem}
+                onPress={() => router.push('/(passenger)/book-ride')}
+              >
+                <Ionicons name="car" size={24} color={COLORS.gray} />
+                <Text style={styles.navText}>Book</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.navItem}
+              >
+                <Ionicons name="list" size={24} color={COLORS.primary} />
+                <Text style={[styles.navText, styles.navTextActive]}>History</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.navItem}
+                onPress={() => router.push('/(passenger)/profile')}
+              >
+                <Ionicons name="person" size={24} color={COLORS.gray} />
+                <Text style={styles.navText}>Profile</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        );
+      }
 
 const styles = StyleSheet.create({
   container: {

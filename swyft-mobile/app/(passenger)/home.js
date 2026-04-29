@@ -452,7 +452,7 @@ Fare: ₺${ride.price || '0.00'}`,
           onPress={() => router.push('/(passenger)/history')}
         >
           <Ionicons name="list" size={24} color={COLORS.gray} />
-          <Text style={styles.navText}>Dispatches</Text>
+          <Text style={styles.navText}>History</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.navItem}
@@ -776,32 +776,27 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 2,
   },
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  navIcon: {
-    fontSize: 22,
-  },
-  navText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 4,
-  },
-  navTextActive: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
+    bottomNav: {
+      flexDirection: 'row',
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+    },
+    navItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    navIcon: {
+      fontSize: 24,
+    },
+    navText: {
+      fontSize: 12,
+      color: COLORS.textSecondary,
+      marginTop: 4,
+    },
+    navTextActive: {
+      color: COLORS.primary,
+      fontWeight: '600',
+    },
 });

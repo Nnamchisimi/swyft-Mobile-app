@@ -20,7 +20,7 @@ const getApiUrl = () => {
   // Check for environment variable (set during EAS build)
   const deployedUrl = Constants.expoConfig?.extra?.apiUrl;
   if (deployedUrl) return deployedUrl;
-  
+
   // Default to Render backend for production
   return 'https://swyft-mobile-app.onrender.com';
 };
@@ -39,6 +39,6 @@ export const STORAGE_KEYS = {
 };
 
 // Google Maps API key
-export const GOOGLE_MAPS_API_KEY = Constants.expoConfig?.android?.config?.googleMaps?.apiKey || 
-                                    Constants.expoConfig?.ios?.config?.googleMaps?.apiKey || 
-                                    'AIzaSyBrptwerlWpVYRC3P9hsxm415pTkqIEfME';
+export const GOOGLE_MAPS_API_KEY = Constants.expoConfig?.android?.config?.googleMaps?.apiKey ||
+  Constants.expoConfig?.ios?.config?.googleMaps?.apiKey ||
+  'AIzaSyBrptwerlWpVYRC3P9hsxm415pTkqIEfME';

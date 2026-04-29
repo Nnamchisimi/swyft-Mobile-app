@@ -26,6 +26,13 @@ import geoService from '../../src/services/geo';
 
 const { width } = Dimensions.get('window');
 
+const interCityRoutesData = [
+  { id: 'lefkosa-magusa', name: 'Lefkoşa - Magusa', time: '60-75 min', desc: 'Between lefkosa and Magusa', basePrice: 550 },
+  { id: 'lefkosa-girne', name: 'Lefkoşa - Girne', time: '30-45 mins', desc: 'Between lefkosa and Girne', basePrice: 450 },
+  { id: 'girne-magusa', name: 'Girne - Magusa', time: '75-90 min', desc: 'Between girne and Magusa', basePrice: 650 },
+  { id: 'lefkosa-ercan', name: 'Lefkoşa - Ercan', time: '30-45 min', desc: 'From Lefkosa to Ercan Airport', basePrice: 300 }
+];
+
 export default function BookRideScreen() {
   const router = useRouter();
   const mapRef = useRef(null);
@@ -65,96 +72,54 @@ export default function BookRideScreen() {
   const [pricingLoaded, setPricingLoaded] = useState(false);
   const [selectedVehicleType, setSelectedVehicleType] = useState('');
   const [surchargeDetails, setSurchargeDetails] = useState([]);
+  const [priceBreakdownExpanded, setPriceBreakdownExpanded] = useState(false);
+  const [vehicleTypesExpanded, setVehicleTypesExpanded] = useState(false);
   const [rideTypes, setRideTypes] = useState([
-    { 
-      id: 'lefkosa', 
-      name: 'Lefkoşa', 
-      icon: 'location', 
-      time: '15-30 min', 
-      desc: 'City Hub - Inner-City Fee',
-      basePrice: 180,
-      coverageArea: 'Hamitköy to Gönyeli Çemberi',
-      type: 'intra-city'
-    },
-    { 
-      id: 'girne', 
-      name: 'Girne', 
-      icon: 'location', 
-      time: '45-60 min', 
-      desc: 'Zeytinlik to Karakum',
-      basePrice: 220,
-      coverageArea: 'Higher due to traffic/hills',
-      type: 'intra-city'
-    },
-    { 
-      id: 'magusa', 
-      name: 'Gazimağusa', 
-      icon: 'location', 
-      time: '20-35 min', 
-      desc: 'City Center to Sakarya',
-      basePrice: 180,
-      coverageArea: 'City Center to Sakarya',
-      type: 'intra-city'
-    },
-    { 
-      id: 'iskele', 
-      name: 'İskele', 
-      icon: 'location', 
-      time: '35-50 min', 
-      desc: 'Long Beach area to Center',
-      basePrice: 200,
-      coverageArea: 'Long Beach area to Center',
-      type: 'intra-city'
-    },
-    { 
-      id: 'lefkosa-girne', 
-      name: 'Lefkoşa ↔ Girne', 
-      icon: 'car', 
-      time: '75-90 min', 
-      desc: 'Inter-City Route',
-      basePrice: 350,
-      coverageArea: 'Mountain pass route',
-      type: 'inter-city',
-      notes: 'Account for mountain pass fuel'
-    },
-    { 
-      id: 'lefkosa-magusa', 
-      name: 'Lefkoşa ↔ Mağusa', 
-      icon: 'car', 
-      time: '60-75 min', 
-      desc: 'Inter-City Route',
-      basePrice: 450,
-      coverageArea: 'Long straight drive',
-      type: 'inter-city',
-      notes: 'High mileage route'
-    },
-    { 
-      id: 'girne-magusa', 
-      name: 'Girne ↔ Mağusa', 
-      icon: 'car', 
-      time: '90-110 min', 
-      desc: 'Inter-City Route',
-      basePrice: 650,
-      coverageArea: 'Coast Road or via Lefkoşa',
-      type: 'inter-city',
-      notes: 'The longest route'
-    },
-    { 
-      id: 'lefkosa-ercan', 
-      name: 'Lefkoşa ↔ Ercan', 
-      icon: 'airplane', 
-      time: '25-35 min', 
-      desc: 'Airport Logistics',
-      basePrice: 300,
-      coverageArea: 'Special airport rate',
-      type: 'airport',
-      notes: 'Airport/logistic rate'
-    }
-  ]);
+     { 
+       id: 'lefkosa', 
+       name: 'Lefkoşa', 
+       icon: 'location', 
+       time: '15-30 min', 
+       desc: 'Within Lefkosa',
+       basePrice: 250,
+       coverageArea: 'Hamitköy to Gönyeli Çemberi',
+       type: 'intra-city'
+     },
+     { 
+       id: 'girne', 
+       name: 'Girne', 
+       icon: 'location', 
+       time: '45-60 min', 
+       desc: 'Within Girne',
+       basePrice: 350,
+       coverageArea: 'Higher due to traffic/hills',
+       type: 'intra-city'
+     },
+     { 
+       id: 'magusa', 
+       name: 'Gazimağusa', 
+       icon: 'location', 
+       time: '20-35 min', 
+       desc: 'Within Magusa',
+       basePrice: 250,
+       coverageArea: 'City Center to Sakarya',
+       type: 'intra-city'
+     },
+     { 
+       id: 'iskele', 
+       name: 'İskele', 
+       icon: 'location', 
+       time: '35-50 min', 
+       desc: 'Within Iskele',
+       basePrice: 300,
+       coverageArea: 'Long Beach area to Center',
+       type: 'intra-city'
+     }
+   ]);
   const [vehicleTypes, setVehicleTypes] = useState([
-    { id: 'motorcycle', name: 'Motorcycle', icon: 'bicycle', desc: 'Documents, small items', examples: 'Letters, small electronics, keys' },
-    { id: 'sedan', name: 'Sedan', icon: 'car-sport', desc: 'Medium packages', examples: 'Clothing, small boxes, food orders' },
-    { id: 'truck', name: 'Van/Truck', icon: 'bus', desc: 'Large packages', examples: 'Furniture, large boxes, appliances' },
+    { id: 'motorcycle', name: 'Motorcycle', icon: 'bicycle', desc: 'Documents, small items', examples: 'Letters, small electronics, keys', price: 50 },
+    { id: 'sedan', name: 'Sedan', icon: 'car-sport', desc: 'Medium packages', examples: 'Clothing, small boxes, food orders', price: 150 },
+    { id: 'truck', name: 'Van/Truck', icon: 'bus', desc: 'Large packages', examples: 'Furniture, large boxes, appliances', price: 400 },
   ]);
 
   
@@ -205,12 +170,12 @@ export default function BookRideScreen() {
         
         setRideTypes(prev => prev.map(ride => ({
           ...ride,
-          price: locationPrices[ride.id] || 0
+          basePrice: locationPrices[ride.id] || ride.basePrice || 0
         })));
         
         setVehicleTypes(prev => prev.map(vehicle => ({
           ...vehicle,
-          price: vehiclePrices[vehicle.id] || 0
+          price: vehiclePrices[vehicle.id] || vehicle.price || 0
         })));
         
         setPricingLoaded(true);
@@ -237,62 +202,56 @@ export default function BookRideScreen() {
     }
   }, [packageSize]);
 
-  const calculateFare = async () => {
-    let totalPrice = 0;
-    let basePrice = 0;
-    let vehiclePrice = 0;
+   const calculateFare = async () => {
+     let totalPrice = 0;
+     let basePrice = 0;
+     let vehiclePrice = 0;
 
-    if (interCityMode && interCityRoute) {
-      // Inter-city route pricing
-      const interCityPrices = {
-        'lefkosa-girne': 350,
-        'lefkosa-magusa': 450,
-        'girne-magusa': 650,
-        'lefkosa-ercan': 300,
-      };
-      basePrice = interCityPrices[interCityRoute] || 0;
-      totalPrice = basePrice;
-    } else {
-      // City hub pricing
-      const ride = rideTypes.find(r => r.id === selectedRideType);
-      const vehicle = vehicleTypes.find(v => v.id === selectedVehicleType);
-      basePrice = ride ? ride.basePrice || 0 : 0;
-      vehiclePrice = vehicle ? vehicle.price || 0 : 0;
-      totalPrice = basePrice + vehiclePrice;
-    }
+     if (interCityMode && interCityRoute) {
+       // Inter-city route pricing
+       const route = interCityRoutesData.find(r => r.id === interCityRoute);
+       basePrice = route ? route.basePrice : 0;
+       vehiclePrice = selectedVehicleType ? (vehicleTypes.find(v => v.id === selectedVehicleType)?.price || 0) : 0;
+       totalPrice = basePrice + vehiclePrice;
+     } else {
+       // City hub pricing
+       const ride = rideTypes.find(r => r.id === selectedRideType);
+       const vehicle = vehicleTypes.find(v => v.id === selectedVehicleType);
+       basePrice = ride ? ride.basePrice : 0;
+       vehiclePrice = vehicle ? vehicle.price : 0;
+       totalPrice = basePrice + vehiclePrice;
+     }
 
-    // Apply surcharges
-    let surcharge = 0;
-    const surchargeDetails = [];
+     // Apply surcharges
+     let surcharge = 0;
+     const surchargeDetails = [];
 
-    // Mountain/Village Fee (+80 TL)
-    if (dropoffAddress) {
-      const mountainKeywords = [
-        'bellapais', 'karaman', 'edremit', 'lapta', 'alsancak',
-        'beylerbeyi', 'ciftlik', 'kaynakkaya', 'tepebaşı'
-      ];
-      const isMountain = mountainKeywords.some(kw => 
-        dropoffAddress.toLowerCase().includes(kw.toLowerCase())
-      );
-      if (isMountain) {
-        surcharge += 80;
-        surchargeDetails.push({ name: 'Mountain/Village Fee', amount: 80 });
-      }
-    }
+     // Mountain/Village Fee (+80 TL)
+     if (dropoffAddress) {
+       const mountainKeywords = [
+         'bellapais', 'karaman', 'edremit', 'lapta', 'alsancak',
+         'beylerbeyi', 'ciftlik', 'kaynakkaya', 'tepebaşı'
+       ];
+       const isMountain = mountainKeywords.some(kw =>
+         dropoffAddress.toLowerCase().includes(kw.toLowerCase())
+       );
+       if (isMountain) {
+         surcharge += 80;
+         surchargeDetails.push({ name: 'Mountain/Village Fee', amount: 80 });
+       }
+     }
 
-    // Night Shift (+50 TL after 9:00 PM)
-    const currentHour = new Date().getHours();
-    if (currentHour >= 21 || currentHour < 6) {
-      surcharge += 50;
-      surchargeDetails.push({ name: 'Night Shift (after 9PM)', amount: 50 });
-    }
+     // Night Shift (+50 TL after 9:00 PM)
+     const currentHour = new Date().getHours();
+     if (currentHour >= 21 || currentHour < 6) {
+       surcharge += 50;
+       surchargeDetails.push({ name: 'Night Shift (after 9PM)', amount: 50 });
+     }
 
-    // Note: Waiting Fee is applied at delivery time, not in estimate
-
-    totalPrice += surcharge;
-    setEstimatedPrice(totalPrice);
-    setSurchargeDetails(surchargeDetails);
-  };
+     totalPrice += surcharge;
+     setEstimatedPrice(totalPrice);
+     setSurchargeDetails(surchargeDetails);
+   };
 
   
    useEffect(() => {
@@ -935,9 +894,16 @@ export default function BookRideScreen() {
   };
 
   const handleBookRide = async () => {
-    if (!selectedRideType || (!interCityMode && !selectedVehicleType)) {
-      Alert.alert('Error', 'Please select all required options');
-      return;
+    if (interCityMode) {
+      if (!interCityRoute || !selectedVehicleType) {
+        Alert.alert('Error', 'Please select a route and vehicle type');
+        return;
+      }
+    } else {
+      if (!selectedRideType || !selectedVehicleType) {
+        Alert.alert('Error', 'Please select a city hub area and vehicle type');
+        return;
+      }
     }
     if (!pickupAddress || !dropoffAddress) {
       Alert.alert('Error', 'Please enter both pickup and dropoff locations');
@@ -1357,64 +1323,97 @@ export default function BookRideScreen() {
          </TouchableOpacity>
        </View>
 
-        {interCityMode ? (
-          <View style={styles.interCitySection}>
-           <Text style={styles.sectionTitle}>Choose Route</Text>
-           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-             <TouchableOpacity
-               style={[
-                 styles.interCityCard,
-                 interCityRoute === 'lefkosa-girne' && styles.interCityCardSelected,
-               ]}
-               onPress={() => setInterCityRoute('lefkosa-girne')}
-             >
-               <Ionicons name="location" size={28} color={interCityRoute === 'lefkosa-girne' ? COLORS.primary : COLORS.textSecondary} />
-               <Text style={styles.interCityCardTitle}>Lefkosa</Text>
-               <Text style={styles.interCityCardSubtitle}>→ Girne</Text>
-               <Text style={[styles.interCityCardPrice, interCityRoute === 'lefkosa-girne' && styles.interCityCardPriceSelected]}>₺350</Text>
-             </TouchableOpacity>
-
-             <TouchableOpacity
-               style={[
-                 styles.interCityCard,
-                 interCityRoute === 'lefkosa-magusa' && styles.interCityCardSelected,
-               ]}
-               onPress={() => setInterCityRoute('lefkosa-magusa')}
-             >
-               <Ionicons name="location" size={28} color={interCityRoute === 'lefkosa-magusa' ? COLORS.primary : COLORS.textSecondary} />
-               <Text style={styles.interCityCardTitle}>Lefkosa</Text>
-               <Text style={styles.interCityCardSubtitle}>→ Magusa</Text>
-               <Text style={[styles.interCityCardPrice, interCityRoute === 'lefkosa-magusa' && styles.interCityCardPriceSelected]}>₺450</Text>
-             </TouchableOpacity>
-
-             <TouchableOpacity
-               style={[
-                 styles.interCityCard,
-                 interCityRoute === 'girne-magusa' && styles.interCityCardSelected,
-               ]}
-               onPress={() => setInterCityRoute('girne-magusa')}
-             >
-               <Ionicons name="location" size={28} color={interCityRoute === 'girne-magusa' ? COLORS.primary : COLORS.textSecondary} />
-               <Text style={styles.interCityCardTitle}>Girne</Text>
-               <Text style={styles.interCityCardSubtitle}>→ Magusa</Text>
-               <Text style={[styles.interCityCardPrice, interCityRoute === 'girne-magusa' && styles.interCityCardPriceSelected]}>₺650</Text>
-             </TouchableOpacity>
-
-             <TouchableOpacity
-               style={[
-                 styles.interCityCard,
-                 interCityRoute === 'lefkosa-ercan' && styles.interCityCardSelected,
-               ]}
-               onPress={() => setInterCityRoute('lefkosa-ercan')}
-             >
-               <Ionicons name="location" size={28} color={interCityRoute === 'lefkosa-ercan' ? COLORS.primary : COLORS.textSecondary} />
-               <Text style={styles.interCityCardTitle}>Lefkosa</Text>
-               <Text style={styles.interCityCardSubtitle}>→ Ercan</Text>
-               <Text style={[styles.interCityCardPrice, interCityRoute === 'lefkosa-ercan' && styles.interCityCardPriceSelected]}>₺300</Text>
-             </TouchableOpacity>
-           </ScrollView>
-         </View>
-       ) : (
+             {interCityMode ? (
+               <View style={styles.interCitySection}>
+                 <Text style={styles.sectionTitle}>Choose Route</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {interCityRoutesData.map((route) => (
+                      <TouchableOpacity
+                        key={route.id}
+                        style={[
+                          styles.interCityCard,
+                          interCityRoute === route.id && styles.interCityCardSelected,
+                        ]}
+                        onPress={() => setInterCityRoute(route.id)}
+                      >
+                        <Ionicons
+                          name="location"
+                          size={28}
+                          color={interCityRoute === route.id ? COLORS.primary : COLORS.textSecondary}
+                        />
+                        <Text style={[
+                          styles.interCityCardTitle,
+                          interCityRoute === route.id && styles.interCityCardSelectedText,
+                        ]}>
+                          {route.name}
+                        </Text>
+                        <Text style={styles.interCityCardSubtitle}>{route.time}</Text>
+                        <Text style={[
+                          styles.interCityCardPrice,
+                          interCityRoute === route.id && styles.interCityCardPriceSelected,
+                        ]}>
+                          ₺{route.basePrice}
+                        </Text>
+                        <Text style={styles.rideTypeDesc}>{route.desc}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  
+                  {interCityRoute && (
+                    <View style={styles.vehicleTypesSection}>
+                      <TouchableOpacity
+                        style={styles.vehicleSectionHeader}
+                        onPress={() => setVehicleTypesExpanded(!vehicleTypesExpanded)}
+                      >
+                        <Text style={styles.sectionTitle}>Vehicle Required</Text>
+                        <Ionicons
+                          name={vehicleTypesExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={24}
+                          color={COLORS.textSecondary}
+                        />
+                      </TouchableOpacity>
+                      
+                      {vehicleTypesExpanded && (
+                        <View style={styles.vehicleTypeContainer}>
+                          {vehicleTypes.map((vehicle) => (
+                      <View
+                        key={vehicle.id}
+                        style={[
+                          styles.vehicleTypeCard,
+                          selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected,
+                        ]}
+                      >
+                        <Ionicons 
+                          name={vehicle.icon} 
+                          size={28} 
+                          color={selectedVehicleType === vehicle.id ? COLORS.white : COLORS.textSecondary} 
+                        />
+                        <Text style={[
+                          styles.vehicleTypeName,
+                          selectedVehicleType === vehicle.id && styles.vehicleTypeNameSelected,
+                        ]}>
+                          {vehicle.name}
+                        </Text>
+                        <Text style={[
+                          styles.vehicleTypeDesc,
+                          selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected,
+                        ]}>
+                          {vehicle.desc}
+                        </Text>
+                        <Text style={[
+                          styles.vehicleTypeExamples,
+                          selectedVehicleType === vehicle.id && styles.vehicleTypeExamplesSelected,
+                        ]}>
+                          {vehicle.examples}
+                        </Text>
+                      </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  )}
+               </View>
+             ) : (
          <>
            {/* City Hub Areas */}
            <View style={styles.rideTypesSection}>
@@ -1441,16 +1440,16 @@ export default function BookRideScreen() {
                      {ride.name}
                    </Text>
                    <Text style={styles.rideTypeTime}>{ride.time}</Text>
-                   {pricingLoaded ? (
-                     <Text style={[
-                       styles.rideTypePrice,
-                       selectedRideType === ride.id && styles.rideTypePriceSelected,
-                     ]}>
-                       ₺{ride.price}
-                     </Text>
-                   ) : (
-                     <Text style={styles.rideTypePrice}>₺...</Text>
-                   )}
+                    {pricingLoaded ? (
+                      <Text style={[
+                        styles.rideTypePrice,
+                        selectedRideType === ride.id && styles.rideTypePriceSelected,
+                      ]}>
+                        ₺{ride.basePrice}
+                      </Text>
+                    ) : (
+                      <Text style={styles.rideTypePrice}>₺...</Text>
+                    )}
                    <Text style={styles.rideTypeDesc}>{ride.desc}</Text>
                  </TouchableOpacity>
                ))}
@@ -1458,131 +1457,138 @@ export default function BookRideScreen() {
            </View>
 
            {/* Vehicle Types - Only show when a city is picked */}
-           {selectedRideType ? (
-             <View style={styles.vehicleTypesSection}>
-               <Text style={styles.sectionTitle}>Vehicle Required (Based on Size)</Text>
-               <View style={styles.vehicleTypeContainer}>
-                  {vehicleTypes.map((vehicle) => (
-                    <TouchableOpacity
-                      key={vehicle.id}
-                      style={[
-                        styles.vehicleTypeCard,
-                        selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected,
-                      ]}
-                      onPress={() => setSelectedVehicleType(vehicle.id)}
-                    >
-                      <Ionicons 
-                        name={vehicle.icon} 
-                        size={28} 
-                        color={selectedVehicleType === vehicle.id ? COLORS.white : COLORS.textSecondary} 
-                      />
-                      <Text style={[
-                        styles.vehicleTypeName,
-                        selectedVehicleType === vehicle.id && styles.vehicleTypeNameSelected,
-                      ]}>
-                        {vehicle.name}
-                      </Text>
-                      <Text style={[
-                        styles.vehicleTypeDesc,
-                        selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected,
-                      ]}>
-                        {vehicle.desc}
-                      </Text>
-                      <Text style={[
-                        styles.vehicleTypeExamples,
-                        selectedVehicleType === vehicle.id && styles.vehicleTypeExamplesSelected,
-                      ]}>
-                        {vehicle.examples}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-               </View>
-             </View>
-           ) : (
-             <View style={styles.vehicleTypesSection}>
-               <Text style={styles.sectionTitle}>Vehicle Required (Based on Size)</Text>
-               <Text style={styles.vehicleTypePlaceholder}>Please select a city hub area first</Text>
-             </View>
-           )}
+            {selectedRideType ? (
+              <View style={styles.vehicleTypesSection}>
+                <TouchableOpacity
+                  style={styles.vehicleSectionHeader}
+                  onPress={() => setVehicleTypesExpanded(!vehicleTypesExpanded)}
+                >
+                  <Text style={styles.sectionTitle}>Vehicle Required (Based on Size)</Text>
+                  <Ionicons
+                    name={vehicleTypesExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={24}
+                    color={COLORS.textSecondary}
+                  />
+                </TouchableOpacity>
+                
+                {vehicleTypesExpanded && (
+                  <View style={styles.vehicleTypeContainer}>
+                   {vehicleTypes.map((vehicle) => (
+                     <View
+                       key={vehicle.id}
+                       style={[
+                         styles.vehicleTypeCard,
+                         selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected,
+                       ]}
+                     >
+                       <Ionicons 
+                         name={vehicle.icon} 
+                         size={28} 
+                         color={selectedVehicleType === vehicle.id ? COLORS.white : COLORS.textSecondary} 
+                       />
+                       <Text style={[
+                         styles.vehicleTypeName,
+                         selectedVehicleType === vehicle.id && styles.vehicleTypeNameSelected,
+                       ]}>
+                         {vehicle.name}
+                       </Text>
+                       <Text style={[
+                         styles.vehicleTypeDesc,
+                         selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected,
+                       ]}>
+                         {vehicle.desc}
+                       </Text>
+                       <Text style={[
+                         styles.vehicleTypeExamples,
+                         selectedVehicleType === vehicle.id && styles.vehicleTypeExamplesSelected,
+                       ]}>
+                         {vehicle.examples}
+                       </Text>
+                     </View>
+                   ))}
+                </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.vehicleTypesSection}>
+                <TouchableOpacity
+                  style={styles.vehicleSectionHeader}
+                  onPress={() => setVehicleTypesExpanded(!vehicleTypesExpanded)}
+                >
+                  <Text style={styles.sectionTitle}>Vehicle Required (Based on Size)</Text>
+                  <Ionicons
+                    name={vehicleTypesExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={24}
+                    color={COLORS.textSecondary}
+                  />
+                </TouchableOpacity>
+                
+                {vehicleTypesExpanded && (
+                  <Text style={styles.vehicleTypePlaceholder}>Please select a city hub area first</Text>
+                )}
+              </View>
+            )}
          </>
-       )}
-
-       {/* Surcharge Info Section */}
-       <View style={styles.surchargeSection}>
-         <Text style={styles.sectionTitle}>Additional Fees</Text>
-         <View style={styles.surchargeRow}>
-           <Ionicons name="snow" size={20} color={COLORS.textSecondary} />
-           <Text style={styles.surchargeLabel}>Mountain/Village Fee</Text>
-           <Text style={styles.surchargeValue}>+₺80</Text>
-         </View>
-         <View style={styles.surchargeRow}>
-           <Ionicons name="moon" size={20} color={COLORS.textSecondary} />
-           <Text style={styles.surchargeLabel}>Night Shift (After 9:00 PM)</Text>
-           <Text style={styles.surchargeValue}>+₺50</Text>
-         </View>
-         <View style={styles.surchargeRow}>
-           <Ionicons name="timer" size={20} color={COLORS.textSecondary} />
-           <Text style={styles.surchargeLabel}>Waiting Fee</Text>
-           <Text style={styles.surchargeValue}>₺20/5min</Text>
-         </View>
-       </View>
+        )}
 
       {}
        <View style={styles.priceEstimate}>
-         <View style={styles.priceBreakdown}>
-           <Text style={styles.priceBreakdownTitle}>Price Breakdown</Text>
+          <TouchableOpacity 
+            style={styles.priceBreakdownHeader}
+            onPress={() => setPriceBreakdownExpanded(!priceBreakdownExpanded)}
+          >
+            <Text style={styles.priceBreakdownTitle}>Price Breakdown</Text>
+            <Ionicons 
+              name={priceBreakdownExpanded ? 'chevron-up' : 'chevron-down'} 
+              size={24} 
+              color={COLORS.textSecondary} 
+            />
+          </TouchableOpacity>
+          
+           {priceBreakdownExpanded && (
+             <View style={styles.priceBreakdown}>
+            
+            {interCityMode && interCityRoute ? (
+              <>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>Route Fare</Text>
+                  <Text style={styles.priceValue}>₺{interCityRoutesData.find(r => r.id === interCityRoute)?.basePrice || 0}</Text>
+                </View>
+                {selectedVehicleType && (
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>Vehicle Type</Text>
+                    <Text style={styles.priceValue}>₺{vehicleTypes.find(v => v.id === selectedVehicleType)?.price || 0}</Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>City Hub Base Fare</Text>
+                  <Text style={styles.priceValue}>₺{selectedRideType ? (rideTypes.find(r => r.id === selectedRideType)?.price || rideTypes.find(r => r.id === selectedRideType)?.basePrice || 0) : 0}</Text>
+                </View>
+                {selectedVehicleType && (
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>Vehicle Type</Text>
+                    <Text style={styles.priceValue}>₺{vehicleTypes.find(v => v.id === selectedVehicleType)?.price || 0}</Text>
+                  </View>
+                )}
+              </>
+            )}
+            
            
-           {interCityMode && interCityRoute ? (
-             <View style={styles.priceRow}>
-               <Text style={styles.priceLabel}>Base Route Fare</Text>
-               <Text style={styles.priceValue}>₺{estimatedPrice}</Text>
              </View>
-           ) : (
-             <>
-               <View style={styles.priceRow}>
-                 <Text style={styles.priceLabel}>City Hub Base Fare</Text>
-                 <Text style={styles.priceValue}>₺{selectedRideType ? (rideTypes.find(r => r.id === selectedRideType)?.price || rideTypes.find(r => r.id === selectedRideType)?.basePrice || 0) : 0}</Text>
-               </View>
-               {selectedVehicleType && (
-                 <View style={styles.priceRow}>
-                   <Text style={styles.priceLabel}>Vehicle Type</Text>
-                   <Text style={styles.priceValue}>₺{vehicleTypes.find(v => v.id === selectedVehicleType)?.price || 0}</Text>
-                 </View>
-               )}
-             </>
            )}
-           
-           {/* Surcharges */}
-           {(() => {
-             const surcharges = [];
-             const mountainKeywords = ['bellapais', 'karaman', 'edremit', 'lapta', 'alsancak', 'beylerbeyi', 'ciftlik', 'kaynakkaya', 'tepebaşı'];
-             const isMountain = dropoffAddress && mountainKeywords.some(kw => dropoffAddress.toLowerCase().includes(kw.toLowerCase()));
-             const currentHour = new Date().getHours();
-             const isNight = currentHour >= 21 || currentHour < 6;
-             
-             if (isMountain) {
-               surcharges.push({ name: 'Mountain/Village Fee', amount: 80 });
-             }
-             if (isNight) {
-               surcharges.push({ name: 'Night Shift (after 9PM)', amount: 50 });
-             }
-             
-             return surcharges.map((surcharge, index) => (
-               <View key={index} style={styles.priceRow}>
-                 <Text style={styles.surchargeLabel}>+ {surcharge.name}</Text>
-                 <Text style={styles.surchargeAmount}>₺{surcharge.amount}</Text>
-               </View>
-             ));
-           })()}
-         </View>
-         
-         <View style={styles.totalPriceRow}>
-           <Text style={styles.totalPriceLabel}>Total Estimated Fare</Text>
-           <Text style={styles.totalPriceValue}>₺{estimatedPrice}</Text>
-         </View>
-         
-         <Text style={styles.priceNote}>Final price may vary based on actual route and conditions</Text>
-       </View>
+          
+          <View style={styles.priceBreakdownBorder} />
+          
+          <View style={styles.totalPriceRow}>
+            <Text style={styles.totalPriceLabel}>Total Estimated Fare</Text>
+            <Text style={styles.totalPriceValue}>₺{estimatedPrice}</Text>
+          </View>
+          
+          <Text style={styles.priceNote}>Final price may vary based on actual route and conditions</Text>
+        </View>
 
       <View style={styles.packageSection}>
         <Text style={styles.sectionTitle}>Package Details</Text>
@@ -1734,6 +1740,36 @@ export default function BookRideScreen() {
           {rideBooked ? renderRideStatus() : renderBookingForm()}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Bottom Navigation Bar */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navItem}
+          onPress={() => router.push('/(passenger)/home')}>
+          <Ionicons name="home" size={24} color={COLORS.gray} />
+          <Text style={styles.navText}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/(passenger)/book-ride')}
+        >
+          <Ionicons name="car" size={24} color={COLORS.primary} />
+          <Text style={[styles.navText, styles.navTextActive]}>Book</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/(passenger)/history')}
+        >
+          <Ionicons name="list" size={24} color={COLORS.gray} />
+          <Text style={styles.navText}>History</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/(passenger)/profile')}
+        >
+          <Ionicons name="person" size={24} color={COLORS.gray} />
+          <Text style={styles.navText}>Profile</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -2039,16 +2075,20 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  priceBreakdown: {
-    marginBottom: 15,
-  },
-  priceBreakdownTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-  },
+   priceBreakdown: {
+     marginBottom: 15,
+   },
+   priceBreakdownHeader: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+     paddingVertical: 12,
+   },
+   priceBreakdownBorder: {
+     height: 1,
+     backgroundColor: COLORS.border,
+     marginVertical: 12,
+   },
   surchargeLabel: {
     fontSize: 13,
     fontWeight: '500',
@@ -2533,9 +2573,33 @@ const styles = StyleSheet.create({
      color: COLORS.text,
      marginLeft: 8,
    },
-   surchargeValue: {
-     fontSize: 14,
-     fontWeight: '600',
-     color: COLORS.primary,
-   },
-});
+    surchargeValue: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: COLORS.primary,
+    },
+   
+       bottomNav: {
+         flexDirection: 'row',
+         borderTopWidth: 1,
+         borderTopColor: COLORS.border,
+         paddingVertical: 12,
+         paddingHorizontal: 20,
+       },
+       navItem: {
+         flex: 1,
+         alignItems: 'center',
+       },
+       navIcon: {
+         fontSize: 24,
+       },
+       navText: {
+         fontSize: 12,
+         color: COLORS.textSecondary,
+         marginTop: 4,
+       },
+       navTextActive: {
+         color: COLORS.primary,
+         fontWeight: '600',
+       },
+  });

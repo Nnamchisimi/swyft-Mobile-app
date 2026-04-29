@@ -11,22 +11,13 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-<<<<<<< HEAD
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { signInWithGoogle } from '../../src/services/googleAuth';
-=======
-import { useRouter } from 'expo-router';
-
->>>>>>> recovery
 import { authService } from '../../src/services/auth';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 
-<<<<<<< HEAD
 export default function RegisterScreen() {
-=======
-export default function Register() {
->>>>>>> recovery
   const router = useRouter();
   const params = useLocalSearchParams();
   const [formData, setFormData] = useState({
@@ -44,64 +35,57 @@ export default function Register() {
     vehicleColor: '',
     vehiclePlate: '',
   });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+   const [error, setError] = useState('');
+   const [loading, setLoading] = useState(false);
 
-<<<<<<< HEAD
-  const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      
-      const result = await signInWithGoogle();
-      
-      if (!result.success) {
-        if (result.error === 'cancelled') {
-          setLoading(false);
-          return;
-        }
-        throw new Error(result.error);
-      }
-      
-      const googleEmail = result.user.email;
-      const googleFirstName = result.user.given_name || '';
-      const googleLastName = result.user.family_name || '';
-      
-      setFormData(prev => ({
-        ...prev,
-        email: googleEmail,
-        firstName: googleFirstName,
-        lastName: googleLastName,
-      }));
-      
-      try {
-        const loginResult = await authService.login(googleEmail, 'google-oauth');
-        if (loginResult.success) {
-          if (loginResult.user?.role?.toLowerCase() === 'driver') {
-            router.replace('/(driver)/dashboard');
-          } else {
-            router.replace('/(passenger)/home');
-          }
-          return;
-        }
-      } catch (e) {}
-      
-      Alert.alert('Info', 'Please complete your registration by filling in the remaining details.');
-      
-    } catch (error) {
-      console.log('Google Sign-In error:', error);
-      if (error.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Google Sign-In Error', 'Please try again or register manually.');
-      }
-    } finally {
-      setLoading(false);
-    }
-=======
-  // Google Sign-In will be available with native setup for TestFlight builds
-  
-  const handleGoogleSignIn = async () => {
-    Alert.alert('Google Sign-In', 'Google Sign-In is being configured. Use email to register.');
->>>>>>> recovery
-  };
+   const handleGoogleSignIn = async () => {
+     try {
+       setLoading(true);
+       
+       const result = await signInWithGoogle();
+       
+       if (!result.success) {
+         if (result.error === 'cancelled') {
+           setLoading(false);
+           return;
+         }
+         throw new Error(result.error);
+       }
+       
+       const googleEmail = result.user.email;
+       const googleFirstName = result.user.given_name || '';
+       const googleLastName = result.user.family_name || '';
+       
+       setFormData(prev => ({
+         ...prev,
+         email: googleEmail,
+         firstName: googleFirstName,
+         lastName: googleLastName,
+       }));
+       
+       try {
+         const loginResult = await authService.login(googleEmail, 'google-oauth');
+         if (loginResult.success) {
+           if (loginResult.user?.role?.toLowerCase() === 'driver') {
+             router.replace('/(driver)/dashboard');
+           } else {
+             router.replace('/(passenger)/home');
+           }
+           return;
+         }
+       } catch (e) {}
+       
+       Alert.alert('Info', 'Please complete your registration by filling in the remaining details.');
+       
+     } catch (error) {
+       console.log('Google Sign-In error:', error);
+       if (error.code !== 'SIGN_IN_CANCELLED') {
+         Alert.alert('Google Sign-In Error', 'Please try again or register manually.');
+       }
+     } finally {
+       setLoading(false);
+     }
+   };
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

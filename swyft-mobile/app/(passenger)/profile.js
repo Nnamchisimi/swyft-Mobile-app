@@ -131,30 +131,38 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      {}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push('/(passenger)/home')}
-        >
-          <Ionicons name="home-outline" size={24} color={COLORS.textSecondary} />
-          <Text style={styles.navText}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push('/(passenger)/history')}
-        >
-          <Ionicons name="car-outline" size={24} color={COLORS.textSecondary} />
-          <Text style={styles.navText}>Dispatches</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="person" size={24} color={COLORS.primary} />
-          <Text style={[styles.navText, styles.navTextActive]}>Profile</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
-  );
-}
+   {}
+               <View style={styles.bottomNav}>
+                 <TouchableOpacity style={styles.navItem}
+                 onPress={() => router.push('/(passenger)/home')}>
+                   <Ionicons name="home" size={24} color={COLORS.gray} />
+                   <Text style={styles.navText}>Home</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity 
+                   style={styles.navItem}
+                   onPress={() => router.push('/(passenger)/book-ride')}
+                 >
+                   <Ionicons name="car" size={24} color={COLORS.gray} />
+                   <Text style={styles.navText}>Book</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity 
+                   style={styles.navItem}
+                   onPress={() => router.push('/(passenger)/history')}
+                 >
+                   <Ionicons name="list" size={24} color={COLORS.gray} />
+                   <Text style={styles.navText}>History</Text>
+                 </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.navItem}
+                    onPress={() => router.push('/(passenger)/profile')}
+                  >
+                    <Ionicons name="person" size={24} color={COLORS.primary} />
+                    <Text style={[styles.navText, styles.navTextActive]}>Profile</Text>
+                  </TouchableOpacity>
+               </View>
+             </SafeAreaView>
+           );
+         }
 
 const styles = StyleSheet.create({
   container: {
@@ -296,7 +304,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  bottomNav: {
+   bottomNav: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
@@ -306,6 +314,9 @@ const styles = StyleSheet.create({
   navItem: {
     flex: 1,
     alignItems: 'center',
+  },
+  navIcon: {
+    fontSize: 24,
   },
   navText: {
     fontSize: 12,

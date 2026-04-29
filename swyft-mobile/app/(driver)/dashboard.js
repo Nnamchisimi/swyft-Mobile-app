@@ -1,4 +1,24 @@
-import DriverDashboardScreen from '../../src/screens/driver/DriverDashboardScreen';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
+  Linking,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
+import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
+import { authService } from '../../src/services/auth';
+import { ridesAPI, driverAPI } from '../../src/services/api';
+import { socketService } from '../../src/services/socket';
+import { COLORS } from '../../src/constants/config';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function DriverDashboard() {
   const router = useRouter();
@@ -1235,7 +1255,7 @@ const styles = StyleSheet.create({
     color: COLORS.success,
   },
   offlineText: {
-    color: COLORS.error,
+    color: COLORS.textSecondary,
   },
   toggleButton: {
     backgroundColor: COLORS.success,
@@ -1738,10 +1758,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5F5',
     borderColor: COLORS.error,
   },
-  packageChipTextSpecial: {
-    color: COLORS.error,
-  },
-});
-
-export default DriverDashboardScreen;
+   packageChipTextSpecial: {
+     color: COLORS.error,
+   },
+ });
 

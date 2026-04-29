@@ -222,24 +222,28 @@ app.get('/api/health', (req, res) => {
 
 // === PRICING CONFIG ===
 app.get('/api/pricing', (req, res) => {
-  res.json({
-    locationPrices: {
-      // City Hub Areas (Intra-city)
-      lefkosa: 180,
-      girne: 220,
-      magusa: 180,
-      iskele: 200,
-      // Inter-City Routes
-      'lefkosa-girne': 350,
-      'lefkosa-magusa': 450,
-      'girne-magusa': 650,
-      'lefkosa-ercan': 300
+   res.json({
+     locationPrices: {
+       lefkosa: 250,
+       girne: 350,
+       magusa: 250,
+       iskele: 300,
+       'lefkosa-magusa': 550,
+       'girne-magusa': 650,
+       'lefkosa-ercan': 300
     },
     vehiclePrices: {
       motorcycle: 50,
       sedan: 150,
       truck: 400
     },
+    cityHubs: {
+       lefkosa: { name: 'Lefkoşa', basePrice: 250, coverageArea: 'Hamitköy to Gönyeli Çemberi', estimatedTime: '15-30 min' },
+       girne: { name: 'Girne', basePrice: 350, coverageArea: 'Zeytinlik to Karakum', estimatedTime: '45-60 min', notes: 'Higher due to traffic/hills' },
+       magusa: { name: 'Gazimağusa', basePrice: 250, coverageArea: 'City Center to Sakarya', estimatedTime: '20-35 min' },
+       iskele: { name: 'İskele', basePrice: 300, coverageArea: 'Long Beach area to Center', estimatedTime: '35-50 min' },
+     },
+
     currency: 'TL'
   });
 });
@@ -247,49 +251,33 @@ app.get('/api/pricing', (req, res) => {
 // === FARE CALCULATION ===
 
 app.post('/api/fare/calculate', (req, res) => {
-  const { distance_km, ride_type, vehicle_type, mountain_village, night_shift } = req.body;
+  const { distance_km, ride_type, vehicle_type, mountain_village, night_shift, dropoff_address } = req.body;
   
-  // Base prices for city hub areas and inter-city routes
-  const locationPrices = {
-    // City Hub Areas (Intra-city)
-    lefkosa: 180,
-    girne: 220,
-    magusa: 180,
-    iskele: 200,
-    // Inter-City Routes
-    'lefkosa-girne': 350,
-    'lefkosa-magusa': 450,
-    'girne-magusa': 650,
-    'lefkosa-ercan': 300
+   const locationPrices = {
+     lefkosa: 250,
+     girne: 350,
+     magusa: 250,
+     iskele: 300,
+     'lefkosa-magusa': 550,
+     'girne-magusa': 650,
+     'lefkosa-ercan': 300
   };
   
-  // Vehicle type prices
   const vehiclePrices = {
     motorcycle: 50,
     sedan: 150,
     truck: 400
   };
-  
+
+
   const locationPrice = ride_type ? (locationPrices[ride_type] || 0) : 0;
   const vehiclePrice = vehicle_type ? (vehiclePrices[vehicle_type] || 0) : 0;
-  
-  // Apply surcharges
-  let surcharge = 0;
-  
-  if (mountain_village) {
-    surcharge += 80;
-  }
-  
-  if (night_shift) {
-    surcharge += 50;
-  }
-  
-  const totalFare = locationPrice + vehiclePrice + surcharge;
-  
+
+  const totalFare = locationPrice + vehiclePrice;
+
   res.json({
     location_price: locationPrice,
     vehicle_price: vehiclePrice,
-    surcharge: surcharge,
     total_fare: totalFare,
     currency: 'TL'
   });
@@ -636,66 +624,67 @@ app.get('/api/completed-rides', (req, res) => {
 app.post('/api/rides', (req, res) => {
   console.log('Ride request received:', req.body);
   
-  const { passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, pickupLat, pickupLng, dropoffLat, dropoffLng, packageType, packageSize, packageDetails, specialInstructions, vehicleType } = req.body;
-  
-  if (!passengerName || !passengerEmail || !passengerPhone || !pickup || !dropoff || !rideType || ridePrice == null) {
-    console.log('Missing required fields');
-    return res.status(400).json({ error: 'Please provide all required fields' });
-  }
+  const { passenger_email, passenger_name, passenger_phone, pickup, dropoff, ride_type, price, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, inter_city } = req.body;
+    
+    if (!passenger_name || !passenger_email || !passenger_phone || !pickup || !dropoff || !ride_type || price == null) {
+      console.log('Missing required fields');
+      console.log('Received:', { passenger_name, passenger_email, passenger_phone, pickup, dropoff, ride_type, price });
+      return res.status(400).json({ error: 'Please provide all required fields' });
+    }
 
   // First get the passenger's user ID from the users table
   const getUserQuery = 'SELECT id FROM public.users WHERE email = $1';
-  db.query(getUserQuery, [passengerEmail], (errUser, userResults) => {
+   db.query(getUserQuery, [passenger_email], (errUser, userResults) => {
     let passengerId = null;
     if (userResults && userResults.rows.length > 0) {
       passengerId = userResults.rows[0].id;
     }
     
-    // Insert with passenger_id foreign key and package details
-    const query = 'INSERT INTO rides (passenger_id, passenger_name, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id';
-    const values = [passengerId, passengerName, passengerEmail, passengerPhone, pickup, dropoff, rideType, ridePrice, 'pending', pickupLat || null, pickupLng || null, dropoffLat || null, dropoffLng || null, packageType || null, packageSize || null, packageDetails || null, specialInstructions || null, vehicleType || null];
+     // Insert with passenger_id foreign key and package details
+     const query = 'INSERT INTO rides (passenger_id, passenger_name, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, inter_city) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING id';
+     const values = [passengerId, passenger_name, passenger_email, passenger_phone, pickup, dropoff, ride_type, price, 'pending', pickup_lat || null, pickup_lng || null, dropoff_lat || null, dropoff_lng || null, package_type || null, package_size || null, package_details || null, special_instructions || null, vehicle_type || null, inter_city || null];
   
-  db.query(query, values, (err, result) => {
-    if (err) {
-      console.error('Database error:', err);
-      return res.status(500).json({ error: 'Failed to save ride', details: err.message });
-    }
+      db.query(query, values, (err, result) => {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).json({ error: 'Failed to save ride', details: err.message });
+        }
     
-    console.log('Ride created with ID:', result.rows[0].id);
-    const rideId = result.rows[0].id;
+        console.log('Ride created with ID:', result.rows[0].id);
+        const rideId = result.rows[0].id;
+        
+        const newRide = { 
+          id: rideId, 
+          passenger_name: passenger_name, 
+          passenger_email: passenger_email, 
+          passenger_phone: passenger_phone, 
+          pickup_location: pickup, 
+          dropoff_location: dropoff, 
+          pickup_lat: pickup_lat,
+          pickup_lng: pickup_lng,
+          dropoff_lat: dropoff_lat,
+          dropoff_lng: dropoff_lng,
+          ride_type: ride_type, 
+          price: price, 
+          status: 'pending', 
+          package_type: package_type || null,
+          package_size: package_size || null,
+          package_details: package_details || null,
+          special_instructions: special_instructions || null,
+          vehicle_type: vehicle_type || null,
+          inter_city: inter_city || null,
+          created_at: new Date().toISOString() 
+        };
     
-    const newRide = { 
-      id: rideId, 
-      passenger_name: passengerName, 
-      passenger_email: passengerEmail, 
-      passenger_phone: passengerPhone, 
-      pickup_location: pickup, 
-      dropoff_location: dropoff, 
-      pickup_lat: pickupLat,
-      pickup_lng: pickupLng,
-      dropoff_lat: dropoffLat,
-      dropoff_lng: dropoffLng,
-      ride_type: rideType, 
-      price: ridePrice, 
-      status: 'pending', 
-      package_type: packageType || null,
-      package_size: packageSize || null,
-      package_details: packageDetails || null,
-      special_instructions: specialInstructions || null,
-      vehicle_type: vehicleType || null,
-      created_at: new Date().toISOString() 
-    };
-    
-    // Emit to all online drivers
-    console.log('Emitting newRide to onlineDrivers room');
-    io.to('onlineDrivers').emit('newRide', newRide);
-    console.log('Emitting rideCreated to passenger:', passengerEmail);
-    io.to(passengerEmail).emit('rideCreated', newRide);
-    
-    res.status(201).json({ message: 'Ride booked successfully', rideId, ride: newRide });
-    });
-  });
-});
+      // Emit to all online drivers
+      console.log('Emitting newRide to onlineDrivers room');
+      console.log('Emitting rideCreated to passenger:', passenger_email);
+      io.to(passenger_email).emit('rideCreated', newRide);
+      
+       res.status(201).json({ message: 'Ride booked successfully', rideId, ride: newRide });
+       });
+     });
+   });
 app.post('/api/rides/:rideId/accept', (req, res) => {
   const rideId = req.params.rideId;
   const { name, email, phone, vehicle } = req.body;
@@ -1209,58 +1198,6 @@ app.get('/api/passengers/:email', (req, res) => {
     if (err) return res.status(500).json({ error: 'Failed to fetch passenger info' });
     if (results.rows.length === 0) return res.status(404).json({ error: 'Passenger not found' });
     res.json(results.rows[0]);
-  });
-});
-
-// === FARE CALCULATION ===
-
-app.post('/api/fare/calculate', (req, res) => {
-  const { distance_km, ride_type, vehicle_type } = req.body;
-  
-  // Base prices for city hub areas and inter-city routes
-  const locationPrices = {
-    // City Hub Areas (Intra-city)
-    lefkosa: 180,
-    girne: 220,
-    magusa: 180,
-    iskele: 200,
-    // Inter-City Routes
-    'lefkosa-girne': 350,
-    'lefkosa-magusa': 450,
-    'girne-magusa': 650,
-    'lefkosa-ercan': 300
-  };
-  
-  // Vehicle type prices
-  const vehiclePrices = {
-    motorcycle: 50,
-    sedan: 150,
-    truck: 400
-  };
-  
-  const locationPrice = ride_type ? (locationPrices[ride_type] || 0) : 0;
-  const vehiclePrice = vehicle_type ? (vehiclePrices[vehicle_type] || 0) : 0;
-  
-  // Apply surcharges
-  let surcharge = 0;
-  const { mountain_village, night_shift } = req.body;
-  
-  if (mountain_village) {
-    surcharge += 80;
-  }
-  
-  if (night_shift) {
-    surcharge += 50;
-  }
-  
-  const totalFare = locationPrice + vehiclePrice + surcharge;
-  
-  res.json({
-    location_price: locationPrice,
-    vehicle_price: vehiclePrice,
-    surcharge: surcharge,
-    total_fare: totalFare,
-    currency: 'TL'
   });
 });
 
