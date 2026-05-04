@@ -1,6 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import { useEffect } from 'react';
+import { API_URL } from '../constants/config';
 
 WebBrowser.maybeCompleteAuthSession();
 
