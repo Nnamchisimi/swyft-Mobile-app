@@ -27,25 +27,29 @@ export default function SignInScreen() {
   const [error, setError] = useState('');
   const [debugInfo, setDebugInfo] = useState(API_URL);
   const [loading, setLoading] = useState(false);
-  
-const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
 
-   const handleGoogleCallback = async (code) => {
-     try {
-       setLoading(true);
-       setError('');
-       
-       // Exchange code with backend
-       const result = await fetch(`${API_URL}/api/auth/google/callback`, {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ 
-           code
-         }),
-       });
-      
+  const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { code } = response.params;
+      handleGoogleCallback(code);
+    }
+  }, [response]);
+
+  const handleGoogleCallback = async (code) => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const result = await fetch(`${API_URL}/api/auth/google/callback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+
       const data = await result.json();
-      
+
       if (data.token) {
         await authService.setToken(data.token);
         const role = (data.user.role || 'passenger').toLowerCase();
@@ -55,7 +59,6 @@ const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
       }
     } catch (err) {
       console.log('Google callback error:', err);
-      // Fallback to manual login
       Alert.alert('Google Sign-In', 'Please try manual sign-in or register your Google account first.');
     } finally {
       setLoading(false);
@@ -66,9 +69,7 @@ const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
     try {
       setLoading(true);
       setError('');
-      await promptAsync({
-        useProxy: true,
-      });
+      await promptAsync({ useProxy: true });
     } catch (err) {
       console.log('Google prompt error:', err);
       setLoading(false);
@@ -97,7 +98,7 @@ const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
 
       if (result.success) {
         console.log('Login successful, user role:', result.user.role);
-        
+
         const role = (result.user.role || 'passenger').toLowerCase();
         if (role === 'driver') {
           router.replace('/(driver)/dashboard');
@@ -106,7 +107,7 @@ const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
         }
       } else {
         console.log('Login failed with error:', result.error);
-        
+
         if (result.requiresVerification) {
           router.replace({
             pathname: '/(auth)/verify',
@@ -165,7 +166,7 @@ const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          
+
           <TouchableOpacity
             style={styles.googleButton}
             onPress={handleGoogleSignIn}
