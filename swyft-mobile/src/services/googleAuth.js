@@ -8,9 +8,7 @@ WebBrowser.maybeCompleteAuthSession();
 const GOOGLE_CLIENT_ID = '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com';
 
 export const useGoogleSignIn = () => {
-  const redirectUri = makeRedirectUri({
-    useProxy: true,
-  });
+  const redirectUri = 'https://auth.expo.io/@njapp/swyft-mobile';
 
   const [request, response, promptAsync] = useAuthRequest(
     {
@@ -22,6 +20,9 @@ export const useGoogleSignIn = () => {
       authorizationEndpoint: 'https://accounts.google.com/o/oauth2/auth',
       tokenEndpoint: 'https://oauth2.googleapis.com/token',
       revokeEndpoint: 'https://oauth2.googleapis.com/revoke',
+    },
+    {
+      usePKCE: true,
     }
   );
 

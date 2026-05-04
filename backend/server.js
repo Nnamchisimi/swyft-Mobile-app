@@ -622,26 +622,30 @@ app.get('/api/completed-rides', (req, res) => {
 });
 
   const { OAuth2Client } = require('google-auth-library');
-const googleClient = new OAuth2Client('1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com');
 
 // Google OAuth callback endpoint
 app.post('/api/auth/google/callback', async (req, res) => {
   const { code, redirectUri } = req.body;
+  
+  console.log('=== GOOGLE OAUTH CALLBACK ===');
+  console.log('Code received:', code ? 'Yes' : 'No');
+  console.log('Redirect URI:', redirectUri);
   
   try {
     // Exchange authorization code for tokens
     const { tokens } = await googleClient.getToken({
       code,
       redirect_uri: redirectUri || 'https://auth.expo.io/@njapp/swyft-mobile',
-      client_id: '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com',
-      client_secret: 'lVcI',
+      client_id: process.env.GOOGLE_CLIENT_ID || '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com',
+      client_secret: process.env.GOOGLE_CLIENT_SECRET || 'lVcI',
       grant_type: 'authorization_code',
     });
     
     // Verify the ID token
     const ticket = await googleClient.verifyIdToken({
       idToken: tokens.id_token,
-      audience: '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com',
+      audience: process.env.GOOGLE_CLIENT_ID || '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com',
     });
     
     const payload = ticket.getPayload();

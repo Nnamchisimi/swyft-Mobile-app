@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { View, Image, Text, StyleSheet, Animated } from "react-native";
 import { COLORS } from "../src/constants/config";
 import swyftLogo from "@/assets/images/swyftmobilelogo.png";
@@ -11,11 +13,28 @@ interface SplashScreenProps {
 }
 
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
+  const router = useRouter();
   const { isAppReady } = useAppReady();
   const [phase, setPhase] = useState<Phase>("logo");
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
+
+  useEffect(() => {
+    const checkAutoLogin = async () => {
+      const token = await AsyncStorage.getItem('authToken');
+      if (token) {
+        const role = await AsyncStorage.getItem('userRole');
+        if (role === 'driver') {
+          router.replace('/(driver)/dashboard');
+        } else {
+          router.replace('/(passenger)/home');
+        }
+      }
+    };
+    
+    checkAutoLogin();
+  }, []);
 
   const startFadeOut = (delay: number = 0): void => {
     setTimeout(() => {

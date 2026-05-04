@@ -28,29 +28,21 @@ export default function SignInScreen() {
   const [debugInfo, setDebugInfo] = useState(API_URL);
   const [loading, setLoading] = useState(false);
   
-  const { request, response, promptAsync } = useGoogleSignIn();
+const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
 
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { code } = response.params;
-      handleGoogleCallback(code);
-    }
-  }, [response]);
-
-  const handleGoogleCallback = async (code) => {
-    try {
-      setLoading(true);
-      setError('');
-      
-      // Exchange code with backend
-      const result = await fetch(`${API_URL}/api/auth/google/callback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          code,
-          clientId: '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com'
-        }),
-      });
+   const handleGoogleCallback = async (code) => {
+     try {
+       setLoading(true);
+       setError('');
+       
+       // Exchange code with backend
+       const result = await fetch(`${API_URL}/api/auth/google/callback`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ 
+           code
+         }),
+       });
       
       const data = await result.json();
       
