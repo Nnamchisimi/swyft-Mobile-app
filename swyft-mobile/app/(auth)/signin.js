@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,12 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { signInWithGoogle } from '../../src/services/googleAuth';
+import * as WebBrowser from 'expo-web-browser';
+import { useGoogleSignIn } from '../../src/services/googleAuth';
 import { authService } from '../../src/services/auth';
 import { COLORS, API_URL } from '../../src/constants/config';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -24,50 +27,62 @@ export default function SignInScreen() {
   const [error, setError] = useState('');
   const [debugInfo, setDebugInfo] = useState(API_URL);
   const [loading, setLoading] = useState(false);
-
-  // Google Sign-In will be available with native setup for TestFlight builds
   
-   const handleGoogleSignIn = async () => {
-     try {
-       setLoading(true);
-       setError('');
-       
-       const result = await signInWithGoogle();
-       
-       if (!result.success) {
-         if (result.error === 'cancelled') return;
-         throw new Error(result.error);
-       }
-       
-       const googleEmail = result.user.email;
-       
-       // Try to login with Google
-       const loginResult = await authService.login(googleEmail, 'google-oauth');
-       
-       if (loginResult.success) {
-         const role = (loginResult.user.role || 'passenger').toLowerCase();
-         if (role === 'driver') {
-           router.replace('/(driver)/dashboard');
-         } else {
-           router.replace('/(passenger)/home');
-         }
-       } else {
-         // User doesn't exist, redirect to register with pre-filled email
-         router.replace({
-           pathname: '/(auth)/register',
-           params: { googleEmail: googleEmail }
-         });
-       }
-       
-     } catch (error) {
-       console.log('Google Sign-In error:', error);
-       if (error.code !== 'SIGN_IN_CANCELLED') {
-         Alert.alert('Google Sign-In Error', 'Please try again or sign in manually.');
-       }
-     } finally {
-       setLoading(false);
-     }
-   };
+  const { request, response, promptAsync } = useGoogleSignIn();
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { code } = response.params;
+      handleGoogleCallback(code);
+    }
+  }, [response]);
+
+  const handleGoogleCallback = async (code) => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Exchange code with backend
+      const result = await fetch(`${API_URL}/api/auth/google/callback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          code,
+          clientId: '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com'
+        }),
+      });
+      
+      const data = await result.json();
+      
+      if (data.token) {
+        await authService.setToken(data.token);
+        const role = (data.user.role || 'passenger').toLowerCase();
+        router.replace(role === 'driver' ? '/(driver)/dashboard' : '/(passenger)/home');
+      } else {
+        throw new Error(data.error || 'Google sign-in failed');
+      }
+    } catch (err) {
+      console.log('Google callback error:', err);
+      // Fallback to manual login
+      Alert.alert('Google Sign-In', 'Please try manual sign-in or register your Google account first.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      await promptAsync({
+        useProxy: true,
+      });
+    } catch (err) {
+      console.log('Google prompt error:', err);
+      setLoading(false);
+      Alert.alert('Google Sign-In', 'Please try again or sign in manually.');
+    }
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -100,7 +115,6 @@ export default function SignInScreen() {
       } else {
         console.log('Login failed with error:', result.error);
         
-        // Check if verification is required
         if (result.requiresVerification) {
           router.replace({
             pathname: '/(auth)/verify',
@@ -158,16 +172,16 @@ export default function SignInScreen() {
             placeholderTextColor={COLORS.textSecondary}
           />
 
-{error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
           
           <TouchableOpacity
             style={styles.googleButton}
             onPress={handleGoogleSignIn}
+            disabled={loading}
           >
             <Ionicons name="logo-google" size={24} color={COLORS.white} />
             <Text style={styles.googleButtonText}>Continue with Google</Text>
           </TouchableOpacity>
-      
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -248,23 +262,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 16,
     textAlign: 'center',
-  },
-  debugBox: {
-    backgroundColor: '#000',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  debugTitle: {
-    color: '#FFD700',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  debugText: {
-    color: '#00FF00',
-    fontSize: 11,
-    fontFamily: 'monospace',
   },
   button: {
     backgroundColor: COLORS.primary,

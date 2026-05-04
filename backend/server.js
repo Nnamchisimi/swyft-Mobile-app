@@ -621,7 +621,91 @@ app.get('/api/completed-rides', (req, res) => {
   });
 });
 
-  // POST new ride
+  const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client('1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com');
+
+// Google OAuth callback endpoint
+app.post('/api/auth/google/callback', async (req, res) => {
+  const { code, redirectUri } = req.body;
+  
+  try {
+    // Exchange authorization code for tokens
+    const { tokens } = await googleClient.getToken({
+      code,
+      redirect_uri: redirectUri || 'https://auth.expo.io/@njapp/swyft-mobile',
+      client_id: '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com',
+      client_secret: 'lVcI',
+      grant_type: 'authorization_code',
+    });
+    
+    // Verify the ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com',
+    });
+    
+    const payload = ticket.getPayload();
+    const email = payload.email;
+    const name = payload.name;
+    
+    // Check if user exists
+    db.query('SELECT * FROM public.users WHERE email = $1', [email], (err, results) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      if (results.rows.length === 0) {
+        // Auto-register new Google user
+        bcrypt.hash('google-oauth', 10, (err2, hashedPassword) => {
+          if (err2) return res.status(500).json({ error: 'Hashing failed' });
+          
+          db.query(
+            'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified, verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, role',
+            [name ? name.split(' ')[0] : '', name ? name.split(' ').slice(1).join(' ') : '', email, hashedPassword, 'passenger', '', true, true],
+            (err3, result) => {
+              if (err3) {
+                console.error('User creation error:', err3);
+                return res.status(500).json({ error: 'Failed to create user' });
+              }
+              
+              const token = jwt.sign(
+                { id: result.rows[0].id, email, role: 'passenger' },
+                process.env.JWT_SECRET,
+                { expiresIn: '7d' }
+              );
+              
+              res.json({ 
+                token, 
+                user: { 
+                  ...result.rows[0], 
+                  email,
+                  first_name: name ? name.split(' ')[0] : '',
+                  last_name: name ? name.split(' ').slice(1).join(' ') : ''
+                } 
+              });
+            }
+          );
+        });
+      } else {
+        // Login existing user
+        const user = results.rows[0];
+        const token = jwt.sign(
+          { id: user.id, email: user.email, role: user.role },
+          process.env.JWT_SECRET,
+          { expiresIn: '7d' }
+        );
+        
+        res.json({ token, user });
+      }
+    });
+  } catch (error) {
+    console.error('Google callback error:', error);
+    res.status(400).json({ error: 'Invalid code or token verification failed' });
+  }
+});
+
+// POST new ride
   app.post('/api/rides', (req, res) => {
     console.log('Ride request received:', req.body);
     

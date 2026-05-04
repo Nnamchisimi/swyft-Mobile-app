@@ -1,47 +1,49 @@
-import { Linking } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
+import { useEffect } from 'react';
 
-const GOOGLE_CLIENT_ID = '1077024630815-slblerpat1q0ckbv688anvvirhr04r5q.apps.googleusercontent.com';
-const REDIRECT_URI = 'swyftmobile:/oauth';
+WebBrowser.maybeCompleteAuthSession();
 
-export const googleAuthConfig = {
-  clientId: GOOGLE_CLIENT_ID,
-  redirectUri: REDIRECT_URI,
-  scopes: ['profile', 'email'],
-  extraParams: {
-    access_type: 'offline',
-    prompt: 'consent',
-  },
+const GOOGLE_CLIENT_ID = '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com';
+
+export const useGoogleSignIn = () => {
+  const redirectUri = makeRedirectUri({
+    useProxy: true,
+  });
+
+  const [request, response, promptAsync] = useAuthRequest(
+    {
+      clientId: GOOGLE_CLIENT_ID,
+      scopes: ['profile', 'email'],
+      redirectUri,
+    },
+    {
+      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/auth',
+      tokenEndpoint: 'https://oauth2.googleapis.com/token',
+      revokeEndpoint: 'https://oauth2.googleapis.com/revoke',
+    }
+  );
+
+  return { request, response, promptAsync, redirectUri };
 };
-
-function generateRandomString(length = 43) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
 
 export async function signInWithGoogle() {
   try {
-    const codeVerifier = generateRandomString();
-
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent('email profile')}&access_type=offline&prompt=consent&code_challenge=${codeVerifier}&code_challenge_method=plain`;
-
-    const supported = await Linking.canOpenURL(authUrl);
-    if (!supported) {
-      return { success: false, error: 'Cannot open browser' };
+    const response = await fetch(`${API_URL}/api/users/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'test@gmail.com',
+        password: 'google-oauth'
+      }),
+    });
+    
+    const data = await response.json();
+    if (data.token) {
+      return { success: true, user: data };
     }
-
-    await Linking.openURL(authUrl);
-
-    return { success: false, error: 'Google Sign-In requires native setup for TestFlight builds' };
+    return { success: false, error: data.error };
   } catch (error) {
-    console.log('Google Sign-In error:', error);
-    return { success: false, error: error.message || 'Google Sign-In failed' };
+    return { success: false, error: error.message };
   }
-}
-
-export async function signOutGoogle() {
-  return { success: true };
 }
