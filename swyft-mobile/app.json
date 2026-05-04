@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "swyftmobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -23,11 +22,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "config": {
-
-     
-
         "googleMapsApiKey": "AIzaSyBrptwerlWpVYRC3P9hsxm415pTkqIEfME"
-
       }
     },
     "android": {
@@ -69,16 +64,6 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Swyft to use your location."
         }
-
-      ],
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "webClientId": "1077024630815-slblerpat1q0ckbv688anvvirhr04r5q.apps.googleusercontent.com",
-          "iosClientId": "1077024630815-slblerpat1q0ckbv688anvvirhr04r5q.apps.googleusercontent.com",
-          "iosUrlScheme": "com.googleusercontent.apps.1077024630815-slblerpat1q0ckbv688anvvirhr04r5q"
-        }
-
       ]
     ],
     "experiments": {

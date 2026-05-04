@@ -587,6 +587,7 @@ app.get('/api/rides', (req, res) => {
   });
 });
 
+
 // Active rides
 app.get('/api/active-rides', (req, res) => {
   const { driver_email } = req.query;
@@ -620,17 +621,52 @@ app.get('/api/completed-rides', (req, res) => {
   });
 });
 
-// POST new ride
-app.post('/api/rides', (req, res) => {
-  console.log('Ride request received:', req.body);
-  
-  const { passenger_email, passenger_name, passenger_phone, pickup, dropoff, ride_type, price, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, inter_city } = req.body;
+  // POST new ride
+  app.post('/api/rides', (req, res) => {
+    console.log('Ride request received:', req.body);
     
-    if (!passenger_name || !passenger_email || !passenger_phone || !pickup || !dropoff || !ride_type || price == null) {
-      console.log('Missing required fields');
-      console.log('Received:', { passenger_name, passenger_email, passenger_phone, pickup, dropoff, ride_type, price });
-      return res.status(400).json({ error: 'Please provide all required fields' });
+    const { passenger_email, passenger_name, passenger_phone, pickup, dropoff, pickup_location, dropoff_location, ride_type, price, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, inter_city } = req.body;
+    
+    // Support both field names (pickup/dropoff OR pickup_location/dropoff_location)
+    const pickupLoc = pickup || pickup_location;
+    const dropoffLoc = dropoff || dropoff_location;
+     
+if (
+  !passenger_name?.trim() ||
+  !passenger_email?.trim() ||
+  !passenger_phone?.trim() ||
+  !pickupLoc?.trim() ||
+  !dropoffLoc?.trim() ||
+  !ride_type?.trim() ||
+  typeof price !== 'number'
+) {
+  console.log('Missing required fields validation failed:', {
+    passenger_name,
+    passenger_email,
+    passenger_phone,
+    pickupLoc,
+    dropoffLoc,
+    ride_type,
+    price,
+    priceType: typeof price
+  });
+
+  return res.status(400).json({
+    error: 'Please provide all required fields'
+  });
+}
+    
+    // Validate numeric price
+    const priceFloat = parseFloat(price);
+    if (isNaN(priceFloat) || priceFloat < 0) {
+      return res.status(400).json({ error: 'Price must be a valid positive number' });
     }
+    
+    // Validate numeric coordinates
+    const pickLat = pickup_lat ? parseFloat(pickup_lat) : null;
+    const pickLng = pickup_lng ? parseFloat(pickup_lng) : null;
+    const dropLat = dropoff_lat ? parseFloat(dropoff_lat) : null;
+    const dropLng = dropoff_lng ? parseFloat(dropoff_lng) : null;
 
   // First get the passenger's user ID from the users table
   const getUserQuery = 'SELECT id FROM public.users WHERE email = $1';
@@ -641,15 +677,21 @@ app.post('/api/rides', (req, res) => {
     }
     
      // Insert with passenger_id foreign key and package details
-     const query = 'INSERT INTO rides (passenger_id, passenger_name, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, inter_city) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING id';
-     const values = [passengerId, passenger_name, passenger_email, passenger_phone, pickup, dropoff, ride_type, price, 'pending', pickup_lat || null, pickup_lng || null, dropoff_lat || null, dropoff_lng || null, package_type || null, package_size || null, package_details || null, special_instructions || null, vehicle_type || null, inter_city || null];
+     const query = 'INSERT INTO rides (passenger_id, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id';
+      const values = [passengerId, passenger_email, passenger_phone, pickupLoc, dropoffLoc, ride_type, price, 'pending', pickLat, pickLng, dropLat, dropLng, package_type || null, package_size || null, package_details || null, special_instructions || null, vehicle_type || null];
   
       db.query(query, values, (err, result) => {
         if (err) {
-          console.error('Database error:', err);
+          console.error('=== DATABASE ERROR ===');
+          console.error('Query:', query);
+          console.error('Values:', values);
+          console.error('Error:', err);
+          console.error('Error Code:', err.code);
+          console.error('Error Detail:', err.detail);
+          console.error('Error Hint:', err.hint);
           return res.status(500).json({ error: 'Failed to save ride', details: err.message });
         }
-    
+      
         console.log('Ride created with ID:', result.rows[0].id);
         const rideId = result.rows[0].id;
         
@@ -676,10 +718,11 @@ app.post('/api/rides', (req, res) => {
           created_at: new Date().toISOString() 
         };
     
-      // Emit to all online drivers
-      console.log('Emitting newRide to onlineDrivers room');
-      console.log('Emitting rideCreated to passenger:', passenger_email);
-      io.to(passenger_email).emit('rideCreated', newRide);
+       // Emit to all online drivers
+       console.log('Emitting newRide to onlineDrivers room');
+       io.to("onlineDrivers").emit("newRide", newRide);
+       console.log('Emitting rideCreated to passenger:', passenger_email);
+       io.to(passenger_email).emit('rideCreated', newRide);
       
        res.status(201).json({ message: 'Ride booked successfully', rideId, ride: newRide });
        });
