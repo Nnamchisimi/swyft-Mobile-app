@@ -622,7 +622,10 @@ app.get('/api/completed-rides', (req, res) => {
 });
 
   const { OAuth2Client } = require('google-auth-library');
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com');
+const googleClient = new OAuth2Client({
+  clientId: process.env.GOOGLE_CLIENT_ID || '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com',
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+});
 
 // Google OAuth callback endpoint
 app.post('/api/auth/google/callback', async (req, res) => {
@@ -636,10 +639,7 @@ app.post('/api/auth/google/callback', async (req, res) => {
     // Exchange authorization code for tokens
     const { tokens } = await googleClient.getToken({
       code,
-      redirect_uri: 'https://auth.expo.io/@njapp/swyft-mobile',
-      client_id: process.env.GOOGLE_CLIENT_ID || '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com',
-      client_secret: process.env.GOOGLE_CLIENT_SECRET || 'lVcI',
-      grant_type: 'authorization_code',
+      redirect_uri: redirectUri || 'https://auth.expo.io/@njapp/swyft-mobile',
     });
     
     // Verify the ID token
@@ -704,8 +704,9 @@ app.post('/api/auth/google/callback', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Google callback error:', error);
-    res.status(400).json({ error: 'Invalid code or token verification failed' });
+    console.error('Google callback error:', error.message);
+    console.error('Full error:', error);
+    res.status(400).json({ error: 'Invalid code or token verification failed', details: error.message });
   }
 });
 

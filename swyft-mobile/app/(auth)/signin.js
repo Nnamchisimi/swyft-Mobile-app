@@ -31,9 +31,15 @@ export default function SignInScreen() {
   const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
 
   useEffect(() => {
+    console.log('OAuth response:', response);
     if (response?.type === 'success') {
       const { code } = response.params;
+      console.log('Auth code received:', code ? 'Yes' : 'No');
       handleGoogleCallback(code);
+    } else if (response?.type === 'error') {
+      console.log('OAuth error:', response.error);
+      setLoading(false);
+      setError('Google sign-in failed. Please try again.');
     }
   }, [response]);
 
@@ -45,7 +51,7 @@ export default function SignInScreen() {
       const result = await fetch(`${API_URL}/api/auth/google/callback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, redirectUri }),
       });
 
       const data = await result.json();
@@ -59,7 +65,8 @@ export default function SignInScreen() {
       }
     } catch (err) {
       console.log('Google callback error:', err);
-      Alert.alert('Google Sign-In', 'Please try manual sign-in or register your Google account first.');
+      const msg = err?.response?.data?.error || err.message || 'Google sign-in failed';
+      Alert.alert('Google Sign-In', `Error: ${msg}. Please try manual sign-in.`);
     } finally {
       setLoading(false);
     }
@@ -69,7 +76,7 @@ export default function SignInScreen() {
     try {
       setLoading(true);
       setError('');
-      await promptAsync({ useProxy: true });
+      await promptAsync();
     } catch (err) {
       console.log('Google prompt error:', err);
       setLoading(false);

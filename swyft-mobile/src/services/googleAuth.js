@@ -1,6 +1,5 @@
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
-import { useEffect } from 'react';
+import { useAuthRequest } from 'expo-auth-session';
 import { API_URL } from '../constants/config';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -15,15 +14,8 @@ export const useGoogleSignIn = () => {
       clientId: GOOGLE_CLIENT_ID,
       scopes: ['profile', 'email'],
       redirectUri,
+      usePKCE: false,
     },
-    {
-      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/auth',
-      tokenEndpoint: 'https://oauth2.googleapis.com/token',
-      revokeEndpoint: 'https://oauth2.googleapis.com/revoke',
-    },
-    {
-      usePKCE: true,
-    }
   );
 
   return { request, response, promptAsync, redirectUri };
