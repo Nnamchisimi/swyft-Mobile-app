@@ -636,7 +636,7 @@ app.post('/api/auth/google/callback', async (req, res) => {
     // Exchange authorization code for tokens
     const { tokens } = await googleClient.getToken({
       code,
-      redirect_uri: redirectUri || 'https://auth.expo.io/@njapp/swyft-mobile',
+      redirect_uri: 'https://auth.expo.io/@njapp/swyft-mobile',
       client_id: process.env.GOOGLE_CLIENT_ID || '1077024630815-l4o088f9l2q4udhgvnasd89v2cqmesb5.apps.googleusercontent.com',
       client_secret: process.env.GOOGLE_CLIENT_SECRET || 'lVcI',
       grant_type: 'authorization_code',
