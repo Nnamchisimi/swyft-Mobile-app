@@ -325,13 +325,15 @@ app.post('/api/users/verify-code', (req, res) => {
           if (err4 || user.rows.length === 0) return res.status(500).json({ error: 'User not found' });
           
           const token = jwt.sign({ id: userId, email, role: user.rows[0].role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+          const userData = user.rows[0];
+          userData.token = token;
           
           console.log('Verification successful for user:', userId);
           
           res.json({ 
             message: 'Email verified successfully',
             token,
-            user: user.rows[0]
+            user: userData
           });
         });
       });
@@ -404,10 +406,11 @@ app.post('/api/users', async (req, res) => {
     if (results.rows.length > 0) return res.status(400).json({ error: 'Email already exists' });
 
     const hashedPassword = await bcrypt.hash(finalPassword, 10);
+    const dbRole = normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1);
 
-    // Insert user - auto-verify users (no email verification)
+    // Insert user - NOT verified yet (requires email verification)
     const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified, verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, role';
-    const userValues = [first_name, last_name, email, hashedPassword, dbRole, phone || null, true, true];
+    const userValues = [first_name, last_name, email, hashedPassword, dbRole, phone || null, false, false];
 
     db.query(userQuery, userValues, (err2, result) => {
       if (err2) {
@@ -417,14 +420,30 @@ app.post('/api/users', async (req, res) => {
 
       const userId = result.rows[0].id;
       const userRole = result.rows[0].role;
-      
-      console.log('User created (auto-verified):', userId, 'Role:', userRole);
+      console.log('User created (pending verification):', userId, 'Role:', userRole);
 
-      // Return success - user is automatically verified
-      res.status(201).json({ 
-        message: 'User created successfully',
-        requiresVerification: false,
-        email: email
+      // Generate and store verification code
+      const code = generateVerificationCode();
+      
+      // Delete any existing tokens for this user
+      db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
+      
+      // Insert new verification token
+      db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, code], (err3) => {
+        if (err3) {
+          console.log('Verification token error:', err3.message);
+          // Continue anyway - user can resend code
+        }
+
+        // Send verification email
+        sendWithResend(email, code).catch(err => console.log('Email send error:', err.message));
+
+        // Return success - user needs to verify email
+        res.status(201).json({ 
+          message: 'User created successfully. Please verify your email.',
+          requiresVerification: true,
+          email: email
+        });
       });
     });
   });
