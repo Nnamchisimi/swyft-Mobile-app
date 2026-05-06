@@ -14,10 +14,9 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { signInWithGoogle } from '../../src/services/googleAuth';
 import { authService } from '../../src/services/auth';
-import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -37,57 +36,8 @@ export default function RegisterScreen() {
     vehicleColor: '',
     vehiclePlate: '',
   });
-   const [error, setError] = useState('');
-   const [loading, setLoading] = useState(false);
-
-   const handleGoogleSignIn = async () => {
-     try {
-       setLoading(true);
-       
-       const result = await signInWithGoogle();
-       
-       if (!result.success) {
-         if (result.error === 'cancelled') {
-           setLoading(false);
-           return;
-         }
-         throw new Error(result.error);
-       }
-       
-       const googleEmail = result.user.email;
-       const googleFirstName = result.user.given_name || '';
-       const googleLastName = result.user.family_name || '';
-       
-       setFormData(prev => ({
-         ...prev,
-         email: googleEmail,
-         firstName: googleFirstName,
-         lastName: googleLastName,
-       }));
-       
-       try {
-         const loginResult = await authService.login(googleEmail, 'google-oauth');
-         if (loginResult.success) {
-           if (loginResult.user?.role?.toLowerCase() === 'driver') {
-             router.replace('/(driver)/dashboard');
-           } else {
-             router.replace('/(passenger)/home');
-           }
-           return;
-         }
-       } catch (e) {}
-       
-       Alert.alert('Info', 'Please complete your registration by filling in the remaining details.');
-       
-     } catch (error) {
-       console.log('Google Sign-In error:', error);
-       if (error.code !== 'SIGN_IN_CANCELLED') {
-         Alert.alert('Google Sign-In Error', 'Please try again or register manually.');
-       }
-     } finally {
-       setLoading(false);
-     }
-   };
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -183,43 +133,29 @@ export default function RegisterScreen() {
           <Text style={styles.subtitle}>Join Swyft today</Text>
         </View>
 
-        <View style={styles.form}>
-          <TouchableOpacity
-            style={styles.googleButton}
-            onPress={handleGoogleSignIn}
-          >
-            <Ionicons name="logo-google" size={24} color={COLORS.white} />
-            <Text style={styles.googleButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.row}>
-            <View style={styles.halfInput}>
-              <Text style={styles.label}>First Name *</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.firstName}
-                onChangeText={(value) => handleChange('firstName', value)}
-                placeholder="First name"
-                placeholderTextColor={COLORS.textSecondary}
-              />
-            </View>
-            <View style={styles.halfInput}>
-              <Text style={styles.label}>Last Name *</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.lastName}
-                onChangeText={(value) => handleChange('lastName', value)}
-                placeholder="Last name"
-                placeholderTextColor={COLORS.textSecondary}
-              />
-            </View>
-          </View>
+         <View style={styles.form}>
+           <View style={styles.row}>
+             <View style={styles.halfInput}>
+               <Text style={styles.label}>First Name *</Text>
+               <TextInput
+                 style={styles.input}
+                 value={formData.firstName}
+                 onChangeText={(value) => handleChange('firstName', value)}
+                 placeholder="First name"
+                 placeholderTextColor={COLORS.textSecondary}
+               />
+             </View>
+             <View style={styles.halfInput}>
+               <Text style={styles.label}>Last Name *</Text>
+               <TextInput
+                 style={styles.input}
+                 value={formData.lastName}
+                 onChangeText={(value) => handleChange('lastName', value)}
+                 placeholder="Last name"
+                 placeholderTextColor={COLORS.textSecondary}
+               />
+             </View>
+           </View>
 
           <Text style={styles.label}>Email *</Text>
           <TextInput
@@ -513,37 +449,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
   },
-  googleButton: {
-    backgroundColor: '#4285F4',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  googleButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.border,
-  },
-  dividerText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    marginHorizontal: 16,
-  },
-  button: {
+   button: {
     backgroundColor: COLORS.primary,
     borderRadius: 12,
     padding: 16,

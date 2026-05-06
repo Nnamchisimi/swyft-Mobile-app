@@ -14,13 +14,8 @@ import {
   StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
-import { useGoogleSignIn } from '../../src/services/googleAuth';
 import { authService } from '../../src/services/auth';
 import { COLORS, API_URL } from '../../src/constants/config';
-
-WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -29,62 +24,6 @@ export default function SignInScreen() {
   const [error, setError] = useState('');
   const [debugInfo, setDebugInfo] = useState(API_URL);
   const [loading, setLoading] = useState(false);
-
-  const { request, response, promptAsync, redirectUri } = useGoogleSignIn();
-
-  useEffect(() => {
-    console.log('OAuth response:', response);
-    if (response?.type === 'success') {
-      const { code } = response.params;
-      console.log('Auth code received:', code ? 'Yes' : 'No');
-      handleGoogleCallback(code);
-    } else if (response?.type === 'error') {
-      console.log('OAuth error:', response.error);
-      setLoading(false);
-      setError('Google sign-in failed. Please try again.');
-    }
-  }, [response]);
-
-  const handleGoogleCallback = async (code) => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const result = await fetch(`${API_URL}/api/auth/google/callback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, redirectUri }),
-      });
-
-      const data = await result.json();
-
-      if (data.token) {
-        await authService.setToken(data.token);
-        const role = (data.user.role || 'passenger').toLowerCase();
-        router.replace(role === 'driver' ? '/(driver)/dashboard' : '/(passenger)/home');
-      } else {
-        throw new Error(data.error || 'Google sign-in failed');
-      }
-    } catch (err) {
-      console.log('Google callback error:', err);
-      const msg = err?.response?.data?.error || err.message || 'Google sign-in failed';
-      Alert.alert('Google Sign-In', `Error: ${msg}. Please try manual sign-in.`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      await promptAsync();
-    } catch (err) {
-      console.log('Google prompt error:', err);
-      setLoading(false);
-      Alert.alert('Google Sign-In', 'Please try again or sign in manually.');
-    }
-  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -177,15 +116,6 @@ export default function SignInScreen() {
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          <TouchableOpacity
-            style={styles.googleButton}
-            onPress={handleGoogleSignIn}
-            disabled={loading}
-          >
-            <Ionicons name="logo-google" size={24} color={COLORS.white} />
-            <Text style={styles.googleButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -300,19 +230,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  googleButton: {
-    backgroundColor: '#4285F4',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-  googleButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-  },
+
 });

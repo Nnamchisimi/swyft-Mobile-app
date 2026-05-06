@@ -56,7 +56,16 @@ class AuthService {
       const response = await authAPI.register(userData);
       console.log('Registration response:', response.data);
       
-      // Since we're auto-verifying, login the user after registration
+      // Check if email verification is required
+      if (response.data.requiresVerification) {
+        return {
+          success: true,
+          requiresVerification: true,
+          email: response.data.email
+        };
+      }
+      
+      // Fallback - login the user (shouldn't happen with email verification enabled)
       const loginResult = await this.login(userData.email, userData.password);
       return loginResult;
     } catch (error) {
