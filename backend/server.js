@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const { Resend } = require('resend');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const db = require('./db-supabase');
@@ -10,6 +10,64 @@ const db = require('./db-supabase');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Nodemailer transporter configuration using Gmail SMTP
+const createTransporter = () => {
+  // Use environment variables or fallback to Gmail credentials
+  const emailUser = process.env.EMAIL_USER || 'kombosawb@gmail.com';
+  const emailPass = process.env.EMAIL_PASS || 'kyka ypey hfar rjvg';
+
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // Use STARTTLS
+    auth: {
+      user: emailUser,
+      pass: emailPass,
+    },
+    tls: {
+      rejectUnauthorized: false,
+    },
+  });
+};
+
+// Helper function to send verification email via SMTP
+async function sendVerificationEmail(toEmail, code) {
+  const transporter = createTransporter();
+  
+  try {
+    const verify_link = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify?token=${code}&email=${encodeURIComponent(toEmail)}`;
+    
+    const info = await transporter.sendMail({
+      from: `'Swyft' <${process.env.EMAIL_USER || 'kombosawb@gmail.com'}>`,
+      to: toEmail,
+      subject: 'Swyft - Verify Your Account',
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2563eb;">Welcome to Swyft!</h2>
+          <p>Thank you for creating an account. Please verify your email address by clicking the button below:</p>
+          <p style="text-align: center; margin: 30px 0;">
+            <a href="${verify_link}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Verify Email</a>
+          </p>
+          <p>Or copy and paste this link in your browser:</p>
+          <p style="word-break: break-all; color: #2563eb;">${verify_link}</p>
+          <p>This code will expire in 15 minutes.</p>
+          <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
+          <p style="font-size: 12px; color: #666;">If you didn't create an account with Swyft, please ignore this email.</p>
+        </div>
+      `,
+      text: `Welcome to Swyft!\n\nPlease verify your email by visiting:\n${verify_link}\n\nThis code will expire in 15 minutes.\n\nIf you didn't create an account, please ignore this email.`,
+    });
+
+    console.log('Email sent successfully to:', toEmail);
+    console.log('Message ID:', info.messageId);
+    return true;
+  } catch (err) {
+    console.error('Email send error:', err.message);
+    console.error('Full error:', JSON.stringify(err, null, 2));
+    return false;
+  }
+};
 
 const http = require("http");
 const { Server } = require("socket.io");
@@ -172,124 +230,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// Resend Email Configuration
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Helper function to send verification email via Resend
-async function sendWithResend(toEmail, code) {
-  try {
-    const data = await resend.emails.send({
-      from: 'Swyft <onboarding@resend.dev>',
-      to: toEmail,
-      subject: 'Swyft - Verify Your Account',
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1 style="color: #2563eb;">Verify Your Account</h1>
-          <p>Your verification code is:</p>
-          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 8px; margin: 20px 0;">
-            ${code}
-          </div>
-          <p style="color: #6b7280;">This code expires in 15 minutes.</p>
-        </div>
-      `
-    });
-    console.log('Email sent successfully to:', toEmail);
-    console.log('Resend Response:', JSON.stringify(data, null, 2));
-  } catch (err) {
-    console.log('Email send error:', err.message);
-    console.log('Full error:', JSON.stringify(err, null, 2));
-  }
-}
-
-// Health check route
-app.get('/', (req, res) => {
-  res.json({
-    status: 'online',
-    message: 'Swyft API is running',
-    database: 'Supabase PostgreSQL',
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    database: 'Supabase PostgreSQL',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
-  });
-});
-
-// === PRICING CONFIG ===
-app.get('/api/pricing', (req, res) => {
-   res.json({
-     locationPrices: {
-       lefkosa: 250,
-       girne: 350,
-       magusa: 250,
-       iskele: 300,
-       'lefkosa-magusa': 550,
-       'girne-magusa': 650,
-       'lefkosa-ercan': 300
-    },
-    vehiclePrices: {
-      motorcycle: 50,
-      sedan: 150,
-      truck: 400
-    },
-    cityHubs: {
-       lefkosa: { name: 'Lefkoşa', basePrice: 250, coverageArea: 'Hamitköy to Gönyeli Çemberi', estimatedTime: '15-30 min' },
-       girne: { name: 'Girne', basePrice: 350, coverageArea: 'Zeytinlik to Karakum', estimatedTime: '45-60 min', notes: 'Higher due to traffic/hills' },
-       magusa: { name: 'Gazimağusa', basePrice: 250, coverageArea: 'City Center to Sakarya', estimatedTime: '20-35 min' },
-       iskele: { name: 'İskele', basePrice: 300, coverageArea: 'Long Beach area to Center', estimatedTime: '35-50 min' },
-     },
-
-    currency: 'TL'
-  });
-});
-
-// === FARE CALCULATION ===
-
-app.post('/api/fare/calculate', (req, res) => {
-  const { distance_km, ride_type, vehicle_type, mountain_village, night_shift, dropoff_address } = req.body;
-  
-   const locationPrices = {
-     lefkosa: 250,
-     girne: 350,
-     magusa: 250,
-     iskele: 300,
-     'lefkosa-magusa': 550,
-     'girne-magusa': 650,
-     'lefkosa-ercan': 300
-  };
-  
-  const vehiclePrices = {
-    motorcycle: 50,
-    sedan: 150,
-    truck: 400
-  };
-
-
-  const locationPrice = ride_type ? (locationPrices[ride_type] || 0) : 0;
-  const vehiclePrice = vehicle_type ? (vehiclePrices[vehicle_type] || 0) : 0;
-
-  const totalFare = locationPrice + vehiclePrice;
-
-  res.json({
-    location_price: locationPrice,
-    vehicle_price: vehiclePrice,
-    total_fare: totalFare,
-    currency: 'TL'
-  });
-});
-
-// Generate 6-digit verification code
-const generateVerificationCode = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
-
-// === VERIFY EMAIL CODE ===
-app.post('/api/users/verify-code', (req, res) => {
+io.on("connection", (socket) => {
   const { email, code } = req.body;
   
   if (!email || !code) {
@@ -355,15 +296,18 @@ app.post('/api/users/resend-code', (req, res) => {
     const userId = results.rows[0].id;
     const code = generateVerificationCode();
     
-    // Delete old tokens
     db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
     
-    // Insert new token
+    // Insert new verification token
     db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, code], (err2) => {
-      if (err2) return res.status(500).json({ error: 'Failed to generate code' });
-      
-      // Send email using helper function
-      sendWithResend(email, code);
+      if (err2) {
+        console.log('Verification token error:', err2.message);
+        // Continue anyway - user can resend code
+      }
+
+      // Send verification email
+      sendVerificationEmail(email, code);
+
       res.json({ message: 'Verification code sent' });
     });
   });
@@ -435,8 +379,8 @@ app.post('/api/users', async (req, res) => {
           // Continue anyway - user can resend code
         }
 
-        // Send verification email
-        sendWithResend(email, code).catch(err => console.log('Email send error:', err.message));
+       // Send verification email
+       sendVerificationEmail(email, code);
 
         // Return success - user needs to verify email
         res.status(201).json({ 
