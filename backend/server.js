@@ -8,6 +8,11 @@ require('dotenv').config();
 const db = require('./db-supabase');
 
 const app = express();
+
+// Generate a 6-digit verification code
+function generateVerificationCode() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 app.use(cors());
 app.use(express.json());
 
