@@ -3,6 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const db = require('./db-supabase');
@@ -365,8 +366,8 @@ app.post('/api/users', async (req, res) => {
     const dbRole = normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1);
 
     // Insert user - NOT verified yet (requires email verification)
-    const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified, verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, role';
-    const userValues = [first_name, last_name, email, hashedPassword, dbRole, phone || null, false, false];
+    const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, role';
+    const userValues = [first_name, last_name, email, hashedPassword, dbRole, phone || null, false];
 
     db.query(userQuery, userValues, (err2, result) => {
       if (err2) {
