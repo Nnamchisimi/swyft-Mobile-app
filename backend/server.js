@@ -382,7 +382,7 @@ app.post('/api/users', async (req, res) => {
       db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
       
       // Insert new verification token
-      db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, code], (err3) => {
+      db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, code], async (err3) => {
         if (err3) {
           console.log('Verification token error:', err3.message);
           // Continue anyway - user can resend code
