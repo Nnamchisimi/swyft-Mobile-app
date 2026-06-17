@@ -22,38 +22,17 @@ function generateVerificationCode() {
 app.use(cors());
 app.use(express.json());
 
-// Nodemailer transporter configuration using Gmail SMTP
-const createTransporter = () => {
-  // Log which email credentials are being used (mask password for security)
-  console.log('Email transporter using user:', process.env.EMAIL_USER || 'kombosawb@gmail.com');
-  // Use environment variables or fallback to Gmail credentials
-  const emailUser = process.env.EMAIL_USER || 'kombosawb@gmail.com';
-  const emailPass = process.env.EMAIL_PASS || 'ffqv zhhb isvs omgb';
+// Resend email client
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: emailUser,
-      pass: emailPass,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  });
-};
-
-// Helper function to send verification email via SMTP
+// Helper function to send verification email via Resend
 async function sendVerificationEmail(toEmail, code) {
-  const transporter = createTransporter();
-  
   try {
     const verify_link = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify?token=${code}&email=${encodeURIComponent(toEmail)}`;
-    
-    const info = await transporter.sendMail({
-      from: `'Swyft' <${process.env.EMAIL_USER || 'kombosawb@gmail.com'}>`,
-      to: toEmail,
+
+    const { data, error } = await resend.emails.send({
+      from: 'Swyft <onboarding@resend.dev>',
+      to: [toEmail],
       subject: 'Swyft - Verify Your Account',
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -72,12 +51,16 @@ async function sendVerificationEmail(toEmail, code) {
       text: `Welcome to Swyft!\n\nPlease verify your email by visiting:\n${verify_link}\n\nThis code will expire in 15 minutes.\n\nIf you didn't create an account, please ignore this email.`,
     });
 
+    if (error) {
+      console.error('Email send error:', error);
+      return false;
+    }
+
     console.log('Email sent successfully to:', toEmail);
-    console.log('Message ID:', info.messageId);
+    console.log('Message ID:', data?.id);
     return true;
   } catch (err) {
     console.error('Email send error:', err.message);
-    console.error('Full error:', JSON.stringify(err, null, 2));
     return false;
   }
 };
