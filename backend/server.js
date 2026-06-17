@@ -9,6 +9,11 @@ const db = require('./db-supabase');
 
 const app = express();
 
+// Health check endpoint for Render
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Swyft API is running' });
+});
+
 // Generate a 6-digit verification code
 function generateVerificationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
