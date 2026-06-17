@@ -2,12 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { Resend } = require('resend');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const db = require('./db-supabase');
 
 const app = express();
+
+// Health check endpoint for Render
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Swyft API is running' });
+});
 
 // Generate a 6-digit verification code
 function generateVerificationCode() {
@@ -18,13 +24,15 @@ app.use(express.json());
 
 // Nodemailer transporter configuration using Gmail SMTP
 const createTransporter = () => {
+  // Log which email credentials are being used (mask password for security)
+  console.log('Email transporter using user:', process.env.EMAIL_USER || 'kombosawb@gmail.com');
   // Use environment variables or fallback to Gmail credentials
   const emailUser = process.env.EMAIL_USER || 'kombosawb@gmail.com';
-  const emailPass = process.env.EMAIL_PASS || 'kyka ypey hfar rjvg';
+  const emailPass = process.env.EMAIL_PASS || 'ffqv zhhb isvs omgb';
 
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
+    port: 465,
     secure: false, // Use STARTTLS
     auth: {
       user: emailUser,
@@ -235,7 +243,8 @@ io.on("connection", (socket) => {
   });
 });
 
-io.on("connection", (socket) => {
+// === VERIFY EMAIL CODE (POST - for mobile app) ===
+app.post('/api/users/verify-code', (req, res) => {
   const { email, code } = req.body;
   
   if (!email || !code) {
@@ -244,7 +253,6 @@ io.on("connection", (socket) => {
   
   console.log('Verifying code:', email, code);
   
-  // First get user by email
   db.query('SELECT id FROM public.users WHERE email = $1', [email], (err0, userResult) => {
     if (err0) return res.status(500).json({ error: 'Server error finding user: ' + err0.message });
     if (userResult.rows.length === 0) return res.status(400).json({ error: 'User not found' });
@@ -252,21 +260,17 @@ io.on("connection", (socket) => {
     const userId = userResult.rows[0].id;
     console.log('Found userId:', userId);
     
-    // Then check the verification code
     db.query('SELECT * FROM email_verification_tokens WHERE user_id = $1 AND token = $2 AND expires_at > NOW()', [userId, code], (err, results) => {
       if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
       console.log('Token query results:', results.rows);
       
       if (results.rows.length === 0) return res.status(400).json({ error: 'Invalid or expired code' });
       
-      // Update user as verified
       db.query('UPDATE public.users SET is_verified = true, verified = true WHERE id = $1', [userId], (err3) => {
         if (err3) return res.status(500).json({ error: 'Verification failed: ' + err3.message });
         
-        // Delete used token
         db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
         
-        // Generate login token
         db.query('SELECT * FROM public.users WHERE id = $1', [userId], (err4, user) => {
           if (err4 || user.rows.length === 0) return res.status(500).json({ error: 'User not found' });
           
@@ -358,8 +362,8 @@ app.post('/api/users', async (req, res) => {
     const dbRole = normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1);
 
     // Insert user - NOT verified yet (requires email verification)
-    const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified, verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, role';
-    const userValues = [first_name, last_name, email, hashedPassword, dbRole, phone || null, false, false];
+    const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, role';
+    const userValues = [first_name?.trim(), last_name?.trim(), email?.trim(), hashedPassword, dbRole, phone || null, false];
 
     db.query(userQuery, userValues, (err2, result) => {
       if (err2) {
@@ -378,42 +382,50 @@ app.post('/api/users', async (req, res) => {
       db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
       
       // Insert new verification token
-      db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, code], (err3) => {
+      db.query('INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, code], async (err3) => {
         if (err3) {
           console.log('Verification token error:', err3.message);
           // Continue anyway - user can resend code
         }
 
-       // Send verification email
-       sendVerificationEmail(email, code);
+       // Send verification email and wait for result
+        const emailSent = await sendVerificationEmail(email, code);
+        console.log('Email send result:', emailSent ? 'SUCCESS' : 'FAILED');
 
         // Return success - user needs to verify email
         res.status(201).json({ 
-          message: 'User created successfully. Please verify your email.',
+          message: emailSent 
+            ? 'User created successfully. Please verify your email.' 
+            : 'User created, but verification email failed. Please request a new code.',
           requiresVerification: true,
-          email: email
+          email: email,
+          emailSent: emailSent
         });
       });
     });
   });
 });
 
-// === VERIFY EMAIL ===
+// === VERIFY EMAIL (GET - for email link) ===
 app.get('/api/users/verify', (req, res) => {
-  const { token } = req.query;
+  const { token, email } = req.query;
   if (!token) return res.send('<h3>Invalid verification link</h3>');
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    db.query('SELECT * FROM email_verification_tokens WHERE token = $1 AND expires_at > NOW()', [token], (err, results) => {
-      if (err || results.rows.length === 0) return res.send('<h3>Invalid or expired token</h3>');
+    // token here is the 6-digit code, not a JWT
+    db.query('SELECT id FROM public.users WHERE email = $1', [email], (err0, userResult) => {
+      if (err0 || userResult.rows.length === 0) return res.send('<h3>Invalid verification link</h3>');
+      
+      const userId = userResult.rows[0].id;
+      db.query('SELECT * FROM email_verification_tokens WHERE user_id = $1 AND token = $2 AND expires_at > NOW()', [userId, token], (err, results) => {
+        if (err || results.rows.length === 0) return res.send('<h3>Invalid or expired token</h3>');
 
-      const userId = decoded.id;
-      db.query('UPDATE users SET is_verified = true WHERE id = $1', [userId], (err2) => {
-        if (err2) return res.send('<h3>Failed to verify email</h3>');
+        db.query('UPDATE public.users SET is_verified = true, verified = true WHERE id = $1', [userId], (err2) => {
+          if (err2) return res.send('<h3>Failed to verify email</h3>');
 
-        db.query('DELETE FROM email_verification_tokens WHERE token = $1', [token]);
-        res.redirect('http://localhost:3003/signin');
+          db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
+          res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/signin`);
+        });
       });
     });
   } catch {
