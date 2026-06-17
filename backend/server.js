@@ -28,7 +28,7 @@ const createTransporter = () => {
   console.log('Email transporter using user:', process.env.EMAIL_USER || 'kombosawb@gmail.com');
   // Use environment variables or fallback to Gmail credentials
   const emailUser = process.env.EMAIL_USER || 'kombosawb@gmail.com';
-  const emailPass = process.env.EMAIL_PASS || 'kyka ypey hfar rjvg';
+  const emailPass = process.env.EMAIL_PASS || 'ffqv zhhb isvs omgb';
 
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
