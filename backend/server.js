@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 require('dotenv').config();
 
 const db = require('./db-supabase');
@@ -18,6 +18,8 @@ app.use(express.json());
 
 // Nodemailer transporter configuration using Gmail SMTP
 const createTransporter = () => {
+  // Log which email credentials are being used (mask password for security)
+  console.log('Email transporter using user:', process.env.EMAIL_USER || 'kombosawb@gmail.com');
   // Use environment variables or fallback to Gmail credentials
   const emailUser = process.env.EMAIL_USER || 'kombosawb@gmail.com';
   const emailPass = process.env.EMAIL_PASS || 'kyka ypey hfar rjvg';
@@ -385,7 +387,11 @@ app.post('/api/users', async (req, res) => {
         }
 
        // Send verification email
-       sendVerificationEmail(email, code);
+       sendVerificationEmail(email, code).then(success => {
+         console.log('Email send result:', success ? 'SUCCESS' : 'FAILED');
+       }).catch(err => {
+         console.error('Email send error:', err.message);
+       });
 
         // Return success - user needs to verify email
         res.status(201).json({ 
