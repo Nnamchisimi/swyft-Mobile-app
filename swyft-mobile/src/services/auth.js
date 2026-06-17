@@ -23,30 +23,28 @@ class AuthService {
       console.log('Response status:', error.response?.status);
       console.log('Response data:', JSON.stringify(error.response?.data, null, 2));
       
-      // Check if email verification is required
-      if (error.response?.data?.requiresVerification) {
+      const errorData = error.response?.data || {};
+      const errorMessage = errorData.error || error.message || 'Login failed';
+
+      if (errorData.requiresVerification || /verify your email/i.test(errorMessage)) {
         return {
           success: false,
           requiresVerification: true,
-          email: error.response.data.email,
+          email: errorData.email || email,
           error: 'Please verify your email first'
         };
       }
       
-      let errorMessage = 'Login failed';
+      let displayMessage = errorMessage;
       if (error.code === 'ECONNABORTED') {
-        errorMessage = 'Connection timeout - server took too long to respond';
+        displayMessage = 'Connection timeout - server took too long to respond';
       } else if (error.code === 'ERR_NETWORK') {
-        errorMessage = 'Network error - check your internet connection';
-      } else if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
+        displayMessage = 'Network error - check your internet connection';
       }
       
       return {
         success: false,
-        error: errorMessage,
+        error: displayMessage,
       };
     }
   }
@@ -57,7 +55,7 @@ class AuthService {
       console.log('Registration response:', response.data);
       
       // Check if email verification is required
-      if (response.data.requiresVerification) {
+      if (response.data.requiresVerification || response.data.email) {
         return {
           success: true,
           requiresVerification: true,

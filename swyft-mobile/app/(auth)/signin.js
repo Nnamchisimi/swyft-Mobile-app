@@ -56,10 +56,10 @@ export default function SignInScreen() {
       } else {
         console.log('Login failed with error:', result.error);
 
-        if (result.requiresVerification) {
+        if (result.requiresVerification || /verify your email/i.test(result.error || '')) {
           router.replace({
             pathname: '/(auth)/verify',
-            params: { email: result.email }
+            params: { email: result.email || email.trim() }
           });
         } else {
           setError(result.error);
