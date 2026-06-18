@@ -31,7 +31,7 @@ async function sendVerificationEmail(toEmail, code) {
     const verify_link = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify?token=${code}&email=${encodeURIComponent(toEmail)}`;
 
     const { data, error } = await resend.emails.send({
-      from: 'Swyft <onboarding@resend.dev>',
+      from: 'Swyft <support@otoekspert.com>',
       to: [toEmail],
       subject: 'Swyft - Verify Your Account',
       html: `
