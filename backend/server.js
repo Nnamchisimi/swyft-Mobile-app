@@ -28,27 +28,25 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Helper function to send verification email via Resend
 async function sendVerificationEmail(toEmail, code) {
   try {
-    const verify_link = `${process.env.BACKEND_URL || 'https://swyft-mobile-app.onrender.com'}/api/users/verify?token=${code}&email=${encodeURIComponent(toEmail)}`;
-
     const { data, error } = await resend.emails.send({
       from: 'Swyft <support@otoekspert.com>',
       to: [toEmail],
-      subject: 'Swyft - Verify Your Account',
+      subject: 'Swyft - Your Verification Code',
       html: `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #2563eb;">Welcome to Swyft!</h2>
-          <p>Thank you for creating an account. Please verify your email address by clicking the button below:</p>
-          <p style="text-align: center; margin: 30px 0;">
-            <a href="${verify_link}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Verify Email</a>
-          </p>
-          <p>Or copy and paste this link in your browser:</p>
-          <p style="word-break: break-all; color: #2563eb;">${verify_link}</p>
-          <p>This code will expire in 15 minutes.</p>
+          <p>Thank you for creating an account. Use the verification code below to verify your email:</p>
+          <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f3f4f6; border-radius: 8px;">
+            <p style="font-size: 14px; color: #666; margin-bottom: 8px;">Your verification code is:</p>
+            <p style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #2563eb; margin: 0;">${code}</p>
+          </div>
+          <p style="text-align: center; color: #666;">Enter this code in the Swyft app to verify your email.</p>
+          <p style="color: #dc2626; font-size: 14px;">This code will expire in 15 minutes.</p>
           <hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;">
           <p style="font-size: 12px; color: #666;">If you didn't create an account with Swyft, please ignore this email.</p>
         </div>
       `,
-      text: `Welcome to Swyft!\n\nPlease verify your email by visiting:\n${verify_link}\n\nThis code will expire in 15 minutes.\n\nIf you didn't create an account, please ignore this email.`,
+      text: `Welcome to Swyft!\n\nYour verification code is: ${code}\n\nEnter this code in the Swyft app to verify your email.\n\nThis code will expire in 15 minutes.\n\nIf you didn't create an account, please ignore this email.`,
     });
 
     if (error) {
