@@ -39,9 +39,8 @@ export default function VerifyScreen() {
       const result = await authService.verifyCode(email, code);
 
       if (result.success) {
-        // Save auth data and navigate based on role
-        await authService.saveAuthData(result.user);
-        
+        // Auth data already saved by authService.verifyCode
+        // Navigate based on role
         const userRole = result.user.role?.toLowerCase();
         if (userRole === 'driver') {
           router.replace('/(driver)/dashboard');

@@ -28,7 +28,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Helper function to send verification email via Resend
 async function sendVerificationEmail(toEmail, code) {
   try {
-    const verify_link = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify?token=${code}&email=${encodeURIComponent(toEmail)}`;
+    const verify_link = `${process.env.BACKEND_URL || 'https://swyft-mobile-app.onrender.com'}/api/users/verify?token=${code}&email=${encodeURIComponent(toEmail)}`;
 
     const { data, error } = await resend.emails.send({
       from: 'Swyft <support@otoekspert.com>',
@@ -392,27 +392,40 @@ app.post('/api/users', async (req, res) => {
 // === VERIFY EMAIL (GET - for email link) ===
 app.get('/api/users/verify', (req, res) => {
   const { token, email } = req.query;
-  if (!token) return res.send('<h3>Invalid verification link</h3>');
+  if (!token) return res.status(400).json({ error: 'Invalid verification link' });
 
   try {
     // token here is the 6-digit code, not a JWT
     db.query('SELECT id FROM public.users WHERE email = $1', [email], (err0, userResult) => {
-      if (err0 || userResult.rows.length === 0) return res.send('<h3>Invalid verification link</h3>');
+      if (err0 || userResult.rows.length === 0) return res.status(400).json({ error: 'Invalid verification link' });
       
       const userId = userResult.rows[0].id;
       db.query('SELECT * FROM email_verification_tokens WHERE user_id = $1 AND token = $2 AND expires_at > NOW()', [userId, token], (err, results) => {
-        if (err || results.rows.length === 0) return res.send('<h3>Invalid or expired token</h3>');
+        if (err || results.rows.length === 0) return res.status(400).json({ error: 'Invalid or expired token' });
 
         db.query('UPDATE public.users SET is_verified = true, verified = true WHERE id = $1', [userId], (err2) => {
-          if (err2) return res.send('<h3>Failed to verify email</h3>');
+          if (err2) return res.status(500).json({ error: 'Failed to verify email' });
 
           db.query('DELETE FROM email_verification_tokens WHERE user_id = $1', [userId]);
-          res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/signin`);
+
+          // Generate JWT for auto-login after verification
+          db.query('SELECT * FROM public.users WHERE id = $1', [userId], (err4, user) => {
+            if (err4 || user.rows.length === 0) return res.status(500).json({ error: 'User not found' });
+
+            const jwtToken = jwt.sign({ id: userId, email, role: user.rows[0].role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+            const userData = user.rows[0];
+            userData.token = jwtToken;
+
+            // Redirect to app deep link with token and user data for auto-login
+            const appScheme = process.env.APP_SCHEME || 'swyftmobile';
+            const redirectUrl = `${appScheme}://verify?token=${jwtToken}&email=${encodeURIComponent(email)}`;
+            res.redirect(redirectUrl);
+          });
         });
       });
     });
   } catch {
-    res.send('<h3>Invalid or expired token</h3>');
+    res.status(400).json({ error: 'Invalid or expired token' });
   }
 });
 
