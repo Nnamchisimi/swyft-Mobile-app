@@ -183,6 +183,7 @@ export default function BookRideScreen() {
       }
     } catch (error) {
       console.log('Error loading pricing:', error);
+      setPricingLoaded(true);
     }
   };
 
