@@ -684,6 +684,24 @@ app.post('/api/auth/google/callback', async (req, res) => {
   }
 });
 
+// GET pricing for city hub areas and vehicle types
+app.get('/api/pricing', (req, res) => {
+  const locationPrices = {
+    lefkosa: 250,
+    girne: 350,
+    magusa: 250,
+    iskele: 300
+  };
+
+  const vehiclePrices = {
+    motorcycle: 1.5,
+    sedan: 2.0,
+    truck: 3.0
+  };
+
+  res.json({ locationPrices, vehiclePrices });
+});
+
 // POST new ride
   app.post('/api/rides', (req, res) => {
     console.log('Ride request received:', req.body);

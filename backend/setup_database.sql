@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS rides (
   dropoff_lng DECIMAL(11, 8),
   price DECIMAL(10, 2) DEFAULT 0,
   status ride_status DEFAULT 'requested',
-  ride_type VARCHAR(20) DEFAULT 'economy',
+  ride_type VARCHAR(20) DEFAULT 'lefkosa',
   driver_lat DECIMAL(10, 8),
   driver_lng DECIMAL(11, 8),
   driver_id INTEGER,

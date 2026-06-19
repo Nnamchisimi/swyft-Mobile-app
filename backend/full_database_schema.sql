@@ -61,7 +61,7 @@ CREATE TABLE rides (
   dropoff_lng DECIMAL(11, 8) DEFAULT NULL,
   price DECIMAL(10, 2) DEFAULT 0,
   status ENUM('requested', 'accepted', 'arrived', 'in_progress', 'active', 'completed', 'confirmed', 'cancelled', 'canceled') DEFAULT 'requested',
-  ride_type ENUM('economy', 'standard', 'luxury') DEFAULT 'economy',
+  ride_type ENUM('lefkosa', 'girne', 'magusa', 'iskele') DEFAULT 'lefkosa',
   driver_lat DECIMAL(10, 8) DEFAULT NULL,
   driver_lng DECIMAL(11, 8) DEFAULT NULL,
   driver_id INT,

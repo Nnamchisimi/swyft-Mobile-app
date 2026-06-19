@@ -17,7 +17,7 @@ DROP TYPE IF EXISTS ride_type CASCADE;
 -- Create custom ENUM types
 CREATE TYPE user_role AS ENUM ('passenger', 'driver');
 CREATE TYPE ride_status AS ENUM ('requested', 'accepted', 'arrived', 'in_progress', 'active', 'completed', 'confirmed', 'cancelled', 'canceled');
-CREATE TYPE ride_type AS ENUM ('economy', 'standard', 'luxury');
+CREATE TYPE ride_type AS ENUM ('lefkosa', 'girne', 'magusa', 'iskele');
 
 -- Create users table
 CREATE TABLE users (
@@ -71,7 +71,7 @@ CREATE TABLE rides (
   dropoff_lng DECIMAL(11, 8) DEFAULT NULL,
   price DECIMAL(10, 2) DEFAULT 0,
   status ride_status DEFAULT 'requested',
-  ride_type ride_type DEFAULT 'economy',
+  ride_type ride_type DEFAULT 'lefkosa',
   driver_lat DECIMAL(10, 8) DEFAULT NULL,
   driver_lng DECIMAL(11, 8) DEFAULT NULL,
   driver_id INTEGER,
