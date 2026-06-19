@@ -910,6 +910,10 @@ export default function BookRideScreen() {
       Alert.alert('Error', 'Please enter both pickup and dropoff locations');
       return;
     }
+    if (!userName || !userName.trim()) {
+      Alert.alert('Error', 'User data not loaded yet. Please wait a moment and try again.');
+      return;
+    }
 
     setLoading(true);
     try {

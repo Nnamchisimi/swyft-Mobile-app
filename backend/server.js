@@ -713,7 +713,8 @@ app.get('/api/pricing', (req, res) => {
     const dropoffLoc = dropoff || dropoff_location;
      
 if (
-  !passenger_name?.trim() ||
+  !passenger_name ||
+  !passenger_name.trim() ||
   !passenger_email?.trim() ||
   !passenger_phone?.trim() ||
   !pickupLoc?.trim() ||
