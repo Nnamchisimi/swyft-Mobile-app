@@ -1084,7 +1084,6 @@ app.post('/api/rides/:id/confirm-complete', (req,res)=>{
     });
   });
 });
-});
 
 // Cancel ride
 app.post('/api/rides/:id/cancel', (req,res)=>{
