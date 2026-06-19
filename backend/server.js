@@ -1086,55 +1086,6 @@ app.post('/api/rides/:id/confirm-complete', (req,res)=>{
 });
 });
 
-// Passenger confirms ride completion - this is when driver gets earnings
-app.post('/api/rides/:id/confirm', (req,res)=>{
-  const rideId = req.params.id;
-  // Passenger confirms the ride is complete - driver now gets earnings
-  db.query('UPDATE rides SET status=$1, confirmed_at = NOW() WHERE id=$2 AND status = $3', ['confirmed', rideId, 'completed'], (err,result)=>{
-    if(err) {
-      console.error('Error confirming ride:', err.message);
-      return res.status(500).json({error:"Server error"});
-    }
-    if(result.rowCount===0) return res.status(400).json({error:"Cannot confirm ride - may already be confirmed"});
-    
-    // Get ride details to emit with confirmation
-    db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err2, rides) => {
-      if (err2) {
-        console.error('Error getting ride details:', err2.message);
-        return res.status(500).json({error:"Server error"});
-      }
-      const ride = rides.rows[0];
-      
-      // Emit ride updated with confirmation
-      io.emit('rideUpdated',{
-        id:rideId,
-        status:"confirmed",
-        passenger_confirmed: true
-      });
-      
-      // Emit earnings updated to the specific driver
-      if (ride.driver_email) {
-        db.query('SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN ($2, $3, $4) AND DATE(created_at) = CURRENT_DATE',
-          [ride.driver_email, 'completed', 'confirmed', 'active'], (err3, earningsResult) => {
-            const todayEarnings = earningsResult?.rows[0]?.today || 0;
-            db.query('SELECT COUNT(*) as count FROM rides WHERE driver_email = $1 AND status IN ($2, $3, $4)',
-              [ride.driver_email, 'completed', 'confirmed', 'active'], (err4, countResult) => {
-                const totalTrips = countResult?.rows[0]?.count || 0;
-                io.to(ride.driver_email).emit('earningsUpdated', {
-                  driver_email: ride.driver_email,
-                  today_earnings: todayEarnings,
-                  total_trips: totalTrips
-                });
-              });
-          });
-      }
-      
-      res.json({message:"Ride confirmed! Driver has been notified.", rideId});
-    });
-  });
-});
-
-
 // Cancel ride
 app.post('/api/rides/:id/cancel', (req,res)=>{
   const rideId = req.params.id;
