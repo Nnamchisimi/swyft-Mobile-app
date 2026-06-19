@@ -694,9 +694,9 @@ app.get('/api/pricing', (req, res) => {
   };
 
   const vehiclePrices = {
-    motorcycle: 1.5,
-    sedan: 2.0,
-    truck: 3.0
+    motorcycle: 50,
+    sedan: 150,
+    truck: 400
   };
 
   res.json({ locationPrices, vehiclePrices });
