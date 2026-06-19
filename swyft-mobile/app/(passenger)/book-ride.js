@@ -458,7 +458,7 @@ export default function BookRideScreen() {
   useEffect(() => {
     let etaInterval = null;
     
-    if (currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived' || currentRide.status === 'active') && driverLocation && pickupLocation) {
+    if (currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived' || currentRide.status === 'in_progress') && driverLocation && pickupLocation) {
       // Calculate initial ETA
       geoService.getETA(driverLocation, pickupLocation).then(result => {
         if (result && result.duration) {
@@ -468,7 +468,7 @@ export default function BookRideScreen() {
       
       // Update ETA every 30 seconds
       etaInterval = setInterval(() => {
-        if (driverLocation && pickupLocation && currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived' || currentRide.status === 'active')) {
+        if (driverLocation && pickupLocation && currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived' || currentRide.status === 'in_progress')) {
           geoService.getETA(driverLocation, pickupLocation).then(result => {
             if (result && result.duration) {
               setDriverDistance(Math.round(result.duration / 60));
@@ -708,35 +708,47 @@ export default function BookRideScreen() {
               longitude: ride.pickup_lng,
             });
           }
-        } else if (ride.status === 'arrived' || ride.status === 'active') {
-          
-          router.push({
-            pathname: '/(passenger)/driver-arrived',
-            params: {
-              rideId: ride.id,
-              driverName: ride.driver_name,
-              driverPhone: ride.driver_phone,
-              driverVehicle: ride.driver_vehicle || ride.vehicle_type,
-              pickupAddress: pickupAddress,
-              dropoffAddress: dropoffAddress,
-              pickupLat: ride.pickup_lat,
-              pickupLng: ride.pickup_lng,
-            },
-          });
+        } else if (ride.status === 'arrived') {
+          Alert.alert(
+            'Driver Arrived!',
+            `${ride.driver_name || 'Your courier'} has arrived at the pickup location.\n\nPlease confirm when you have been picked up.`,
+            [{ text: 'OK' }]
+          );
         } else if (ride.status === 'in_progress') {
-          Alert.alert('Ride Started', 'Your ride has begun. Enjoy your trip!');
+          Alert.alert('Ride Started', 'Your ride has begun. The courier is on the way to your destination!');
         } else if (ride.status === 'completed') {
           Alert.alert(
-            '🎉 Arrived at Destination!', 
-            `You have arrived at your destination!\n\nFare: ₺${ride.price || estimatedPrice}`,
-            [{ 
-              text: 'Rate Your Courier',
-              onPress: () => router.push({
-                pathname: '/(passenger)/rate-ride',
-                params: { 
-                  rideId: ride.id,
-                  driverName: ride.driver_name,
-                  driverVehicle: ride.driver_vehicle || ride.vehicle_type,
+            'Delivery Completed!',
+            `Your delivery has arrived at the destination!\n\nFare: ₺${ride.price || estimatedPrice}\n\nPlease confirm to release payment to the courier.`,
+            [
+              {
+                text: 'Confirm Delivery',
+                onPress: async () => {
+                  try {
+                    await ridesAPI.confirmComplete(ride.id);
+                    Alert.alert('Payment Released', 'Payment has been released to the courier. Thank you!');
+                    setRideBooked(false);
+                    setCurrentRide(null);
+                    setDriverLocation(null);
+                    setDriverDistance(null);
+                    setPickupManuallySelected(false);
+                    setPickupLockedForRide(false);
+                    setPickupAddress('');
+                    setDropoffAddress('');
+                    setSelectedRideType('');
+                    setSelectedVehicleType('');
+                    setPackageType('');
+                    setPackageSize('');
+                    setPackageDetails('');
+                    setSpecialInstructions('');
+                  } catch (error) {
+                    Alert.alert('Error', 'Failed to confirm delivery');
+                  }
+                },
+              },
+            ]
+          );
+        } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
                 },
               })
             }]
@@ -988,18 +1000,56 @@ export default function BookRideScreen() {
     );
   };
 
+  const handleConfirmPickup = async () => {
+    if (!currentRide) return;
+    try {
+      await ridesAPI.confirmPickup(currentRide.id);
+      setCurrentRide({ ...currentRide, status: 'in_progress' });
+      Alert.alert('Pickup Confirmed', 'Your ride has started!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to confirm pickup');
+    }
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!currentRide) return;
+    Alert.alert(
+      'Confirm Delivery Complete',
+      'Has your delivery been completed successfully?',
+      [
+        { text: 'Not Yet', style: 'cancel' },
+        {
+          text: 'Yes, Complete',
+          onPress: async () => {
+            try {
+              await ridesAPI.confirmComplete(currentRide.id);
+              setCurrentRide({ ...currentRide, status: 'confirmed' });
+              setRideBooked(false);
+              Alert.alert('Delivery Confirmed', 'Payment has been released to the courier. Thank you!');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to confirm delivery');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderRideStatus = () => (
     <View style={styles.statusContainer}>
       <View style={styles.statusHeader}>
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.statusTitle}>
           {currentRide?.status === 'pending' && 'Finding your courier...'}
-          {currentRide?.status === 'accepted' && 'courier is on the way!'}
-          {currentRide?.status === 'active' && 'Delivery is on the way!'}
+          {currentRide?.status === 'accepted' && 'Courier is on the way!'}
+          {currentRide?.status === 'arrived' && 'Courier has arrived at pickup!'}
+          {currentRide?.status === 'in_progress' && 'Delivery is on the way!'}
+          {currentRide?.status === 'completed' && 'Delivery completed! Please confirm.'}
+          {currentRide?.status === 'confirmed' && 'Delivery confirmed!'}
         </Text>
       </View>
 
-      {currentRide?.status === 'accepted' && (
+      {(currentRide?.status === 'accepted' || currentRide?.status === 'arrived' || currentRide?.status === 'in_progress' || currentRide?.status === 'completed') && (
         <View style={styles.driverCard}>
           <View style={styles.driverInfo}>
             <View style={styles.driverAvatar}>
@@ -1017,7 +1067,7 @@ export default function BookRideScreen() {
               </View>
             </View>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.callButton}
             onPress={() => {
               if (currentRide.driver_phone) {
@@ -1031,6 +1081,20 @@ export default function BookRideScreen() {
             <Text style={styles.callButtonText}>Call</Text>
           </TouchableOpacity>
         </View>
+      )}
+
+      {currentRide?.status === 'arrived' && (
+        <TouchableOpacity style={styles.confirmPickupButton} onPress={handleConfirmPickup}>
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
+          <Text style={styles.confirmPickupButtonText}>Confirm Pickup</Text>
+        </TouchableOpacity>
+      )}
+
+      {currentRide?.status === 'completed' && (
+        <TouchableOpacity style={styles.confirmCompleteButton} onPress={handleConfirmComplete}>
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
+          <Text style={styles.confirmCompleteButtonText}>Confirm Delivery Complete</Text>
+        </TouchableOpacity>
       )}
 
       <View style={styles.tripDetails}>
@@ -1052,31 +1116,33 @@ export default function BookRideScreen() {
       </View>
 
        {driverLocation && (driverDistance || driverDistance === 0) && (
-         <View style={styles.etaContainer}>
-           <Ionicons name="car" size={20} color={COLORS.white} />
-           <Text style={styles.etaText}>
-             {driverStatus === 'arrived' ? 'Driver has arrived!' : 
-              driverStatus === 'in_progress' ? 'Ride in progress' : 
-              `Driver arriving in ${driverDistance} min`}
-           </Text>
-         </View>
-       )}
+          <View style={styles.etaContainer}>
+            <Ionicons name="car" size={20} color={COLORS.white} />
+            <Text style={styles.etaText}>
+              {driverStatus === 'arrived' ? 'Driver has arrived!' :
+               driverStatus === 'in_progress' ? 'Ride in progress' :
+               `Driver arriving in ${driverDistance} min`}
+            </Text>
+          </View>
+        )}
 
-       {driverLocation && !driverDistance && (
-         <View style={[styles.etaContainer, { backgroundColor: COLORS.secondary }]}>
-           <Ionicons name="time" size={20} color={COLORS.white} />
-           <Text style={styles.etaText}>Calculating ETA...</Text>
-         </View>
-       )}
+        {driverLocation && !driverDistance && (
+          <View style={[styles.etaContainer, { backgroundColor: COLORS.secondary }]}>
+            <Ionicons name="time" size={20} color={COLORS.white} />
+            <Text style={styles.etaText}>Calculating ETA...</Text>
+          </View>
+        )}
 
       <View style={styles.priceRow}>
         <Text style={styles.priceLabel}>Estimated Fare</Text>
         <Text style={styles.priceValue}>₺{estimatedPrice}</Text>
       </View>
 
-      <TouchableOpacity style={styles.cancelButton} onPress={handleCancelRide}>
-        <Text style={styles.cancelButtonText}>Cancel Ride</Text>
-      </TouchableOpacity>
+      {currentRide?.status !== 'confirmed' && currentRide?.status !== 'completed' && (
+        <TouchableOpacity style={styles.cancelButton} onPress={handleCancelRide}>
+          <Text style={styles.cancelButtonText}>Cancel Ride</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -2288,17 +2354,47 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     marginVertical: 4,
   },
-  cancelButton: {
-    backgroundColor: COLORS.error,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
+   cancelButton: {
+     backgroundColor: COLORS.error,
+     borderRadius: 12,
+     padding: 14,
+     alignItems: 'center',
+   },
+   cancelButtonText: {
+     color: COLORS.white,
+     fontSize: 16,
+     fontWeight: '600',
+   },
+   confirmPickupButton: {
+     backgroundColor: COLORS.success,
+     borderRadius: 12,
+     padding: 14,
+     alignItems: 'center',
+     flexDirection: 'row',
+     justifyContent: 'center',
+     marginBottom: 12,
+   },
+   confirmPickupButtonText: {
+     color: COLORS.white,
+     fontSize: 16,
+     fontWeight: '700',
+     marginLeft: 8,
+   },
+   confirmCompleteButton: {
+     backgroundColor: COLORS.primary,
+     borderRadius: 12,
+     padding: 14,
+     alignItems: 'center',
+     flexDirection: 'row',
+     justifyContent: 'center',
+     marginBottom: 12,
+   },
+   confirmCompleteButtonText: {
+     color: COLORS.white,
+     fontSize: 16,
+     fontWeight: '700',
+     marginLeft: 8,
+   },
   packageSection: {
     backgroundColor: COLORS.white,
     borderRadius: 16,

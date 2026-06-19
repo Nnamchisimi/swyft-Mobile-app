@@ -466,9 +466,9 @@ export default function DriverDashboard() {
     if (!currentRide) return;
     
     try {
-      await ridesAPI.arriveRide(currentRide.id);
+      await ridesAPI.startRide(currentRide.id);
       setCurrentRide({ ...currentRide, status: 'arrived' });
-      Alert.alert('Sender Notified', 'The sender has been notified that you have arrived.');
+      Alert.alert('Passenger Notified', 'The passenger has been notified that you have arrived. Waiting for pickup confirmation...');
     } catch (error) {
       Alert.alert('Error', 'Failed to update status');
     }
@@ -514,22 +514,20 @@ export default function DriverDashboard() {
     if (!currentRide) return;
     
     Alert.alert(
-      'Complete Dispatch',
-      'Mark this ride as completed?',
+      'Complete Delivery',
+      'Mark this delivery as completed? The passenger will need to confirm before you receive payment.',
       [
         { text: 'Cancel', style: 'cancel' },
-          {
+        {
           text: 'Complete',
           onPress: async () => {
             try {
               const price = currentRide.price || 0;
               await ridesAPI.completeRide(currentRide.id, price);
-              Alert.alert('Success', 'Dispatch completed! Great job!');
-              setCurrentRide(null);
-              fetchPendingRides();
-              loadEarnings(driverInfo?.email);
+              setCurrentRide({ ...currentRide, status: 'completed' });
+              Alert.alert('Delivery Completed', 'Waiting for passenger to confirm delivery. Payment will be released once confirmed.');
             } catch (error) {
-              Alert.alert('Error', 'Failed to complete Dispatch');
+              Alert.alert('Error', 'Failed to complete delivery');
             }
           },
         },
@@ -856,12 +854,13 @@ export default function DriverDashboard() {
               <Text style={styles.arrivedButtonText}>Arrived at Pickup</Text>
             </TouchableOpacity>
           )}
-          {(currentRide.status === 'arrived') && (
-            <TouchableOpacity style={styles.startButton} onPress={handleStartRide}>
-              <Text style={styles.startButtonText}>Start Ride</Text>
-            </TouchableOpacity>
+          {currentRide.status === 'arrived' && (
+            <View style={styles.waitingContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.waitingText}>Waiting for passenger to confirm pickup...</Text>
+            </View>
           )}
-          {currentRide.status === 'active' && (
+          {currentRide.status === 'in_progress' && (
             <>
               <TouchableOpacity style={styles.navigationButton} onPress={() => openNavigation(currentRide.dropoff_lat, currentRide.dropoff_lng, currentRide.dropoff_location)}>
                 <Ionicons name="navigate" size={20} color={COLORS.white} />
@@ -872,9 +871,23 @@ export default function DriverDashboard() {
               </TouchableOpacity>
             </>
           )}
-          <TouchableOpacity style={styles.cancelRideButton} onPress={handleCancelCurrentRide}>
-            <Text style={styles.cancelRideButtonText}>Cancel Ride</Text>
-          </TouchableOpacity>
+          {currentRide.status === 'completed' && (
+            <View style={styles.waitingContainer}>
+              <ActivityIndicator size="small" color={COLORS.success} />
+              <Text style={styles.waitingText}>Waiting for passenger to confirm delivery...</Text>
+            </View>
+          )}
+          {currentRide.status === 'confirmed' && (
+            <View style={styles.waitingContainer}>
+              <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+              <Text style={[styles.waitingText, { color: COLORS.success }]}>Delivery confirmed! Payment received.</Text>
+            </View>
+          )}
+          {currentRide.status !== 'confirmed' && (
+            <TouchableOpacity style={styles.cancelRideButton} onPress={handleCancelCurrentRide}>
+              <Text style={styles.cancelRideButtonText}>Cancel Ride</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -1573,17 +1586,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
-  cancelRideButton: {
-    backgroundColor: COLORS.surface,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  cancelRideButtonText: {
-    color: COLORS.error,
-    fontWeight: '500',
-    fontSize: 14,
-  },
+   cancelRideButton: {
+     backgroundColor: COLORS.surface,
+     paddingVertical: 12,
+     borderRadius: 12,
+     alignItems: 'center',
+   },
+   cancelRideButtonText: {
+     color: COLORS.error,
+     fontWeight: '500',
+     fontSize: 14,
+   },
+   waitingContainer: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     justifyContent: 'center',
+     paddingVertical: 12,
+     paddingHorizontal: 16,
+     backgroundColor: COLORS.surface,
+     borderRadius: 12,
+     marginBottom: 8,
+   },
+   waitingText: {
+     fontSize: 14,
+     color: COLORS.textSecondary,
+     marginLeft: 8,
+     textAlign: 'center',
+   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

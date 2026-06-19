@@ -1004,31 +1004,86 @@ app.post('/api/rides/:rideId/accept', (req, res) => {
   });
 });
 
-// Start ride
+// Start ride - driver arrives at pickup, waiting for passenger confirmation
 app.post('/api/rides/:id/start', (req,res)=>{
   const rideId = req.params.id;
-  // Accept both 'accepted' and 'active' status, and work even without driver_assigned flag
-  db.query('UPDATE rides SET status=$1 WHERE id=$2 AND status IN ($3, $4)', ['active', rideId, 'accepted', 'active'], (err, result)=>{
+  db.query('UPDATE rides SET status=$1 WHERE id=$2 AND status IN ($3, $4)', ['arrived', rideId, 'accepted', 'arrived'], (err, result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.rowCount===0) return res.status(400).json({error:"Cannot start ride - ride may already be in progress or completed"});
-    io.emit('rideUpdated',{id:rideId,status:"active"});
-    io.emit('dispatchUpdated',{id:rideId,status:"active"});
-    res.json({message:"Ride started", rideId});
+    io.emit('rideUpdated',{id:rideId,status:"arrived"});
+    io.emit('dispatchUpdated',{id:rideId,status:"arrived"});
+    res.json({message:"Driver arrived at pickup. Waiting for passenger confirmation.", rideId});
   });
 });
 
-// Complete ride - driver marks as complete, but passenger must confirm
+// Passenger confirms pickup - ride officially starts
+app.post('/api/rides/:id/confirm-pickup', (req,res)=>{
+  const rideId = req.params.id;
+  db.query('UPDATE rides SET status=$1 WHERE id=$2 AND status = $3', ['in_progress', rideId, 'arrived'], (err, result)=>{
+    if(err) return res.status(500).json({error:"Server error"});
+    if(result.rowCount===0) return res.status(400).json({error:"Cannot confirm pickup - driver has not arrived yet"});
+    io.emit('rideUpdated',{id:rideId,status:"in_progress",passenger_confirmed_pickup:true});
+    io.emit('dispatchUpdated',{id:rideId,status:"in_progress",passenger_confirmed_pickup:true});
+    res.json({message:"Pickup confirmed! Ride is now in progress.", rideId});
+  });
+});
+
+// Complete ride - driver marks as complete, but passenger must confirm before earnings
 app.post('/api/rides/:id/complete', (req,res)=>{
   const rideId = req.params.id;
   const { final_price } = req.body;
-  // Driver completes ride - status is 'completed' but passenger needs to confirm
-  db.query('UPDATE rides SET status=$1, price = COALESCE($2, price), completed_at = NOW() WHERE id=$3 AND status IN ($4, $5)', ['completed', final_price, rideId, 'accepted', 'active'], (err,result)=>{
+  db.query('UPDATE rides SET status=$1, price = COALESCE($2, price), completed_at = NOW() WHERE id=$3 AND status IN ($4)', ['completed', final_price, rideId, 'in_progress'], (err,result)=>{
     if(err) return res.status(500).json({error:"Server error"});
     if(result.rowCount===0) return res.status(400).json({error:"Cannot complete ride"});
     io.emit('rideUpdated',{id:rideId,status:"completed"});
     io.emit('dispatchUpdated',{id:rideId,status:"completed"});
     res.json({message:"Ride marked as completed. Waiting for passenger confirmation.", rideId});
   });
+});
+
+// Passenger confirms ride completion - this is when driver gets earnings
+app.post('/api/rides/:id/confirm-complete', (req,res)=>{
+  const rideId = req.params.id;
+  db.query('UPDATE rides SET status=$1, confirmed_at = NOW() WHERE id=$2 AND status = $3', ['confirmed', rideId, 'completed'], (err,result)=>{
+    if(err) {
+      console.error('Error confirming ride:', err.message);
+      return res.status(500).json({error:"Server error"});
+    }
+    if(result.rowCount===0) return res.status(400).json({error:"Cannot confirm ride - may already be confirmed"});
+    
+    db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err2, rides) => {
+      if (err2) {
+        console.error('Error getting ride details:', err2.message);
+        return res.status(500).json({error:"Server error"});
+      }
+      const ride = rides.rows[0];
+      
+      io.emit('rideUpdated',{
+        id:rideId,
+        status:"confirmed",
+        passenger_confirmed_complete: true
+      });
+      
+      if (ride.driver_email) {
+        db.query('SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN ($2, $3) AND DATE(created_at) = CURRENT_DATE',
+          [ride.driver_email, 'confirmed', 'completed'], (err3, earningsResult) => {
+            const todayEarnings = earningsResult?.rows[0]?.today || 0;
+            db.query('SELECT COUNT(*) as count FROM rides WHERE driver_email = $1 AND status IN ($2, $3)',
+              [ride.driver_email, 'confirmed', 'completed'], (err4, countResult) => {
+                const totalTrips = countResult?.rows[0]?.count || 0;
+                io.to(ride.driver_email).emit('earningsUpdated', {
+                  driver_email: ride.driver_email,
+                  today_earnings: todayEarnings,
+                  total_trips: totalTrips
+                });
+              });
+          });
+      }
+      
+      res.json({message:"Ride confirmed! Driver has been paid.",rideId});
+    });
+  });
+});
 });
 
 // Passenger confirms ride completion - this is when driver gets earnings
