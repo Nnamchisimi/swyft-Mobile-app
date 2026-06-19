@@ -750,17 +750,26 @@ if (
     const dropLat = dropoff_lat ? parseFloat(dropoff_lat) : null;
     const dropLng = dropoff_lng ? parseFloat(dropoff_lng) : null;
 
-  // First get the passenger's user ID from the users table
-  const getUserQuery = 'SELECT id FROM public.users WHERE email = $1';
+  // First get the passenger's user ID and name from the users table
+  const getUserQuery = 'SELECT id, first_name, last_name FROM public.users WHERE email = $1';
    db.query(getUserQuery, [passenger_email], (errUser, userResults) => {
-    let passengerId = null;
-    if (userResults && userResults.rows.length > 0) {
-      passengerId = userResults.rows[0].id;
-    }
+     let passengerId = null;
+     let passengerName = passenger_name;
+     if (userResults && userResults.rows.length > 0) {
+       passengerId = userResults.rows[0].id;
+       if (!passengerName || !passengerName.trim()) {
+         const fn = userResults.rows[0].first_name || '';
+         const ln = userResults.rows[0].last_name || '';
+         passengerName = (fn + ' ' + ln).trim() || 'Passenger';
+       }
+     }
+     if (!passengerName || !passengerName.trim()) {
+       passengerName = 'Passenger';
+     }
     
      // Insert with passenger_id foreign key and package details
-     const query = 'INSERT INTO rides (passenger_id, passenger_email, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id';
-      const values = [passengerId, passenger_email, passenger_phone, pickupLoc, dropoffLoc, ride_type, price, 'pending', pickLat, pickLng, dropLat, dropLng, package_type || null, package_size || null, package_details || null, special_instructions || null, vehicle_type || null];
+     const query = 'INSERT INTO rides (passenger_id, passenger_email, passenger_name, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id';
+      const values = [passengerId, passenger_email, passengerName, passenger_phone, pickupLoc, dropoffLoc, ride_type, price, 'pending', pickLat, pickLng, dropLat, dropLng, package_type || null, package_size || null, package_details || null, special_instructions || null, vehicle_type || null];
   
       db.query(query, values, (err, result) => {
         if (err) {
