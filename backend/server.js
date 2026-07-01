@@ -19,6 +19,53 @@ app.get('/', (req, res) => {
 function generateVerificationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
+
+// Generate unique delivery ID
+function generateDeliveryId() {
+  return 'DEL' + Date.now() + Math.floor(1000 + Math.random() * 9000);
+}
+
+// Hash OTP for secure storage
+async function hashOtp(otp) {
+  return await bcrypt.hash(otp, 10);
+}
+
+// Verify OTP against hash
+async function verifyOtp(otp, hash) {
+  return await bcrypt.compare(otp, hash);
+}
+
+// Send OTP to customer via email
+async function sendDeliveryOtp(email, otp, deliveryId) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Swyft <support@otoekspert.com>',
+      to: [email],
+      subject: `Swyft - Your Delivery OTP for ${deliveryId}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2563eb;">Swyft Delivery Confirmation</h2>
+          <p>Your delivery has been picked up and is on its way!</p>
+          <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f3f4f6; border-radius: 8px;">
+            <p style="font-size: 14px; color: #666; margin-bottom: 8px;">Your Delivery OTP:</p>
+            <p style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #2563eb; margin: 0;">${otp}</p>
+          </div>
+          <p>Please provide this OTP to your driver when they arrive to confirm delivery.</p>
+          <p style="color: #dc2626; font-size: 14px;">This OTP will expire in 2 hours.</p>
+        </div>
+      `,
+      text: `Your Swyft Delivery OTP: ${otp}\n\nProvide this to your driver to confirm delivery.\n\nThis OTP expires in 2 hours.`,
+    });
+    if (error) {
+      console.error('Failed to send OTP:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('OTP send error:', err.message);
+    return false;
+  }
+}
 app.use(cors());
 app.use(express.json());
 
@@ -786,39 +833,59 @@ if (
         console.log('Ride created with ID:', result.rows[0].id);
         const rideId = result.rows[0].id;
         
-        const newRide = { 
-          id: rideId, 
-          passenger_name: passenger_name, 
-          passenger_email: passenger_email, 
-          passenger_phone: passenger_phone, 
-          pickup_location: pickup, 
-          dropoff_location: dropoff, 
-          pickup_lat: pickup_lat,
-          pickup_lng: pickup_lng,
-          dropoff_lat: dropoff_lat,
-          dropoff_lng: dropoff_lng,
-          ride_type: ride_type, 
-          price: price, 
-          status: 'pending', 
-          package_type: package_type || null,
-          package_size: package_size || null,
-          package_details: package_details || null,
-          special_instructions: special_instructions || null,
-          vehicle_type: vehicle_type || null,
-          inter_city: inter_city || null,
-          created_at: new Date().toISOString() 
-        };
-    
-       // Emit to all online drivers
-       console.log('Emitting newRide to onlineDrivers room');
-       io.to("onlineDrivers").emit("newRide", newRide);
-       console.log('Emitting rideCreated to passenger:', passenger_email);
-       io.to(passenger_email).emit('rideCreated', newRide);
+        // Generate delivery ID and OTP (async IIFE to handle await)
+        (async () => {
+          const deliveryId = generateDeliveryId();
+          const otp = generateVerificationCode();
+          const otpHash = await hashOtp(otp);
+          const otpExpires = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+          
+          // Update ride with delivery ID and OTP
+          db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_otp_expires_at = $3 WHERE id = $4', 
+            [deliveryId, otpHash, otpExpires, rideId], (errUpdate) => {
+            if (errUpdate) {
+              console.error('Error updating delivery ID and OTP:', errUpdate.message);
+            }
+          });
+          
+          // Send OTP to customer
+          sendDeliveryOtp(passenger_email, otp, deliveryId);
+          
+const newRide = { 
+            id: rideId, 
+            delivery_id: deliveryId,
+            passenger_name: passenger_name, 
+            passenger_email: passenger_email, 
+            passenger_phone: passenger_phone, 
+            pickup_location: pickup, 
+            dropoff_location: dropoff, 
+            pickup_lat: pickup_lat,
+            pickup_lng: pickup_lng,
+            dropoff_lat: dropoff_lat,
+            dropoff_lng: dropoff_lng,
+            ride_type: ride_type, 
+            price: price, 
+            status: 'pending', 
+            package_type: package_type || null,
+            package_size: package_size || null,
+            package_details: package_details || null,
+            special_instructions: special_instructions || null,
+            vehicle_type: vehicle_type || null,
+            inter_city: inter_city || null,
+            created_at: new Date().toISOString() 
+          };
       
-       res.status(201).json({ message: 'Ride booked successfully', rideId, ride: newRide });
-       });
-     });
+          // Emit to all online drivers
+          console.log('Emitting newRide to onlineDrivers room');
+io.to("onlineDrivers").emit("newRide", newRide);
+          console.log('Emitting rideCreated to passenger:', passenger_email);
+          io.to(passenger_email).emit('rideCreated', newRide);
+         
+          res.status(201).json({ message: 'Ride booked successfully', rideId, ride: newRide });
+        })();
+      });
    });
+});
 app.post('/api/rides/:rideId/accept', (req, res) => {
   const rideId = req.params.rideId;
   const { name, email, phone, vehicle } = req.body;
@@ -1509,6 +1576,80 @@ app.post('/api/rides/:id/complete', (req, res) => {
     if (result.rowCount === 0) return res.status(400).json({ error: 'Cannot complete ride' });
     io.emit('rideUpdated', { id: rideId, status: 'completed' });
     res.json({ message: 'Ride completed', rideId });
+  });
+});
+
+// Verify OTP and complete delivery
+app.post('/api/rides/:id/verify-otp', (req, res) => {
+  const rideId = req.params.id;
+  const { otp } = req.body;
+  
+  if (!otp || otp.length !== 6) {
+    return res.status(400).json({ error: 'Valid 6-digit OTP required' });
+  }
+  
+  db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (results.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });
+    
+    const ride = results.rows[0];
+    
+    if (ride.status !== 'active') {
+      return res.status(400).json({ error: 'Ride must be in active status to complete' });
+    }
+    
+    if (!ride.delivery_otp_hash) {
+      return res.status(400).json({ error: 'No OTP configured for this delivery' });
+    }
+    
+    // Check if OTP has expired
+    if (ride.delivery_otp_expires_at && new Date(ride.delivery_otp_expires_at) < new Date()) {
+      return res.status(400).json({ error: 'OTP has expired' });
+    }
+    
+    // Check retry attempts
+    if (ride.delivery_otp_attempts >= 3) {
+      db.query('UPDATE rides SET delivery_flagged = true WHERE id = $1', [rideId]);
+      return res.status(403).json({ error: 'Too many failed attempts. Delivery flagged for review.' });
+    }
+    
+    verifyOtp(otp, ride.delivery_otp_hash).then(async (isValid) => {
+      if (!isValid) {
+        const newAttempts = (ride.delivery_otp_attempts || 0) + 1;
+        await db.query('UPDATE rides SET delivery_otp_attempts = $1 WHERE id = $2', [newAttempts, rideId]);
+        return res.status(401).json({ error: 'Invalid OTP', attempts_remaining: 3 - newAttempts });
+      }
+      
+      // OTP verified - complete the delivery
+      const completionLocation = req.body.completion_location || {};
+      const completedAt = new Date();
+      
+      db.query(
+        'UPDATE rides SET status = $1, price = COALESCE($2, price), completed_at = NOW(), delivery_completed_at = NOW(), delivery_completed_lat = $3, delivery_completed_lng = $4 WHERE id = $5 AND status = $6',
+        ['completed', ride.price, completionLocation.lat || null, completionLocation.lng || null, rideId, 'active'],
+        (err2, result2) => {
+          if (err2) return res.status(500).json({ error: 'Server error' });
+          if (result2.rowCount === 0) return res.status(400).json({ error: 'Cannot complete ride' });
+          
+          io.emit('rideUpdated', { id: rideId, status: 'completed' });
+          
+          // Emit to passenger
+          if (ride.passenger_email) {
+            io.to(ride.passenger_email).emit('rideCompleted', { id: rideId, status: 'completed' });
+          }
+          
+          // Emit to driver
+          if (ride.driver_email) {
+            io.to(ride.driver_email).emit('rideCompleted', { id: rideId, status: 'completed' });
+          }
+          
+          res.json({ message: 'Delivery completed successfully', rideId });
+        }
+      );
+    }).catch(err => {
+      console.error('OTP verification error:', err);
+      res.status(500).json({ error: 'OTP verification failed' });
+    });
   });
 });
 

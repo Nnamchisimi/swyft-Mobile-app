@@ -276,7 +276,7 @@ export default function DriverProfileScreen() {
         {}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Rides</Text>
+            <Text style={styles.sectionTitle}>Recent Deliveries</Text>
             {completedRides.length > 3 && (
               <TouchableOpacity onPress={() => router.push('/(driver)/history')}>
                 <Text style={styles.viewAllText}>View All</Text>

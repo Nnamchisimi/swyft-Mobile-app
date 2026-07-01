@@ -513,26 +513,51 @@ export default function DriverDashboard() {
   const handleCompleteRide = async () => {
     if (!currentRide) return;
     
-    Alert.alert(
-      'Complete Delivery',
-      'Mark this delivery as completed? The passenger will need to confirm before you receive payment.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Complete',
-          onPress: async () => {
-            try {
-              const price = currentRide.price || 0;
-              await ridesAPI.completeRide(currentRide.id, price);
-              setCurrentRide({ ...currentRide, status: 'completed' });
-              Alert.alert('Delivery Completed', 'Waiting for passenger to confirm delivery. Payment will be released once confirmed.');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to complete delivery');
+    const price = currentRide.price || 0;
+    
+    const enterOtp = () => {
+      let otpValue = '';
+      Alert.alert(
+        'Complete Delivery',
+        'Enter the 6-digit OTP provided by the customer to confirm delivery.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Submit',
+            onPress: async () => {
+              if (!otpValue || otpValue.length !== 6) {
+                Alert.alert('Error', 'Please enter a valid 6-digit OTP');
+                return;
+              }
+              try {
+                setLoading(true);
+                const response = await ridesAPI.verifyOtp(currentRide.id, otpValue);
+                if (response.success) {
+                  setCurrentRide({ ...currentRide, status: 'completed' });
+                  Alert.alert('Delivery Completed', 'Payment has been released to you. Thank you for your service!');
+                } else {
+                  Alert.alert('Error', response.error || 'Invalid OTP. Please try again.');
+                }
+              } catch (error) {
+                Alert.alert('Error', error.message || 'Failed to verify OTP');
+              } finally {
+                setLoading(false);
+              }
             }
-          },
-        },
-      ]
-    );
+          }
+        ],
+        {
+          textInput: {
+            placeholder: 'Enter 6-digit OTP',
+            keyboardType: 'numeric',
+            maxLength: 6,
+            onChangeText: (text) => { otpValue = text; }
+          }
+        }
+      );
+    };
+    
+    enterOtp();
   };
   
   
@@ -1071,20 +1096,20 @@ export default function DriverDashboard() {
         {isOnline && !currentRide && (
           <View style={styles.availableSection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Available Rides</Text>
+            <Text style={styles.sectionTitle}>Available Deliveries</Text>
             <Text style={styles.rideCount}>{pendingRides.length} requests</Text>
           </View>
 
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={styles.loadingText}>Finding rides...</Text>
+              <Text style={styles.loadingText}>Finding Deliveries...</Text>
             </View>
           ) : pendingRides.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="car" size={48} color={COLORS.gray} />
-              <Text style={styles.emptyTitle}>No rides available</Text>
-              <Text style={styles.emptyText}>Waiting for ride requests...</Text>
+              <Text style={styles.emptyTitle}>No Deliveries available</Text>
+              <Text style={styles.emptyText}>Waiting for delivery requests...</Text>
               <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
                 <Text style={styles.refreshButtonText}>Refresh</Text>
               </TouchableOpacity>

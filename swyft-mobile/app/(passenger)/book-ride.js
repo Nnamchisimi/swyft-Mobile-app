@@ -749,10 +749,7 @@ export default function BookRideScreen() {
             ]
           );
         } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
-                },
-              })
-            }]
-          );
+          Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
           setRideBooked(false);
           setCurrentRide(null);
           setDriverLocation(null);
@@ -767,14 +764,6 @@ export default function BookRideScreen() {
           setPackageSize('');
           setPackageDetails('');
           setSpecialInstructions('');
-        } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
-          Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
-          setRideBooked(false);
-          setCurrentRide(null);
-          setDriverLocation(null);
-          setDriverDistance(null);
-          setPickupManuallySelected(false);
-          setPickupLockedForRide(false);
         }
       }
     });

@@ -183,7 +183,7 @@ export default function DriverDashboard () {
                   <Typography>Pickup: {ride.pickup_location}</Typography>
                   <Typography>Dropoff: {ride.dropoff_location}</Typography>
                   <Typography>Fare: ${ride.price?.toFixed(2) || '0.00'}</Typography>
-                  <Button variant='contained' sx={{ mt: 1 }} onClick={() => handleOpenDialog(ride)}>Accept Ride</Button>
+                  <Button variant='contained' sx={{ mt: 1 }} onClick={() => handleOpenDialog(ride)}>Accept Dispatch</Button>
                 </Box>
               ))}
           </Box>
@@ -201,9 +201,9 @@ export default function DriverDashboard () {
 
       {}
       <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>Accept Ride</DialogTitle>
+        <DialogTitle>Accept Dispatch</DialogTitle>
         <DialogContent>
-          Are you sure you want to accept ride #{selectedRide?.id}?
+          Are you sure you want to accept dispatch #{selectedRide?.id}?
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>

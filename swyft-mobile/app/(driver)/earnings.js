@@ -154,7 +154,7 @@ export default function DriverEarningsScreen() {
 
           {}
           <View style={styles.ridesSection}>
-            <Text style={styles.sectionTitle}>Recent Completed Rides</Text>
+            <Text style={styles.sectionTitle}>Recent Completed Deliveries</Text>
             {recentRides.length > 0 ? (
               <View style={styles.ridesList}>
                 {recentRides.map((ride, index) => (

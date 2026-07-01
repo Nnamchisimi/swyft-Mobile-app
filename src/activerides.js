@@ -25,7 +25,7 @@ export default function ActiveRides ({ rides, onCancelRide }) {
       <List sx={{ p: 2 }}>
         {rides.length === 0
           ? (
-            <Typography variant='body2' color='text.secondary'>No active rides.</Typography>
+            <Typography variant='body2' color='text.secondary'>No active deliveries.</Typography>
             )
           : (
               rides.map((ride) => (
@@ -46,7 +46,7 @@ export default function ActiveRides ({ rides, onCancelRide }) {
                         </>
                   }
                     />
-                    <Button variant='outlined' color='error' size='small' onClick={() => onCancelRide(ride)}>Cancel Ride</Button>
+                    <Button variant='outlined' color='error' size='small' onClick={() => onCancelRide(ride)}>Cancel Delivery</Button>
                   </ListItem>
                   <Divider component='li' />
                 </React.Fragment>

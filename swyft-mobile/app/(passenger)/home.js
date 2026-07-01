@@ -360,7 +360,7 @@ Fare: ₺${ride.price || '0.00'}`,
         {}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Drop-Off Locations</Text>
+            <Text style={styles.sectionTitle}>Recent Delivery Locations</Text>
             <TouchableOpacity onPress={() => router.push('/(passenger)/history')}>
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
@@ -394,7 +394,7 @@ Fare: ₺${ride.price || '0.00'}`,
         <View style={styles.promoBanner}>
           <View style={styles.promoContent}>
             <Text style={styles.promoTitle}>First Ride Free!</Text>
-            <Text style={styles.promoText}>Use code SWYFT2024 for ₺100 off your first ride</Text>
+            <Text style={styles.promoText}>Use code SWYFT2026 for ₺100 off your first ride</Text>
           </View>
           <Ionicons name="gift" size={24} color="#FF9800" />
         </View>

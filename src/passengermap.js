@@ -274,7 +274,7 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
               label={{ text: "P", color: "#fff", fontSize: "16px", fontWeight: "bold" }}
               icon={{ 
                 url: "http://maps.google.com/mapfiles/ms/icons/green-dot.png",
-                scaledSize: new window.google?.maps?.Size(32, 32)
+                scaledSize: window.google?.maps?.Size ? new window.google.maps.Size(32, 32) : undefined
               }}
               draggable={true}
               onDragEnd={(e) => handleMarkerDragEnd(e, 'pickup')}
@@ -288,7 +288,7 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
               label={{ text: "D", color: "#fff", fontSize: "16px", fontWeight: "bold" }}
               icon={{ 
                 url: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
-                scaledSize: new window.google?.maps?.Size(40, 40)
+                scaledSize: window.google?.maps?.Size ? new window.google.maps.Size(40, 40) : undefined
               }}
               draggable={false}
             />
@@ -301,7 +301,7 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
               label={{ text: "D", color: "#fff", fontSize: "16px", fontWeight: "bold" }}
               icon={{ 
                 url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png",
-                scaledSize: new window.google?.maps?.Size(32, 32)
+                scaledSize: window.google?.maps?.Size ? new window.google.maps.Size(32, 32) : undefined
               }}
               draggable={true}
               onDragEnd={(e) => handleMarkerDragEnd(e, 'dropoff')}

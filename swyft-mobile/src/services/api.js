@@ -57,9 +57,10 @@ export const ridesAPI = {
   startRide: (rideId) => api.post(`/api/rides/${rideId}/start`),
   arriveRide: (rideId) => api.post(`/api/rides/${rideId}/arrive`),
   completeRide: (rideId, finalPrice) => api.post(`/api/rides/${rideId}/complete`, { final_price: finalPrice }),
-   confirmPickup: (rideId) => api.post(`/api/rides/${rideId}/confirm-pickup`),
-   confirmComplete: (rideId) => api.post(`/api/rides/${rideId}/confirm-complete`),
+  confirmPickup: (rideId) => api.post(`/api/rides/${rideId}/confirm-pickup`),
+  confirmComplete: (rideId) => api.post(`/api/rides/${rideId}/confirm-complete`),
   updateDriverLocation: (rideId, location) => api.post(`/api/rides/${rideId}/driver-location`, location),
+  verifyOtp: (rideId, otp) => api.post(`/api/rides/${rideId}/verify-otp`, { otp }),
 };
 
 export const driverAPI = {
