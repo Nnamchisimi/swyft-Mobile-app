@@ -1,0 +1,264 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  SafeAreaView,
+  StatusBar,
+  Image,
+  TextInput,
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../../src/constants/config';
+import { authService } from '../../src/services/auth';
+import { driverAPI } from '../../src/services/api';
+
+export default function DriverIdDocumentScreen() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    document_type: 'drivers_license',
+    document_number: '',
+    expiry_date: '',
+    front_image_url: '',
+    back_image_url: '',
+  });
+
+  const documentTypes = [
+    { label: "Driver's License", value: 'drivers_license' },
+    { label: 'National ID', value: 'national_id' },
+    { label: 'Passport', value: 'passport' },
+    { label: 'Residence Permit', value: 'residence_permit' },
+  ];
+
+  const handleUploadImage = (type) => {
+    Alert.alert(
+      'Upload Image',
+      `Select image for ${type === 'front' ? 'Front' : 'Back'} side`,
+      [
+        { text: 'Camera', onPress: () => {/* Camera logic */ } },
+        { text: 'Gallery', onPress: () => {/* Gallery logic */ } },
+        { text: 'Skip for now', onPress: () => {/* Skip */ } },
+      ]
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.document_number) {
+      Alert.alert('Error', 'Please enter your document number');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const email = await authService.getUserEmail();
+      const response = await driverAPI.submitIdDocument(email, formData);
+      
+      router.push('/(driver)/verify-selfie');
+    } catch (error) {
+      Alert.alert('Error', error.response?.data?.error || 'Failed to submit ID document');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>ID Document Verification</Text>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.stepIndicator}>
+          <View style={styles.stepActive} />
+          <View style={styles.stepLine} />
+          <View style={styles.step} />
+          <View style={styles.stepLine} />
+          <View style={styles.step} />
+          <View style={styles.stepLine} />
+          <View style={styles.step} />
+        </View>
+        
+        <View style={styles.stepLabels}>
+          <Text style={styles.stepLabel}>ID</Text>
+          <Text style={styles.stepLabel}>Selfie</Text>
+          <Text style={styles.stepLabel}>Phone</Text>
+          <Text style={styles.stepLabel}>Bank</Text>
+          <Text style={styles.stepLabel}>Review</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.title}>Government-Issued ID</Text>
+          <Text style={styles.subtitle}>Please provide a valid government-issued ID</Text>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Document Type *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.typeButtons}>
+                {documentTypes.map((type) => (
+                  <TouchableOpacity
+                    key={type.value}
+                    style={[
+                      styles.typeButton,
+                      formData.document_type === type.value && styles.typeButtonActive,
+                    ]}
+                    onPress={() => setFormData({ ...formData, document_type: type.value })}
+                  >
+                    <Text style={[
+                      styles.typeButtonText,
+                      formData.document_type === type.value && styles.typeButtonTextActive,
+                    ]}>
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Document Number *</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.document_number}
+              onChangeText={(v) => setFormData({ ...formData, document_number: v })}
+              placeholder="Enter document number"
+              placeholderTextColor={COLORS.textSecondary}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Expiry Date (optional)</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.expiry_date}
+              onChangeText={(v) => setFormData({ ...formData, expiry_date: v })}
+              placeholder="MM/YYYY"
+              placeholderTextColor={COLORS.textSecondary}
+            />
+          </View>
+
+          <View style={styles.imageUploadSection}>
+            <Text style={styles.label}>Front Side Image *</Text>
+            <TouchableOpacity
+              style={styles.imageButton}
+              onPress={() => handleUploadImage('front')}
+            >
+              <Ionicons name="camera-outline" size={32} color={COLORS.primary} />
+              <Text style={styles.imageButtonText}>Upload Front</Text>
+            </TouchableOpacity>
+            {formData.front_image_url && (
+              <Image source={{ uri: formData.front_image_url }} style={styles.previewImage} />
+            )}
+          </View>
+
+          <View style={styles.imageUploadSection}>
+            <Text style={styles.label}>Back Side Image (optional)</Text>
+            <TouchableOpacity
+              style={styles.imageButton}
+              onPress={() => handleUploadImage('back')}
+            >
+              <Ionicons name="camera-outline" size={32} color={COLORS.primary} />
+              <Text style={styles.imageButtonText}>Upload Back</Text>
+            </TouchableOpacity>
+            {formData.back_image_url && (
+              <Image source={{ uri: formData.back_image_url }} style={styles.previewImage} />
+            )}
+          </View>
+        </View>
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color={COLORS.white} />
+          ) : (
+            <Text style={styles.buttonText}>Continue to Selfie</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: COLORS.text, marginLeft: 12 },
+  content: { flex: 1, padding: 16 },
+  stepIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  stepActive: { width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.primary },
+  step: { width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.border },
+  stepLine: { width: 30, height: 2, backgroundColor: COLORS.border },
+  stepLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32, paddingHorizontal: 8 },
+  stepLabel: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
+  section: { backgroundColor: COLORS.white, borderRadius: 16, padding: 16, marginBottom: 16 },
+  title: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 },
+  subtitle: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 24 },
+  field: { marginBottom: 16 },
+  label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8 },
+  typeButtons: { flexDirection: 'row' },
+  typeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    marginRight: 8,
+    backgroundColor: COLORS.surface,
+  },
+  typeButtonActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  typeButtonText: { fontSize: 12, color: COLORS.text },
+  typeButtonTextActive: { color: COLORS.white },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 16,
+    color: COLORS.text,
+    backgroundColor: COLORS.surface,
+  },
+  imageUploadSection: { alignItems: 'center' },
+  imageButton: {
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  imageButtonText: { fontSize: 14, color: COLORS.textSecondary, marginTop: 8 },
+  previewImage: { width: 120, height: 120, borderRadius: 8, marginTop: 8 },
+  footer: { padding: 16, backgroundColor: COLORS.background },
+  button: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  buttonDisabled: { opacity: 0.7 },
+  buttonText: { color: COLORS.white, fontSize: 16, fontWeight: '600' },
+});

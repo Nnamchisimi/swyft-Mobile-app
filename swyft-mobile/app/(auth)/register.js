@@ -104,7 +104,7 @@ export default function RegisterScreen() {
         } else {
           // Direct login (shouldn't happen with email verification enabled)
           if (role === 'driver') {
-            router.replace('/(driver)/dashboard');
+            router.replace('/(driver)/verify-id');
           } else {
             router.replace('/(passenger)/home');
           }
@@ -216,7 +216,7 @@ export default function RegisterScreen() {
               >
                 Passenger
               </Text>
-              <Text style={styles.roleDesc}>I need rides</Text>
+              <Text style={styles.roleDesc}>I need  a courier service</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -234,7 +234,7 @@ export default function RegisterScreen() {
               >
                 Driver
               </Text>
-              <Text style={styles.roleDesc}>I provide rides</Text>
+              <Text style={styles.roleDesc}>I provide courier services </Text>
             </TouchableOpacity>
           </View>
 

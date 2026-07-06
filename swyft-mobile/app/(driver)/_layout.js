@@ -8,6 +8,11 @@ export default function DriverLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="dashboard" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="verify-id" />
+        <Stack.Screen name="verify-selfie" />
+        <Stack.Screen name="verify-phone" />
+        <Stack.Screen name="verify-bank" />
+        <Stack.Screen name="verify-summary" />
       </Stack>
     </>
   );

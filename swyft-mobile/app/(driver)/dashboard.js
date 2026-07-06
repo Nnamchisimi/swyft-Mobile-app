@@ -86,19 +86,43 @@ export default function DriverDashboard() {
     currentRideRef.current = currentRide;
   }, [currentRide]);
 
-  const loadDriverData = async () => {
-    const info = await authService.getDriverInfo();
-    setDriverInfo(info);
-    const email = await authService.getUserEmail();
-    console.log('Driver email for earnings:', email);
-    if (email) {
-      socketService.connect();
-      socketService.joinRoom(email);
-      
-      console.log('Calling loadEarnings for:', email);
-      loadEarnings(email);
-      
-      loadActiveRide(email);
+const loadDriverData = async () => {
+     const info = await authService.getDriverInfo();
+     setDriverInfo(info);
+     const email = await authService.getUserEmail();
+     console.log('Driver email for earnings:', email);
+     if (email) {
+       socketService.connect();
+       socketService.joinRoom(email);
+       
+       console.log('Calling loadEarnings for:', email);
+       loadEarnings(email);
+       
+       loadActiveRide(email);
+       loadVerificationStatus(email);
+     }
+   };
+
+  const loadVerificationStatus = async (email) => {
+    try {
+      const response = await driverAPI.getVerificationStatus(email);
+      const status = response.data;
+      console.log('Driver verification status:', status);
+      if (status && !status.is_approved) {
+        // Driver is not approved yet
+        Alert.alert(
+          'Verification Required',
+          'Your driver account is pending verification. Please complete all verification steps.',
+          [{ text: 'Go to Verification', onPress: () => router.push('/(driver)/verify-summary') }]
+        );
+      }
+    } catch (error) {
+      console.error('Error loading verification status:', error);
+      // If endpoint doesn't exist (404), allow driver to proceed
+      // This handles the case where verification tables haven't been created yet
+      if (error.response?.status === 404) {
+        console.log('Verification endpoint not available, allowing driver to proceed');
+      }
     }
   };
 
@@ -362,6 +386,23 @@ export default function DriverDashboard() {
     const email = driverInfo?.email || await authService.getUserEmail();
     const currentLocation = location || locationRef.current;
     const newStatus = !isOnline;
+    
+    // Check if driver is approved before going online
+    if (newStatus) {
+      try {
+        const verificationResponse = await driverAPI.getVerificationStatus(email);
+        if (!verificationResponse.data?.is_approved) {
+          Alert.alert(
+            'Verification Required',
+            'Your driver account is pending verification. Please complete all verification steps first.',
+            [{ text: 'Go to Verification', onPress: () => router.push('/(driver)/verify-summary') }]
+          );
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking verification status:', error);
+      }
+    }
     
     if (newStatus) {
       

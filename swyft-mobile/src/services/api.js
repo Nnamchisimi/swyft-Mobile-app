@@ -73,11 +73,17 @@ export const driverAPI = {
   setOnlineStatus: (email, isOnline, location) => 
     api.post('/api/drivers/status', { email, is_online: isOnline, ...location }),
   
-  // Driver earnings
   getEarnings: (email) => api.get('/api/drivers/earnings', { params: { email } }),
-  
-  // Get driver's today stats
   getTodayStats: (email) => api.get('/api/drivers/stats', { params: { email } }),
+  
+  // Driver verification endpoints
+  submitIdDocument: (email, document) => api.post(`/api/drivers/${email}/id-document`, document),
+  submitSelfie: (email, selfieData) => api.post(`/api/drivers/${email}/selfie`, selfieData),
+  requestPhoneVerification: (email, phoneData) => api.post(`/api/drivers/${email}/phone-request-code`, phoneData),
+  verifyPhoneNumber: (email, verifyData) => api.post(`/api/drivers/${email}/phone-verify`, verifyData),
+  submitBankAccount: (email, bankData) => api.post(`/api/drivers/${email}/bank-account`, bankData),
+  getVerificationStatus: (email) => api.get(`/api/drivers/${email}/verification-status`),
+  approveDriver: (email, approvalData) => api.patch(`/api/drivers/${email}/approve`, approvalData),
 };
 
 export const fareAPI = {
