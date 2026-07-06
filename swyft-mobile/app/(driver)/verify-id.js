@@ -39,14 +39,14 @@ export default function DriverIdDocumentScreen() {
 
   const handlePickImage = async (type) => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
         Alert.alert('Permission Required', 'Please allow photo access to continue.');
         return;
       }
       
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,
@@ -63,14 +63,14 @@ export default function DriverIdDocumentScreen() {
 
   const handleTakePhoto = async (type) => {
     try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
         Alert.alert('Permission Required', 'Please allow camera access to take photos.');
         return;
       }
       
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,

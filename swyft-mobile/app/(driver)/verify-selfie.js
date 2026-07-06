@@ -12,6 +12,7 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 import { authService } from '../../src/services/auth';
@@ -27,11 +28,59 @@ export default function DriverSelfieScreen() {
       'Take Selfie',
       'Please take a clear selfie with your face fully visible. Make sure your eyes are open and you are looking directly at the camera.',
       [
-        { text: 'Use Camera', onPress: () => {/* Camera logic - would integrate with expo-camera */ } },
-        { text: 'Choose from Gallery', onPress: () => {/* Gallery logic */ } },
+        { text: 'Use Camera', onPress: () => handleCamera() },
+        { text: 'Choose from Gallery', onPress: () => handleGallery() },
         { text: 'Skip for now', onPress: () => router.push('/(driver)/verify-phone') },
       ]
     );
+  };
+
+  const handleCamera = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Please allow camera access to take photos.');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setSelfieImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Could not access camera. Please try again.');
+    }
+  };
+
+  const handleGallery = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Please allow photo access to continue.');
+        return;
+      }
+      
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setSelfieImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Could not access image. Please try again.');
+    }
   };
 
   const handleSubmit = async () => {
@@ -45,7 +94,7 @@ export default function DriverSelfieScreen() {
       const email = await authService.getUserEmail();
       const response = await driverAPI.submitSelfie(email, {
         selfie_image_url: selfieImage,
-        id_document_image_url: '', // Would be passed from previous screen
+        id_document_image_url: '',
       });
       
       router.push('/(driver)/verify-phone');

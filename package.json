@@ -17,6 +17,8 @@
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
+    "expo-camera": "^55.0.4",
+    "expo-image-picker": "^55.0.21",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "jwt-decode": "^4.0.0",
