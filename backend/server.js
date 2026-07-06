@@ -406,7 +406,7 @@ app.post('/api/users', async (req, res) => {
       // If driver, create car record
       if (userRole === 'Driver') {
         const carQuery = 'INSERT INTO cars (user_id, make, model, year, color, plate_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id';
-        const carValues = [userId, vehicleMake, vehicleModel, vehicleYear, vehicleColor, vehiclePlate];
+        const carValues = [userId, vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate];
         
         db.query(carQuery, carValues, (err2, carResult) => {
           if (err2) {
