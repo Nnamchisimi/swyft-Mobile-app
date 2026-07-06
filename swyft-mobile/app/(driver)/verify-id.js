@@ -13,6 +13,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 import { authService } from '../../src/services/auth';
@@ -29,6 +30,15 @@ export default function DriverIdDocumentScreen() {
     back_image_url: '',
   });
 
+  useEffect(() => {
+    (async () => {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant photo library permission to upload documents.');
+      }
+    })();
+  }, []);
+
   const documentTypes = [
     { label: "Driver's License", value: 'drivers_license' },
     { label: 'National ID', value: 'national_id' },
@@ -36,14 +46,50 @@ export default function DriverIdDocumentScreen() {
     { label: 'Residence Permit', value: 'residence_permit' },
   ];
 
-  const handleUploadImage = (type) => {
+  const handleUploadImage = async (type) => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFormData({ ...formData, [`${type}_image_url`]: result.assets[0].uri });
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to access camera. Please try again.');
+    }
+  };
+
+  const handleOpenGallery = async (type) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFormData({ ...formData, [`${type}_image_url`]: result.assets[0].uri });
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to access gallery. Please try again.');
+    }
+  };
+
+  const handleImagePress = (type) => {
     Alert.alert(
-      'Upload Image',
-      `Select image for ${type === 'front' ? 'Front' : 'Back'} side`,
+      `Select ${type === 'front' ? 'Front' : 'Back'} Image`,
+      'Choose an option:',
       [
-        { text: 'Camera', onPress: () => {/* Camera logic */ } },
-        { text: 'Gallery', onPress: () => {/* Gallery logic */ } },
-        { text: 'Skip for now', onPress: () => {/* Skip */ } },
+        { text: 'Camera', onPress: () => handleUploadImage(type) },
+        { text: 'Gallery', onPress: () => handleOpenGallery(type) },
+        { text: 'Skip', style: 'cancel', onPress: () => {} },
       ]
     );
   };
@@ -151,7 +197,7 @@ export default function DriverIdDocumentScreen() {
             <Text style={styles.label}>Front Side Image *</Text>
             <TouchableOpacity
               style={styles.imageButton}
-              onPress={() => handleUploadImage('front')}
+              onPress={() => handleImagePress('front')}
             >
               <Ionicons name="camera-outline" size={32} color={COLORS.primary} />
               <Text style={styles.imageButtonText}>Upload Front</Text>
@@ -165,7 +211,7 @@ export default function DriverIdDocumentScreen() {
             <Text style={styles.label}>Back Side Image (optional)</Text>
             <TouchableOpacity
               style={styles.imageButton}
-              onPress={() => handleUploadImage('back')}
+              onPress={() => handleImagePress('back')}
             >
               <Ionicons name="camera-outline" size={32} color={COLORS.primary} />
               <Text style={styles.imageButtonText}>Upload Back</Text>
