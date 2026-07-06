@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   Image,
   TextInput,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
@@ -30,15 +30,6 @@ export default function DriverIdDocumentScreen() {
     back_image_url: '',
   });
 
-  useEffect(() => {
-    (async () => {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant photo library permission to upload documents.');
-      }
-    })();
-  }, []);
-
   const documentTypes = [
     { label: "Driver's License", value: 'drivers_license' },
     { label: 'National ID', value: 'national_id' },
@@ -46,26 +37,14 @@ export default function DriverIdDocumentScreen() {
     { label: 'Residence Permit', value: 'residence_permit' },
   ];
 
-  const handleUploadImage = async (type) => {
+  const handlePickImage = async (type) => {
     try {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.5,
-      });
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        setFormData({ ...formData, [`${type}_image_url`]: result.assets[0].uri });
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow photo access to continue.');
+        return;
       }
-    } catch (error) {
-      console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to access camera. Please try again.');
-    }
-  };
-
-  const handleOpenGallery = async (type) => {
-    try {
+      
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -78,18 +57,42 @@ export default function DriverIdDocumentScreen() {
       }
     } catch (error) {
       console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to access gallery. Please try again.');
+      Alert.alert('Error', 'Could not access image. Please try again.');
     }
   };
 
-  const handleImagePress = (type) => {
+  const handleTakePhoto = async (type) => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please allow camera access to take photos.');
+        return;
+      }
+      
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.5,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setFormData({ ...formData, [`${type}_image_url`]: result.assets[0].uri });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Could not access camera. Please try again.');
+    }
+  };
+
+  const handleImageUpload = (type) => {
     Alert.alert(
-      `Select ${type === 'front' ? 'Front' : 'Back'} Image`,
-      'Choose an option:',
+      `Upload ${type === 'front' ? 'Front' : 'Back'} Image`,
+      'Choose how to upload:',
       [
-        { text: 'Camera', onPress: () => handleUploadImage(type) },
-        { text: 'Gallery', onPress: () => handleOpenGallery(type) },
-        { text: 'Skip', style: 'cancel', onPress: () => {} },
+        { text: 'Take Photo', onPress: () => handleTakePhoto(type) },
+        { text: 'Choose from Gallery', onPress: () => handlePickImage(type) },
+        { text: 'Skip for now', style: 'cancel', onPress: () => {} },
       ]
     );
   };
@@ -197,7 +200,7 @@ export default function DriverIdDocumentScreen() {
             <Text style={styles.label}>Front Side Image *</Text>
             <TouchableOpacity
               style={styles.imageButton}
-              onPress={() => handleImagePress('front')}
+              onPress={() => handleImageUpload('front')}
             >
               <Ionicons name="camera-outline" size={32} color={COLORS.primary} />
               <Text style={styles.imageButtonText}>Upload Front</Text>
@@ -211,7 +214,7 @@ export default function DriverIdDocumentScreen() {
             <Text style={styles.label}>Back Side Image (optional)</Text>
             <TouchableOpacity
               style={styles.imageButton}
-              onPress={() => handleImagePress('back')}
+              onPress={() => handleImageUpload('back')}
             >
               <Ionicons name="camera-outline" size={32} color={COLORS.primary} />
               <Text style={styles.imageButtonText}>Upload Back</Text>
