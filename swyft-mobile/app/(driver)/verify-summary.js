@@ -231,7 +231,7 @@ export default function DriverVerifySummaryScreen() {
               <Text style={styles.infoText}>Review takes 24-48 hours</Text>
             </View>
             <View style={styles.infoItem}>
-              <Ionicons name="email-outline" size={20} color={COLORS.primary} />
+              <Ionicons name="mail-outline" size={20} color={COLORS.primary} />
               <Text style={styles.infoText}>You'll receive an email when approved</Text>
             </View>
             <View style={styles.infoItem}>
