@@ -175,7 +175,7 @@ export default function DriverVerifySummaryScreen() {
             <Text style={styles.sectionTitle}>Approval Status</Text>
             <View style={styles.approvalCard}>
               <View style={styles.approvalInfo}>
-                <Ionicons name="clipboard-document-outline" size={24} color={COLORS.primary} />
+                <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
                 <View style={styles.approvalText}>
                   <Text style={styles.approvalTitle}>
                     {idVerified && selfieVerified && phoneVerified 

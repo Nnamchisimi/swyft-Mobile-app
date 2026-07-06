@@ -64,6 +64,19 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Swyft to use your location."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Swyft to access your photos for ID verification.",
+          "cameraPermission": "Allow Swyft to use your camera for ID verification."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Swyft to access your camera for ID verification."
+        }
       ]
     ],
     "experiments": {

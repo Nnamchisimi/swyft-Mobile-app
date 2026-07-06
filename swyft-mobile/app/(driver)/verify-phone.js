@@ -134,7 +134,7 @@ export default function DriverPhoneScreen() {
             </View>
           )}
 
-          <View style={styles.infoBox}>
+<View style={styles.infoBox}>
             <Ionicons name="lock-closed-outline" size={20} color={COLORS.primary} />
             <Text style={styles.infoText}>
               Your phone number is kept secure and is used only for account verification 
