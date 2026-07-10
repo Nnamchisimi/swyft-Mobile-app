@@ -68,7 +68,7 @@ export const driverAPI = {
   acceptRide: (rideId, driverData) => api.post(`/api/rides/${rideId}/accept`, driverData),
   completeRide: (rideId, finalPrice) => api.post(`/api/rides/${rideId}/complete`, { final_price: finalPrice }),
   getNearbyDrivers: (lat, lng, radius) => api.get('/api/drivers/nearby', { params: { lat, lng, radius } }),
-  getDriverInfo: (email) => api.get(`/api/drivers/${email}`),
+  getDriverInfo: (email) => api.get(`/api/drivers/${encodeURIComponent(email)}`),
   
   setOnlineStatus: (email, isOnline, location) => 
     api.post('/api/drivers/status', { email, is_online: isOnline, ...location }),
@@ -77,13 +77,13 @@ export const driverAPI = {
   getTodayStats: (email) => api.get('/api/drivers/stats', { params: { email } }),
   
   // Driver verification endpoints
-  submitIdDocument: (email, document) => api.post(`/api/drivers/${email}/id-document`, document),
-  submitSelfie: (email, selfieData) => api.post(`/api/drivers/${email}/selfie`, selfieData),
-  requestPhoneVerification: (email, phoneData) => api.post(`/api/drivers/${email}/phone-request-code`, phoneData),
-  verifyPhoneNumber: (email, verifyData) => api.post(`/api/drivers/${email}/phone-verify`, verifyData),
-  submitBankAccount: (email, bankData) => api.post(`/api/drivers/${email}/bank-account`, bankData),
-  getVerificationStatus: (email) => api.get(`/api/drivers/${email}/verification-status`),
-  approveDriver: (email, approvalData) => api.patch(`/api/drivers/${email}/approve`, approvalData),
+  submitIdDocument: (email, document) => api.post(`/api/drivers/${encodeURIComponent(email)}/id-document`, document),
+  submitSelfie: (email, selfieData) => api.post(`/api/drivers/${encodeURIComponent(email)}/selfie`, selfieData),
+  requestPhoneVerification: (email, phoneData) => api.post(`/api/drivers/${encodeURIComponent(email)}/phone-request-code`, phoneData),
+  verifyPhoneNumber: (email, verifyData) => api.post(`/api/drivers/${encodeURIComponent(email)}/phone-verify`, verifyData),
+  submitBankAccount: (email, bankData) => api.post(`/api/drivers/${encodeURIComponent(email)}/bank-account`, bankData),
+  getVerificationStatus: (email) => api.get(`/api/drivers/${encodeURIComponent(email)}/verification-status`),
+  approveDriver: (email, approvalData) => api.patch(`/api/drivers/${encodeURIComponent(email)}/approve`, approvalData),
 };
 
 export const fareAPI = {
@@ -95,7 +95,7 @@ export const fareAPI = {
 export const driversAPI = {
   getNearby: (lat, lng, radius = 5) => 
     api.get('/api/drivers/nearby', { params: { lat, lng, radius } }),
-  getDriver: (email) => api.get(`/api/drivers/${email}`),
+  getDriver: (email) => api.get(`/api/drivers/${encodeURIComponent(email)}`),
 };
 
 export const favoritesAPI = {

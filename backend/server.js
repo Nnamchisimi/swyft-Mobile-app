@@ -1709,6 +1709,31 @@ app.delete('/api/payment-methods/:id', (req, res) => {
 
 // === DRIVER VERIFICATION ENDPOINTS ===
 
+// Ensure id_documents table exists
+const ensureIdDocumentsTable = () => {
+  const createTableQuery = `
+    CREATE TABLE IF NOT EXISTS id_documents (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      document_type VARCHAR(50) NOT NULL,
+      document_number VARCHAR(100) NOT NULL,
+      expiry_date DATE,
+      front_image_url VARCHAR(500),
+      back_image_url VARCHAR(500),
+      is_verified BOOLEAN DEFAULT FALSE,
+      verification_status VARCHAR(20) DEFAULT 'pending',
+      rejection_reason TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
+  db.query(createTableQuery, [], (err) => {
+    if (err) console.error('Error creating id_documents table:', err.message);
+  });
+};
+
+ensureIdDocumentsTable();
+
 // Upload government-issued ID
 app.post('/api/drivers/:email/id-document', (req, res) => {
   const { email } = req.params;
@@ -1719,15 +1744,33 @@ app.post('/api/drivers/:email/id-document', (req, res) => {
   }
   
   db.query('SELECT id FROM public.users WHERE email = $1', [email], async (err, userResult) => {
-    if (err) return res.status(500).json({ error: 'Server error' });
+    if (err) return res.status(500).json({ error: 'Server error', details: err.message });
     if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
     
     const userId = userResult.rows[0].id;
     
     const insertQuery = 'INSERT INTO id_documents (user_id, document_type, document_number, expiry_date, front_image_url, back_image_url, verification_status) VALUES ($1, $2, $3, $4, $5, $6, \'pending\') RETURNING *';
     
-    db.query(insertQuery, [userId, document_type, document_number, expiry_date || null, front_image_url || null, back_image_url || null], (err2, result) => {
-      if (err2) return res.status(500).json({ error: 'Failed to save ID document' });
+    const values = [
+      userId, 
+      document_type, 
+      document_number, 
+      expiry_date && expiry_date !== '' ? expiry_date : null, 
+      front_image_url && front_image_url !== '' ? front_image_url : null, 
+      back_image_url && back_image_url !== '' ? back_image_url : null
+    ];
+    
+    db.query(insertQuery, values, (err2, result) => {
+      if (err2) {
+        console.error('ID document insert error:', err2);
+        console.error('Error code:', err2.code);
+        console.error('Error detail:', err2.detail);
+        return res.status(500).json({ 
+          error: 'Failed to save ID document', 
+          details: err2.message,
+          code: err2.code
+        });
+      }
       
       res.json({ 
         message: 'ID document submitted successfully',
@@ -1754,8 +1797,17 @@ app.post('/api/drivers/:email/selfie', (req, res) => {
     
     const insertQuery = 'INSERT INTO selfie_verifications (user_id, selfie_image_url, id_document_image_url, verification_status) VALUES ($1, $2, $3, \'pending\') RETURNING *';
     
-    db.query(insertQuery, [userId, selfie_image_url, id_document_image_url || null], (err2, result) => {
-      if (err2) return res.status(500).json({ error: 'Failed to save selfie' });
+    const values = [
+      userId, 
+      selfie_image_url, 
+      id_document_image_url && id_document_image_url !== '' ? id_document_image_url : null
+    ];
+    
+    db.query(insertQuery, values, (err2, result) => {
+      if (err2) {
+        console.error('Selfie insert error:', err2);
+        return res.status(500).json({ error: 'Failed to save selfie', details: err2.message });
+      }
       
       res.json({ 
         message: 'Selfie submitted successfully',

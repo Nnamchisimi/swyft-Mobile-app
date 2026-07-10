@@ -103,14 +103,29 @@ export default function DriverIdDocumentScreen() {
       return;
     }
 
+    if (!formData.front_image_url) {
+      Alert.alert('Error', 'Please upload the front side of your ID document');
+      return;
+    }
+
     setLoading(true);
     try {
       const email = await authService.getUserEmail();
+      if (!email) {
+        Alert.alert('Error', 'User email not found. Please log in again.');
+        return;
+      }
       const response = await driverAPI.submitIdDocument(email, formData);
       
       router.push('/(driver)/verify-selfie');
     } catch (error) {
+      console.log('ID submission error:', error.response?.data);
+      const errorDetails = error.response?.data?.details || error.message;
+      const errorCode = error.response?.data?.code;
       Alert.alert('Error', error.response?.data?.error || 'Failed to submit ID document');
+      if (errorCode === '42P01') {
+        console.error('Table id_documents does not exist. Please run database migrations.');
+      }
     } finally {
       setLoading(false);
     }

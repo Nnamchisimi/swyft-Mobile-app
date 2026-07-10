@@ -158,3 +158,95 @@ ALTER TABLE users ADD CONSTRAINT fk_users_vehicle FOREIGN KEY (vehicle_id) REFER
 -- Insert some initial data (optional)
 -- INSERT INTO users (first_name, last_name, email, password, role) VALUES 
 -- ('Admin', 'User', 'admin@swyft.com', 'hashed_password_here', 'passenger');
+
+-- Create ID Documents table for driver verification
+CREATE TABLE id_documents (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  document_type ENUM('drivers_license', 'national_id', 'passport', 'residence_permit') NOT NULL,
+  document_number VARCHAR(100) NOT NULL,
+  expiry_date DATE DEFAULT NULL,
+  front_image_url VARCHAR(500) DEFAULT NULL,
+  back_image_url VARCHAR(500) DEFAULT NULL,
+  is_verified BOOLEAN DEFAULT FALSE,
+  verification_status ENUM('pending', 'verified', 'rejected') DEFAULT 'pending',
+  rejection_reason TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Create bank accounts table for driver payouts
+CREATE TABLE bank_accounts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  bank_name VARCHAR(100) NOT NULL,
+  account_number VARCHAR(50) NOT NULL,
+  account_holder_name VARCHAR(100) NOT NULL,
+  routing_number VARCHAR(50) DEFAULT NULL,
+  iban VARCHAR(50) DEFAULT NULL,
+  swift_code VARCHAR(20) DEFAULT NULL,
+  is_default BOOLEAN DEFAULT FALSE,
+  is_verified BOOLEAN DEFAULT FALSE,
+  verification_status ENUM('pending', 'verified', 'rejected') DEFAULT 'pending',
+  rejection_reason TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Create phone verifications table
+CREATE TABLE phone_verifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  phone_number VARCHAR(20) NOT NULL,
+  verification_code VARCHAR(10) NOT NULL,
+  is_verified BOOLEAN DEFAULT FALSE,
+  verification_attempts INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  verified_at TIMESTAMP DEFAULT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_user_phone (user_id, phone_number)
+);
+
+-- Create selfie verifications table
+CREATE TABLE selfie_verifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  selfie_image_url VARCHAR(500) NOT NULL,
+  id_document_image_url VARCHAR(500) DEFAULT NULL,
+  match_confidence DECIMAL(5, 2) DEFAULT NULL,
+  is_verified BOOLEAN DEFAULT FALSE,
+  verification_status ENUM('pending', 'verified', 'rejected', 'manual_review') DEFAULT 'pending',
+  rejection_reason TEXT,
+  reviewed_by VARCHAR(100) DEFAULT NULL,
+  reviewed_at TIMESTAMP DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Create driver verification status table
+CREATE TABLE driver_verification_status (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL UNIQUE,
+  id_document_verified BOOLEAN DEFAULT FALSE,
+  selfie_verified BOOLEAN DEFAULT FALSE,
+  phone_verified BOOLEAN DEFAULT FALSE,
+  bank_account_verified BOOLEAN DEFAULT FALSE,
+  is_approved BOOLEAN DEFAULT FALSE,
+  approval_date TIMESTAMP DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Create indexes for verification tables
+CREATE INDEX idx_id_documents_user_id ON id_documents(user_id);
+CREATE INDEX idx_id_documents_verification_status ON id_documents(verification_status);
+CREATE INDEX idx_bank_accounts_user_id ON bank_accounts(user_id);
+CREATE INDEX idx_bank_accounts_verification_status ON bank_accounts(verification_status);
+CREATE INDEX idx_phone_verifications_user_id ON phone_verifications(user_id);
+CREATE INDEX idx_selfie_verifications_user_id ON selfie_verifications(user_id);
+CREATE INDEX idx_selfie_verifications_status ON selfie_verifications(verification_status);
+CREATE INDEX idx_driver_verification_status_user_id ON driver_verification_status(user_id);
