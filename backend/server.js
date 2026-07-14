@@ -1709,10 +1709,10 @@ app.delete('/api/payment-methods/:id', (req, res) => {
 
 // === DRIVER VERIFICATION ENDPOINTS ===
 
-// Ensure id_documents table exists
-const ensureIdDocumentsTable = () => {
-  const createTableQuery = `
-    CREATE TABLE IF NOT EXISTS id_documents (
+// Ensure verification tables exist
+const ensureVerificationTables = () => {
+  const createTables = [
+    `CREATE TABLE IF NOT EXISTS id_documents (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       document_type VARCHAR(50) NOT NULL,
@@ -1725,14 +1725,130 @@ const ensureIdDocumentsTable = () => {
       rejection_reason TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `;
-  db.query(createTableQuery, [], (err) => {
-    if (err) console.error('Error creating id_documents table:', err.message);
+    )`,
+    `CREATE TABLE IF NOT EXISTS selfie_verifications (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      selfie_image_url VARCHAR(500) NOT NULL,
+      id_document_image_url VARCHAR(500),
+      verification_status VARCHAR(20) DEFAULT 'pending',
+      is_verified BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS phone_verifications (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      phone_number VARCHAR(20) NOT NULL,
+      verification_code VARCHAR(10) NOT NULL,
+      is_verified BOOLEAN DEFAULT FALSE,
+      verified_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS bank_accounts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      bank_name VARCHAR(100) NOT NULL,
+      account_number VARCHAR(50) NOT NULL,
+      account_holder_name VARCHAR(100) NOT NULL,
+      routing_number VARCHAR(20),
+      iban VARCHAR(50),
+      swift_code VARCHAR(20),
+      verification_status VARCHAR(20) DEFAULT 'pending',
+      is_verified BOOLEAN DEFAULT FALSE,
+      is_default BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS driver_verification_status (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+      is_approved BOOLEAN DEFAULT FALSE,
+      approval_date TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS ratings (
+      id SERIAL PRIMARY KEY,
+      ride_id INTEGER NOT NULL REFERENCES rides(id) ON DELETE CASCADE,
+      user_email VARCHAR(255) NOT NULL,
+      driver_email VARCHAR(255),
+      rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+      comment TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_ratings_ride_id ON ratings(ride_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_ratings_driver_email ON ratings(driver_email)`
+  ];
+
+  let completed = 0;
+  createTables.forEach((query, index) => {
+    db.query(query, [], (err) => {
+      if (err) {
+        console.error(`Error creating verification table ${index}:`, err.message);
+      }
+      completed++;
+      if (completed === createTables.length) {
+        console.log('All verification tables ensured');
+      }
+    });
   });
 };
 
-ensureIdDocumentsTable();
+// Idempotently ensure all expected columns exist. CREATE TABLE IF NOT EXISTS will
+// NOT modify a table that already exists from an older deployment, which causes
+// INSERTs to fail on missing/mismatched columns. ADD COLUMN IF NOT EXISTS fixes
+// that drift safely on every startup.
+const migrateVerificationTables = () => {
+  const alters = [
+    // id_documents
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS document_type VARCHAR(50) NOT NULL DEFAULT 'national_id'`,
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS document_number VARCHAR(100) NOT NULL DEFAULT 'unknown'`,
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS expiry_date DATE`,
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS front_image_url VARCHAR(500)`,
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS back_image_url VARCHAR(500)`,
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) DEFAULT 'pending'`,
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS rejection_reason TEXT`,
+    // selfie_verifications
+    `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS selfie_image_url VARCHAR(500) NOT NULL DEFAULT ''`,
+    `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS id_document_image_url VARCHAR(500)`,
+    `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) DEFAULT 'pending'`,
+    `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`,
+    // phone_verifications
+    `ALTER TABLE phone_verifications ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20) NOT NULL DEFAULT ''`,
+    `ALTER TABLE phone_verifications ADD COLUMN IF NOT EXISTS verification_code VARCHAR(10) NOT NULL DEFAULT ''`,
+    `ALTER TABLE phone_verifications ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`,
+    // bank_accounts
+    `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS bank_name VARCHAR(100) NOT NULL DEFAULT ''`,
+    `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS account_number VARCHAR(50) NOT NULL DEFAULT ''`,
+    `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS account_holder_name VARCHAR(100) NOT NULL DEFAULT ''`,
+    `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS routing_number VARCHAR(20)`,
+    `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS iban VARCHAR(50)`,
+    `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS swift_code VARCHAR(20)`,
+    `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) DEFAULT 'pending'`,
+    `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE`,
+    // driver_verification_status
+    `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`,
+  ];
+
+  let completed = 0;
+  alters.forEach((query, index) => {
+    db.query(query, [], (err) => {
+      if (err) {
+        console.error(`Error migrating verification table column ${index}:`, err.message);
+      }
+      completed++;
+      if (completed === alters.length) {
+        console.log('All verification table migrations ensured');
+      }
+    });
+  });
+};
+
+ensureVerificationTables();
+migrateVerificationTables();
 
 // Upload government-issued ID
 app.post('/api/drivers/:email/id-document', (req, res) => {

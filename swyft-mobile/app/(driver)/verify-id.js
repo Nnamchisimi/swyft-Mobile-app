@@ -122,7 +122,10 @@ export default function DriverIdDocumentScreen() {
       console.log('ID submission error:', error.response?.data);
       const errorDetails = error.response?.data?.details || error.message;
       const errorCode = error.response?.data?.code;
-      Alert.alert('Error', error.response?.data?.error || 'Failed to submit ID document');
+      const detailMsg = error.response?.data?.details
+        ? `${error.response.data.error}\n\n${error.response.data.details}`
+        : (error.response?.data?.error || 'Failed to submit ID document');
+      Alert.alert('Error', detailMsg);
       if (errorCode === '42P01') {
         console.error('Table id_documents does not exist. Please run database migrations.');
       }

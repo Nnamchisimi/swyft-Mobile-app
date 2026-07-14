@@ -74,6 +74,8 @@ export default function BookRideScreen() {
   const [surchargeDetails, setSurchargeDetails] = useState([]);
   const [priceBreakdownExpanded, setPriceBreakdownExpanded] = useState(false);
   const [vehicleTypesExpanded, setVehicleTypesExpanded] = useState(false);
+  const [pickupMapsUrl, setPickupMapsUrl] = useState('');
+  const [dropoffMapsUrl, setDropoffMapsUrl] = useState('');
   const [rideTypes, setRideTypes] = useState([
      { 
        id: 'lefkosa', 
@@ -650,7 +652,7 @@ export default function BookRideScreen() {
     }
     
     socketService.on('rideCreated', (ride) => {
-      if (ride.passengerEmail === userEmail) {
+      if (ride.passenger_email === userEmail) {
         setCurrentRide({ id: ride.id, ...ride, status: 'requested' });
         setRideBooked(true);
         
