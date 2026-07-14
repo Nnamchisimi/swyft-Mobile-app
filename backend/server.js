@@ -1871,7 +1871,11 @@ app.post('/api/drivers/:email/id-document', (req, res) => {
       userId, 
       document_type, 
       document_number, 
-      expiry_date && expiry_date !== '' ? expiry_date : null, 
+      (() => {
+        if (!expiry_date || expiry_date === '') return null;
+        const d = new Date(expiry_date);
+        return isNaN(d.getTime()) ? null : expiry_date;
+      })(), 
       front_image_url && front_image_url !== '' ? front_image_url : null, 
       back_image_url && back_image_url !== '' ? back_image_url : null
     ];

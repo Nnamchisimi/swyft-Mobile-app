@@ -97,6 +97,18 @@ export default function DriverIdDocumentScreen() {
     );
   };
 
+  const formatExpiryDate = (value) => {
+    if (!value || value.trim() === '') return '';
+    const m = value.trim().match(/^(\d{1,2})\/(\d{2,4})$/);
+    if (m) {
+      const month = String(parseInt(m[1], 10)).padStart(2, '0');
+      let year = parseInt(m[2], 10);
+      if (year < 100) year += 2000; // 2-digit year -> 20xx
+      return `${year}-${month}-01`;
+    }
+    return value; // assume already ISO
+  };
+
   const handleSubmit = async () => {
     if (!formData.document_number) {
       Alert.alert('Error', 'Please enter your document number');
@@ -115,7 +127,8 @@ export default function DriverIdDocumentScreen() {
         Alert.alert('Error', 'User email not found. Please log in again.');
         return;
       }
-      const response = await driverAPI.submitIdDocument(email, formData);
+      const payload = { ...formData, expiry_date: formatExpiryDate(formData.expiry_date) };
+      const response = await driverAPI.submitIdDocument(email, payload);
       
       router.push('/(driver)/verify-selfie');
     } catch (error) {
