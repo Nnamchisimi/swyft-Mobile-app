@@ -2021,7 +2021,7 @@ app.post('/api/drivers/:email/bank-account', (req, res) => {
     
     const userId = userResult.rows[0].id;
     
-    const insertQuery = 'INSERT INTO bank_accounts (user_id, bank_name, account_number, account_holder_name, routing_number, iban, swift_code, verification_status) VALUES ($1, $2, $3, $4, $5, $6, $7, \'pending\') RETURNING *';
+    const insertQuery = 'INSERT INTO bank_accounts (user_id, bank_name, account_number, account_holder_name, routing_number, iban, swift_code, verification_status, is_default) VALUES ($1, $2, $3, $4, $5, $6, $7, \'pending\', true) RETURNING *';
     
     db.query(insertQuery, [userId, bank_name, account_number, account_holder_name, routing_number || null, iban || null, swift_code || null], (err2, result) => {
       if (err2) return res.status(500).json({ error: 'Failed to save bank account' });
@@ -2051,7 +2051,7 @@ app.get('/api/drivers/:email/verification-status', (req, res) => {
           // Get phone verification status
           db.query('SELECT is_verified FROM phone_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err3, phoneResult) => {
           // Get bank account status
-          db.query('SELECT verification_status, is_verified FROM bank_accounts WHERE user_id = $1 AND is_default = true ORDER BY created_at DESC LIMIT 1', [userId], (err4, bankResult) => {
+          db.query('SELECT verification_status, is_verified FROM bank_accounts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err4, bankResult) => {
             
             const idVerified = idResult.rows.length > 0 && idResult.rows[0].is_verified;
             const selfieVerified = selfieResult.rows.length > 0 && selfieResult.rows[0].is_verified;
