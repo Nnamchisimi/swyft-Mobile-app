@@ -83,6 +83,7 @@ export const driverAPI = {
   verifyPhoneNumber: (email, verifyData) => api.post(`/api/drivers/${encodeURIComponent(email)}/phone-verify`, verifyData),
   submitBankAccount: (email, bankData) => api.post(`/api/drivers/${encodeURIComponent(email)}/bank-account`, bankData),
   getVerificationStatus: (email) => api.get(`/api/drivers/${encodeURIComponent(email)}/verification-status`),
+  submitForReview: (email) => api.post(`/api/drivers/${encodeURIComponent(email)}/submit-for-review`),
   approveDriver: (email, approvalData) => api.patch(`/api/drivers/${encodeURIComponent(email)}/approve`, approvalData),
 };
 

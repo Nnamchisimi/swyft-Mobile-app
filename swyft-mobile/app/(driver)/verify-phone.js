@@ -20,11 +20,9 @@ import { driverAPI } from '../../src/services/api';
 export default function DriverPhoneScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState('enter_phone');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
 
-  const handleRequestCode = async () => {
+  const handleSave = async () => {
     if (!phoneNumber || phoneNumber.length < 10) {
       Alert.alert('Error', 'Please enter a valid phone number');
       return;
@@ -33,38 +31,12 @@ export default function DriverPhoneScreen() {
     setLoading(true);
     try {
       const email = await authService.getUserEmail();
-      const response = await driverAPI.requestPhoneVerification(email, { phone_number: phoneNumber });
-      
-      setStep('verify_code');
-      Alert.alert(
-        'Code Sent',
-        `A verification code has been sent to ${phoneNumber}`,
-        { text: 'OK' }
-      );
-    } catch (error) {
-      Alert.alert('Error', error.response?.data?.error || 'Failed to send verification code');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyCode = async () => {
-    if (!verificationCode || verificationCode.length !== 6) {
-      Alert.alert('Error', 'Please enter the 6-digit verification code');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const email = await authService.getUserEmail();
-      const response = await driverAPI.verifyPhoneNumber(email, {
-        phone_number: phoneNumber,
-        verification_code: verificationCode,
-      });
-      
+      // Save the phone number to the database. No SMS code is sent;
+      // the admin reviews and approves manually from the database.
+      await driverAPI.requestPhoneVerification(email, { phone_number: phoneNumber });
       router.push('/(driver)/verify-bank');
     } catch (error) {
-      Alert.alert('Error', error.response?.data?.error || 'Invalid verification code');
+      Alert.alert('Error', error.response?.data?.error || 'Failed to save phone number');
     } finally {
       setLoading(false);
     }
@@ -86,11 +58,13 @@ export default function DriverPhoneScreen() {
           <View style={styles.stepLine} />
           <View style={styles.stepCompleted} />
           <View style={styles.stepLine} />
+          <View style={styles.stepCompleted} />
+          <View style={styles.stepLine} />
           <View style={styles.step} />
           <View style={styles.stepLine} />
           <View style={styles.step} />
         </View>
-        
+
         <View style={styles.stepLabels}>
           <Text style={styles.stepLabel}>ID</Text>
           <Text style={styles.stepLabel}>Selfie</Text>
@@ -100,44 +74,26 @@ export default function DriverPhoneScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.title}>Phone Number Verification</Text>
-          <Text style={styles.subtitle}>Verify your phone number to receive payouts</Text>
+          <Text style={styles.title}>Phone Number</Text>
+          <Text style={styles.subtitle}>Add your phone number for account verification and payouts</Text>
 
-          {step === 'enter_phone' ? (
-            <View style={styles.field}>
-              <Text style={styles.label}>Phone Number *</Text>
-              <TextInput
-                style={styles.input}
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                placeholder="+1 (555) 123-4567"
-                placeholderTextColor={COLORS.textSecondary}
-                keyboardType="phone-pad"
-              />
-              <Text style={styles.hint}>We'll send a verification code to this number</Text>
-            </View>
-          ) : (
-            <View style={styles.field}>
-              <Text style={styles.label}>Verification Code *</Text>
-              <View style={styles.codeInput}>
-                <TextInput
-                  style={styles.codeInputField}
-                  value={verificationCode}
-                  onChangeText={setVerificationCode}
-                  placeholder="000000"
-                  placeholderTextColor={COLORS.textSecondary}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                />
-              </View>
-              <Text style={styles.hint}>Enter the 6-digit code sent to {phoneNumber}</Text>
-            </View>
-          )}
+          <View style={styles.field}>
+            <Text style={styles.label}>Phone Number *</Text>
+            <TextInput
+              style={styles.input}
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              placeholder="+1 (555) 123-4567"
+              placeholderTextColor={COLORS.textSecondary}
+              keyboardType="phone-pad"
+            />
+            <Text style={styles.hint}>Your number is saved securely and reviewed manually by our team.</Text>
+          </View>
 
-<View style={styles.infoBox}>
+          <View style={styles.infoBox}>
             <Ionicons name="lock-closed-outline" size={20} color={COLORS.primary} />
             <Text style={styles.infoText}>
-              Your phone number is kept secure and is used only for account verification 
+              Your phone number is kept secure and is used only for account verification
               and important notifications.
             </Text>
           </View>
@@ -147,27 +103,15 @@ export default function DriverPhoneScreen() {
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={step === 'enter_phone' ? handleRequestCode : handleVerifyCode}
+          onPress={handleSave}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color={COLORS.white} />
           ) : (
-            <Text style={styles.buttonText}>
-              {step === 'enter_phone' ? 'Send Verification Code' : 'Verify Phone Number'}
-            </Text>
+            <Text style={styles.buttonText}>Save Phone Number</Text>
           )}
         </TouchableOpacity>
-
-        {step === 'verify_code' && (
-          <TouchableOpacity
-            style={styles.resendButton}
-            onPress={handleRequestCode}
-            disabled={loading}
-          >
-            <Text style={styles.resendText}>Resend Code</Text>
-          </TouchableOpacity>
-        )}
 
         <TouchableOpacity
           style={styles.skipButton}

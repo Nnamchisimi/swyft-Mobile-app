@@ -27,7 +27,11 @@ export default function DriverVerifySummaryScreen() {
   const getState = (key) => {
     const v = verifications[key];
     if (!v) return 'not_submitted';
-    if (key === 'phone') return v.is_verified ? 'verified' : 'not_submitted';
+    if (key === 'phone') {
+      if (v.is_verified) return 'verified';
+      if (v.status && v.status !== 'not_submitted') return 'submitted';
+      return 'not_submitted';
+    }
     const s = v.status;
     if (s === 'verified') return 'verified';
     if (s === 'rejected') return 'rejected';
@@ -84,7 +88,7 @@ export default function DriverVerifySummaryScreen() {
             text: 'Submit',
             onPress: async () => {
               const email = await authService.getUserEmail();
-              const response = await driverAPI.approveDriver(email, { is_approved: false });
+              const response = await driverAPI.submitForReview(email);
               
               Alert.alert(
                 'Submitted!',

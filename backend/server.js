@@ -2048,8 +2048,8 @@ app.get('/api/drivers/:email/verification-status', (req, res) => {
     db.query('SELECT verification_status, is_verified FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err1, idResult) => {
       // Get selfie verification status
       db.query('SELECT verification_status, is_verified FROM selfie_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err2, selfieResult) => {
-        // Get phone verification status
-        db.query('SELECT is_verified FROM phone_verifications WHERE user_id = $1 ORDER BY verified_at DESC LIMIT 1', [userId], (err3, phoneResult) => {
+          // Get phone verification status
+          db.query('SELECT is_verified FROM phone_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err3, phoneResult) => {
           // Get bank account status
           db.query('SELECT verification_status, is_verified FROM bank_accounts WHERE user_id = $1 AND is_default = true ORDER BY created_at DESC LIMIT 1', [userId], (err4, bankResult) => {
             
@@ -2072,7 +2072,8 @@ app.get('/api/drivers/:email/verification-status', (req, res) => {
                   status: selfieResult.rows.length > 0 ? selfieResult.rows[0].verification_status : 'not_submitted'
                 },
                 phone: {
-                  is_verified: phoneVerified
+                  is_verified: phoneVerified,
+                  status: phoneResult.rows.length > 0 ? 'pending' : 'not_submitted'
                 },
                 bank_account: {
                   is_verified: bankVerified,
@@ -2104,6 +2105,53 @@ app.patch('/api/drivers/:email/approve', (req, res) => {
         
         res.json({ message: 'Approval status updated', is_approved });
       });
+  });
+});
+
+// Submit all driver verifications for manual review.
+// Each verification record is already saved when the driver completes its step;
+// this guarantees every record is flagged as 'pending' and the overall
+// submission is recorded so an admin can review and approve directly from the DB.
+app.post('/api/drivers/:email/submit-for-review', (req, res) => {
+  const { email } = req.params;
+
+  db.query('SELECT id FROM public.users WHERE email = $1 AND LOWER(role) = \'driver\'', [email], (err, userResult) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'Driver not found' });
+
+    const userId = userResult.rows[0].id;
+
+    let pending = 3;
+    const afterMark = () => {
+      if (--pending > 0) return;
+
+      // Record the overall submission (submitted for review, not yet approved)
+      db.query(
+        `INSERT INTO driver_verification_status (user_id, is_approved, approval_date)
+         VALUES ($1, false, null)
+         ON CONFLICT (user_id) DO UPDATE SET is_approved = false, approval_date = null`,
+        [userId],
+        (err3) => {
+          if (err3) return res.status(500).json({ error: 'Failed to submit for review' });
+
+          const summaryQuery = `
+            SELECT
+              (SELECT COUNT(*) FROM id_documents WHERE user_id = $1) AS id_documents,
+              (SELECT COUNT(*) FROM selfie_verifications WHERE user_id = $1) AS selfies,
+              (SELECT COUNT(*) FROM phone_verifications WHERE user_id = $1) AS phones,
+              (SELECT COUNT(*) FROM bank_accounts WHERE user_id = $1) AS bank_accounts
+          `;
+          db.query(summaryQuery, [userId], (err4, sumResult) => {
+            if (err4) return res.status(500).json({ error: 'Failed to load submission summary' });
+            res.json({ message: 'Submitted for review', submitted: sumResult.rows[0] });
+          });
+        }
+      );
+    };
+
+    db.query('UPDATE id_documents SET verification_status = \'pending\' WHERE user_id = $1', [userId], afterMark);
+    db.query('UPDATE selfie_verifications SET verification_status = \'pending\' WHERE user_id = $1', [userId], afterMark);
+    db.query('UPDATE bank_accounts SET verification_status = \'pending\' WHERE user_id = $1', [userId], afterMark);
   });
 });
 
