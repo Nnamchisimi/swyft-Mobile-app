@@ -22,6 +22,26 @@ export default function DriverVerifySummaryScreen() {
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
 
+  const verifications = verificationStatus?.verifications || {};
+
+  const getState = (key) => {
+    const v = verifications[key];
+    if (!v) return 'not_submitted';
+    if (key === 'phone') return v.is_verified ? 'verified' : 'not_submitted';
+    const s = v.status;
+    if (s === 'verified') return 'verified';
+    if (s === 'rejected') return 'rejected';
+    if (s && s !== 'not_submitted') return 'submitted';
+    return 'not_submitted';
+  };
+
+  const requiredKeys = ['id_document', 'selfie', 'phone'];
+
+  const allRequiredSubmitted = requiredKeys.every((k) => {
+    const st = getState(k);
+    return st === 'verified' || st === 'submitted';
+  });
+
   useEffect(() => {
     loadVerificationStatus();
   }, []);
@@ -42,20 +62,15 @@ export default function DriverVerifySummaryScreen() {
     setLoading(true);
     try {
       const email = await authService.getUserEmail();
-      
-      // Check if all verifications are complete
-      if (!verificationStatus?.verifications?.id_document?.is_verified) {
-        Alert.alert('Incomplete', 'Please complete ID document verification');
-        return;
-      }
-      
-      if (!verificationStatus?.verifications?.selfie?.is_verified) {
-        Alert.alert('Incomplete', 'Please complete selfie verification');
-        return;
-      }
-      
-      if (!verificationStatus?.verifications?.phone?.is_verified) {
-        Alert.alert('Incomplete', 'Please complete phone verification');
+
+      // Check if all required verifications have been submitted
+      const missing = requiredKeys.filter((k) => {
+        const st = getState(k);
+        return st === 'not_submitted' || st === 'rejected';
+      });
+
+      if (missing.length > 0) {
+        Alert.alert('Incomplete', 'Please complete ID document, selfie, and phone verification.');
         return;
       }
 
@@ -87,13 +102,22 @@ export default function DriverVerifySummaryScreen() {
     }
   };
 
-  const getStatusIcon = (isVerified) => {
-    if (isVerified) return 'checkmark-circle';
+  const getStatusIcon = (state) => {
+    if (state === 'verified' || state === 'submitted') return 'checkmark-circle';
     return 'close-circle';
   };
 
-  const getStatusColor = (isVerified) => {
-    return isVerified ? COLORS.success : COLORS.error;
+  const getStatusColor = (state) => {
+    if (state === 'verified') return COLORS.success;
+    if (state === 'submitted') return COLORS.primary;
+    return COLORS.error;
+  };
+
+  const getStatusLabel = (state) => {
+    if (state === 'verified') return 'Verified';
+    if (state === 'submitted') return 'Submitted';
+    if (state === 'rejected') return 'Rejected';
+    return 'Not done';
   };
 
   if (loadingStatus) {
@@ -104,11 +128,6 @@ export default function DriverVerifySummaryScreen() {
     );
   }
 
-  const verifications = verificationStatus?.verifications || {};
-  const idVerified = verifications.id_document?.is_verified || false;
-  const selfieVerified = verifications.selfie?.is_verified || false;
-  const phoneVerified = verifications.phone?.is_verified || false;
-  const bankVerified = verifications.bank_account?.is_verified || false;
   const isApproved = verificationStatus?.is_approved || false;
 
   return (
@@ -125,49 +144,57 @@ export default function DriverVerifySummaryScreen() {
           <Text style={styles.sectionTitle}>Verification Requirements</Text>
           
           {[
-            { label: 'Government-Issued ID', key: 'id_document', verified: idVerified },
-            { label: 'Live Selfie', key: 'selfie', verified: selfieVerified },
-            { label: 'Phone Number', key: 'phone', verified: phoneVerified },
-            { label: 'Bank Account', key: 'bank_account', verified: bankVerified },
-          ].map((item, index) => (
-            <View key={item.key} style={styles.verificationItem}>
-              <View style={styles.verificationInfo}>
-                <Ionicons
-                  name={getStatusIcon(item.verified)}
-                  size={24}
-                  color={getStatusColor(item.verified)}
-                />
-                <Text style={styles.verificationLabel}>{item.label}</Text>
+            { label: 'Government-Issued ID', key: 'id_document' },
+            { label: 'Live Selfie', key: 'selfie' },
+            { label: 'Phone Number', key: 'phone' },
+            { label: 'Bank Account', key: 'bank_account' },
+          ].map((item) => {
+            const state = getState(item.key);
+            const done = state === 'verified' || state === 'submitted';
+            return (
+              <View key={item.key} style={styles.verificationItem}>
+                <View style={styles.verificationInfo}>
+                  <Ionicons
+                    name={getStatusIcon(state)}
+                    size={24}
+                    color={getStatusColor(state)}
+                  />
+                  <Text style={styles.verificationLabel}>{item.label}</Text>
+                </View>
+                <View style={styles.verificationStatus}>
+                  {done ? (
+                    <Text style={[styles.verifiedText, { color: getStatusColor(state) }]}>
+                      {getStatusLabel(state)}
+                    </Text>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.verifyButton}
+                      onPress={() => {
+                        switch (item.key) {
+                          case 'id_document':
+                            router.push('/(driver)/verify-id');
+                            break;
+                          case 'selfie':
+                            router.push('/(driver)/verify-selfie');
+                            break;
+                          case 'phone':
+                            router.push('/(driver)/verify-phone');
+                            break;
+                          case 'bank_account':
+                            router.push('/(driver)/verify-bank');
+                            break;
+                        }
+                      }}
+                    >
+                      <Text style={styles.verifyButtonText}>
+                        {state === 'rejected' ? 'Redo' : 'Verify'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-              <View style={styles.verificationStatus}>
-                {item.verified ? (
-                  <Text style={styles.verifiedText}>Verified</Text>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.verifyButton}
-                    onPress={() => {
-                      switch (item.key) {
-                        case 'id_document':
-                          router.push('/(driver)/verify-id');
-                          break;
-                        case 'selfie':
-                          router.push('/(driver)/verify-selfie');
-                          break;
-                        case 'phone':
-                          router.push('/(driver)/verify-phone');
-                          break;
-                        case 'bank_account':
-                          router.push('/(driver)/verify-bank');
-                          break;
-                      }
-                    }}
-                  >
-                    <Text style={styles.verifyButtonText}>Verify</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         {!isApproved && (
@@ -178,12 +205,12 @@ export default function DriverVerifySummaryScreen() {
                 <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
                 <View style={styles.approvalText}>
                   <Text style={styles.approvalTitle}>
-                    {idVerified && selfieVerified && phoneVerified 
+                    {allRequiredSubmitted
                       ? 'Ready for Review' 
                       : 'Complete All Verifications'}
                   </Text>
                   <Text style={styles.approvalDesc}>
-                    {idVerified && selfieVerified && phoneVerified
+                    {allRequiredSubmitted
                       ? 'Your documents are ready for manual review by our team.'
                       : 'Complete all verification steps to submit for review.'}
                   </Text>
