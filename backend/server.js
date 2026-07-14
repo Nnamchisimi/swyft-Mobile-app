@@ -1804,14 +1804,14 @@ const migrateVerificationTables = () => {
     `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS document_type VARCHAR(50) NOT NULL DEFAULT 'national_id'`,
     `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS document_number VARCHAR(100) NOT NULL DEFAULT 'unknown'`,
     `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS expiry_date DATE`,
-    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS front_image_url VARCHAR(500)`,
-    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS back_image_url VARCHAR(500)`,
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS front_image_url TEXT`,
+    `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS back_image_url TEXT`,
     `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) DEFAULT 'pending'`,
     `ALTER TABLE id_documents ADD COLUMN IF NOT EXISTS rejection_reason TEXT`,
     // selfie_verifications
-    `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS selfie_image_url VARCHAR(500) NOT NULL DEFAULT ''`,
-    `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS id_document_image_url VARCHAR(500)`,
+    `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS selfie_image_url TEXT NOT NULL DEFAULT ''`,
+    `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS id_document_image_url TEXT`,
     `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) DEFAULT 'pending'`,
     `ALTER TABLE selfie_verifications ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`,
     // phone_verifications
@@ -1831,6 +1831,11 @@ const migrateVerificationTables = () => {
     // driver_verification_status
     `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`,
+    // Widen image columns to TEXT so base64 image data fits
+    `ALTER TABLE id_documents ALTER COLUMN front_image_url TYPE TEXT`,
+    `ALTER TABLE id_documents ALTER COLUMN back_image_url TYPE TEXT`,
+    `ALTER TABLE selfie_verifications ALTER COLUMN selfie_image_url TYPE TEXT`,
+    `ALTER TABLE selfie_verifications ALTER COLUMN id_document_image_url TYPE TEXT`,
   ];
 
   let completed = 0;

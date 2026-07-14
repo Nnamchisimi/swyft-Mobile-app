@@ -48,10 +48,12 @@ export default function DriverSelfieScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        setSelfieImage(result.assets[0].uri);
+        const asset = result.assets[0];
+        setSelfieImage(asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri);
       }
     } catch (error) {
       console.error('Camera error:', error);
@@ -72,10 +74,12 @@ export default function DriverSelfieScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        setSelfieImage(result.assets[0].uri);
+        const asset = result.assets[0];
+        setSelfieImage(asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri);
       }
     } catch (error) {
       console.error('Image picker error:', error);

@@ -50,10 +50,13 @@ export default function DriverIdDocumentScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        setFormData({ ...formData, [`${type}_image_url`]: result.assets[0].uri });
+        const asset = result.assets[0];
+        const dataUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setFormData({ ...formData, [`${type}_image_url`]: dataUri });
       }
     } catch (error) {
       console.error('Image picker error:', error);
@@ -74,10 +77,13 @@ export default function DriverIdDocumentScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        setFormData({ ...formData, [`${type}_image_url`]: result.assets[0].uri });
+        const asset = result.assets[0];
+        const dataUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setFormData({ ...formData, [`${type}_image_url`]: dataUri });
       }
     } catch (error) {
       console.error('Camera error:', error);
