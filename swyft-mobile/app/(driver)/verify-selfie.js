@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 import { authService } from '../../src/services/auth';
 import { driverAPI } from '../../src/services/api';
+import { uploadDriverImage, uploadBase64AsDataUri } from '../../src/services/supabaseStorage';
 
 export default function DriverSelfieScreen() {
   const router = useRouter();
@@ -53,7 +54,19 @@ export default function DriverSelfieScreen() {
 
       if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0];
-        setSelfieImage(asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri);
+        let url;
+        if (asset.base64) {
+          try {
+            const path = `selfie_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+            url = await uploadDriverImage(asset.base64, path);
+          } catch (e) {
+            console.warn('Image upload failed, using base64 fallback:', e.message);
+            url = uploadBase64AsDataUri(asset.base64);
+          }
+        } else {
+          url = asset.uri;
+        }
+        setSelfieImage(url);
       }
     } catch (error) {
       console.error('Camera error:', error);
@@ -79,7 +92,19 @@ export default function DriverSelfieScreen() {
 
       if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0];
-        setSelfieImage(asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri);
+        let url;
+        if (asset.base64) {
+          try {
+            const path = `selfie_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+            url = await uploadDriverImage(asset.base64, path);
+          } catch (e) {
+            console.warn('Image upload failed, using base64 fallback:', e.message);
+            url = uploadBase64AsDataUri(asset.base64);
+          }
+        } else {
+          url = asset.uri;
+        }
+        setSelfieImage(url);
       }
     } catch (error) {
       console.error('Image picker error:', error);

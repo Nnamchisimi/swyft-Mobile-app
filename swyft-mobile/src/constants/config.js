@@ -1,5 +1,9 @@
 import Constants from 'expo-constants';
 
+export const SUPABASE_URL = 'https://wzsyazxiwvbacpzwhxli.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_NyvThWXbIjbwCwAZo5gBTA_83WdKGTs';
+export const SUPABASE_BUCKET = 'casyft';
+
 export const COLORS = {
   primary: '#2196F3',
   secondary: '#FF9800',
