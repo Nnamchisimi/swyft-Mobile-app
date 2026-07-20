@@ -2078,7 +2078,8 @@ app.get('/api/drivers/:email/verification-status', (req, res) => {
             const phoneVerified = phoneResult.rows.length > 0 && phoneResult.rows[0].is_verified;
             const bankVerified = bankResult.rows.length > 0 && bankResult.rows[0].is_verified;
             
-            const isApproved = idVerified && selfieVerified && phoneVerified && bankVerified;
+            const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
+            const isApproved = userVerified || allVerified;
             
             res.json({
               is_approved: isApproved,
@@ -2135,11 +2136,12 @@ app.patch('/api/drivers/:email/approve', (req, res) => {
 app.post('/api/drivers/:email/submit-for-review', (req, res) => {
   const { email } = req.params;
 
-  db.query('SELECT id FROM public.users WHERE email = $1 AND LOWER(role) = \'driver\'', [email], (err, userResult) => {
+  db.query('SELECT id, is_verified FROM public.users WHERE email = $1 AND LOWER(role) = \'driver\'', [email], (err, userResult) => {
     if (err) return res.status(500).json({ error: 'Server error' });
     if (userResult.rows.length === 0) return res.status(404).json({ error: 'Driver not found' });
 
     const userId = userResult.rows[0].id;
+    const userVerified = !!userResult.rows[0].is_verified;
 
     let pending = 3;
     const afterMark = () => {
