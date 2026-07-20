@@ -2634,10 +2634,12 @@ app.post('/api/admin/drivers/:email/approve', (req, res) => {
     return res.status(400).json({ error: 'approved must be a boolean' });
   }
 
-  db.query('SELECT id FROM public.users WHERE email = $1 AND LOWER(role) = \'driver\'', [email], (err, userResult) => {
+  db.query('SELECT id, is_verified FROM public.users WHERE email = $1 AND LOWER(role) = \'driver\'', [email], (err, userResult) => {
     if (err) return res.status(500).json({ error: 'Server error' });
     if (userResult.rows.length === 0) return res.status(404).json({ error: 'Driver not found' });
+
     const userId = userResult.rows[0].id;
+    const userVerified = !!userResult.rows[0].is_verified;
 
     db.query(
       `INSERT INTO driver_verification_status (user_id, is_approved, approval_date)
