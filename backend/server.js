@@ -2309,10 +2309,34 @@ app.get('/api/admin/drivers/pending', (req, res) => {
     LEFT JOIN driver_verification_status dvs ON dvs.user_id = u.id
     WHERE LOWER(u.role) = 'driver'
       AND (
-        EXISTS (SELECT 1 FROM id_documents idv WHERE idv.user_id = u.id AND idv.verification_status IN ('pending','rejected'))
-        OR EXISTS (SELECT 1 FROM selfie_verifications sv WHERE sv.user_id = u.id AND sv.verification_status IN ('pending','rejected'))
-        OR EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.user_id = u.id AND ba.verification_status IN ('pending','rejected'))
-        OR EXISTS (SELECT 1 FROM phone_verifications pv WHERE pv.user_id = u.id AND pv.is_verified = false)
+        EXISTS (
+          SELECT 1 FROM (
+            SELECT DISTINCT ON (user_id) verification_status
+            FROM id_documents WHERE user_id = u.id
+            ORDER BY user_id, created_at DESC
+          ) idv WHERE idv.verification_status IN ('pending','rejected')
+        )
+        OR EXISTS (
+          SELECT 1 FROM (
+            SELECT DISTINCT ON (user_id) verification_status
+            FROM selfie_verifications WHERE user_id = u.id
+            ORDER BY user_id, created_at DESC
+          ) sv WHERE sv.verification_status IN ('pending','rejected')
+        )
+        OR EXISTS (
+          SELECT 1 FROM (
+            SELECT DISTINCT ON (user_id) verification_status
+            FROM bank_accounts WHERE user_id = u.id
+            ORDER BY user_id, created_at DESC
+          ) ba WHERE ba.verification_status IN ('pending','rejected')
+        )
+        OR EXISTS (
+          SELECT 1 FROM (
+            SELECT DISTINCT ON (user_id) is_verified
+            FROM phone_verifications WHERE user_id = u.id
+            ORDER BY user_id, created_at DESC
+          ) pv WHERE pv.is_verified = false
+        )
       )
     ORDER BY u.created_at DESC
   `;
