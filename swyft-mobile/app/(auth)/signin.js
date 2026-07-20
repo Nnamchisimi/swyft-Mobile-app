@@ -48,7 +48,9 @@ export default function SignInScreen() {
         console.log('Login successful, user role:', result.user.role);
 
         const role = (result.user.role || 'passenger').toLowerCase();
-        if (role === 'driver') {
+        if (role === 'admin') {
+          router.replace('/(admin)/review');
+        } else if (role === 'driver') {
           router.replace('/(driver)/dashboard');
         } else {
           router.replace('/(passenger)/home');

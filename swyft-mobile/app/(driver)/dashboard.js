@@ -108,14 +108,7 @@ const loadDriverData = async () => {
       const response = await driverAPI.getVerificationStatus(email);
       const status = response.data;
       console.log('Driver verification status:', status);
-      if (status && !status.is_approved) {
-        // Driver is not approved yet
-        Alert.alert(
-          'Verification Required',
-          'Your driver account is pending verification. Please complete all verification steps.',
-          [{ text: 'Go to Verification', onPress: () => router.push('/(driver)/verify-summary') }]
-        );
-      }
+      // No UI surface here — verification is only mandated at go-online time
     } catch (error) {
       console.error('Error loading verification status:', error);
       // If endpoint doesn't exist (404), allow driver to proceed
@@ -387,20 +380,30 @@ const loadDriverData = async () => {
     const currentLocation = location || locationRef.current;
     const newStatus = !isOnline;
     
-    // Check if driver is approved before going online
+    // Mandate: an unverified driver must complete verification before going online
     if (newStatus) {
       try {
         const verificationResponse = await driverAPI.getVerificationStatus(email);
-        if (!verificationResponse.data?.is_approved) {
+        const status = verificationResponse.data;
+        const verified = status && status.is_approved;
+        if (!verified) {
           Alert.alert(
             'Verification Required',
-            'Your driver account is pending verification. Please complete all verification steps first.',
-            [{ text: 'Go to Verification', onPress: () => router.push('/(driver)/verify-summary') }]
+            'You must complete your identity, selfie, phone, and bank verification before you can go online. Complete all steps now.',
+            [
+              { text: 'Verify Now', onPress: () => router.push('/(driver)/verify-summary') },
+              { text: 'Later', style: 'cancel' },
+            ]
           );
           return;
         }
       } catch (error) {
         console.error('Error checking verification status:', error);
+        // If the status endpoint is unavailable, block going online to be safe
+        if (error.response?.status !== 404) {
+          Alert.alert('Error', 'Could not verify your account status. Please try again.');
+          return;
+        }
       }
     }
     
@@ -1169,8 +1172,8 @@ const loadDriverData = async () => {
           )}
         </View>
       )}
-
       {}
+
       {!isOnline && !currentRide && (
         <View style={styles.offlineContainer}>
           <Ionicons name="cloud-offline" size={48} color={COLORS.gray} />

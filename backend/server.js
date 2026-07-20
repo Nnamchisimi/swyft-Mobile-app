@@ -70,6 +70,23 @@ app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ limit: '25mb', extended: true }));
 
+// Admin guard: every /api/admin/* request must carry a valid JWT with role = 'admin'
+function adminGuard(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.role && decoded.role.toLowerCase() !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    req.admin = decoded;
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+app.use('/api/admin', adminGuard);
+
 // Resend email client
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -375,10 +392,7 @@ app.post('/api/users', async (req, res) => {
   if (role === 'driver' && (!vehicle_make || !vehicle_model || !vehicle_plate))
     return res.status(400).json({ error: 'Vehicle details required for drivers' });
 
-  const normalizedRole = (role || 'passenger');
-  
-  // Capitalize first letter to match database format
-  const dbRole = normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1);
+  const normalizedRole = (role || 'passenger').toLowerCase();
   
   // For Google OAuth users, use a special marker (don't need real password)
   const finalPassword = password === 'google-oauth' ? 'google-oauth' : password;
@@ -388,11 +402,11 @@ app.post('/api/users', async (req, res) => {
     if (results.rows.length > 0) return res.status(400).json({ error: 'Email already exists' });
 
     const hashedPassword = await bcrypt.hash(finalPassword, 10);
-    const dbRole = normalizedRole.charAt(0).toUpperCase() + normalizedRole.slice(1);
 
     // Insert user - NOT verified yet (requires email verification)
+    // role is stored lowercase for consistent comparisons (e.g. 'driver', 'passenger', 'admin')
     const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, role';
-    const userValues = [first_name?.trim(), last_name?.trim(), email?.trim(), hashedPassword, dbRole, phone || null, false];
+    const userValues = [first_name?.trim(), last_name?.trim(), email?.trim(), hashedPassword, normalizedRole, phone || null, false];
 
     db.query(userQuery, userValues, (err2, result) => {
       if (err2) {
@@ -2158,6 +2172,457 @@ app.post('/api/drivers/:email/submit-for-review', (req, res) => {
     db.query('UPDATE id_documents SET verification_status = \'pending\' WHERE user_id = $1', [userId], afterMark);
     db.query('UPDATE selfie_verifications SET verification_status = \'pending\' WHERE user_id = $1', [userId], afterMark);
     db.query('UPDATE bank_accounts SET verification_status = \'pending\' WHERE user_id = $1', [userId], afterMark);
+  });
+});
+
+// === ADMIN: review driver selfie / verification images ===
+// The DB only stores a reference in selfie_verifications.selfie_image_url:
+//   - a Supabase Storage public URL (actual file lives in the bucket)
+//   - a `data:image/...;base64,...` data URI (the image is embedded in the row)
+// resolveImageRef normalizes either into a renderable { type, url } object.
+const resolveImageRef = (ref) => {
+  if (!ref) return null;
+  if (ref.startsWith('data:image/')) return { type: 'base64', url: ref };
+  return { type: 'url', url: ref };
+};
+
+// Get a single driver's latest selfie + id-document image for review
+app.get('/api/admin/drivers/:email/selfie', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { email } = req.params;
+  db.query('SELECT id, first_name, last_name, email, role FROM public.users WHERE email = $1', [email], (err, userResult) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+    const user = userResult.rows[0];
+    db.query(
+      'SELECT * FROM selfie_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [user.id],
+      (err2, selfieResult) => {
+        if (err2) return res.status(500).json({ error: 'Failed to load selfie' });
+
+        const selfie = selfieResult.rows[0] || null;
+        res.json({
+          driver: {
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            role: user.role,
+          },
+          selfie: selfie ? {
+            id: selfie.id,
+            selfie_image: resolveImageRef(selfie.selfie_image_url),
+            id_document_image: resolveImageRef(selfie.id_document_image_url),
+            match_confidence: selfie.match_confidence,
+            is_verified: selfie.is_verified,
+            verification_status: selfie.verification_status,
+            rejection_reason: selfie.rejection_reason,
+            created_at: selfie.created_at,
+            updated_at: selfie.updated_at,
+          } : null,
+        });
+      }
+    );
+  });
+});
+
+// List selfie verification records (review queue), optionally filtered by status
+app.get('/api/admin/selfies', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { status } = req.query;
+  const params = [];
+  let statusCond = '';
+  if (status) {
+    params.push(status);
+    statusCond = 'WHERE sv.verification_status = $1';
+  }
+
+  const query = `
+    SELECT
+      sv.id,
+      sv.selfie_image_url,
+      sv.id_document_image_url,
+      sv.match_confidence,
+      sv.is_verified,
+      sv.verification_status,
+      sv.created_at,
+      u.id AS user_id,
+      u.first_name,
+      u.last_name,
+      u.email
+    FROM selfie_verifications sv
+    JOIN public.users u ON u.id = sv.user_id
+    ${statusCond}
+    ORDER BY sv.created_at DESC
+  `;
+
+  db.query(query, params, (err, results) => {
+    if (err) return res.status(500).json({ error: 'Failed to load selfies' });
+    res.json(results.rows.map((r) => ({
+      id: r.id,
+      driver: { id: r.user_id, first_name: r.first_name, last_name: r.last_name, email: r.email },
+      selfie_image: resolveImageRef(r.selfie_image_url),
+      id_document_image: resolveImageRef(r.id_document_image_url),
+      match_confidence: r.match_confidence,
+      is_verified: r.is_verified,
+      verification_status: r.verification_status,
+      created_at: r.created_at,
+    })));
+  });
+});
+
+// List drivers who have submitted verifications and still need review (any pending/rejected piece)
+app.get('/api/admin/drivers/pending', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const query = `
+    SELECT DISTINCT
+      u.id,
+      u.first_name,
+      u.last_name,
+      u.email,
+      u.phone,
+      u.created_at AS registered_at,
+      COALESCE(dvs.is_approved, false) AS is_approved
+    FROM public.users u
+    LEFT JOIN driver_verification_status dvs ON dvs.user_id = u.id
+    WHERE LOWER(u.role) = 'driver'
+      AND (
+        EXISTS (SELECT 1 FROM id_documents idv WHERE idv.user_id = u.id AND idv.verification_status IN ('pending','rejected'))
+        OR EXISTS (SELECT 1 FROM selfie_verifications sv WHERE sv.user_id = u.id AND sv.verification_status IN ('pending','rejected'))
+        OR EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.user_id = u.id AND ba.verification_status IN ('pending','rejected'))
+        OR EXISTS (SELECT 1 FROM phone_verifications pv WHERE pv.user_id = u.id AND pv.is_verified = false)
+      )
+    ORDER BY u.created_at DESC
+  `;
+
+  db.query(query, [], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Failed to load pending drivers' });
+    res.json(results.rows);
+  });
+});
+
+// Approve or reject a single selfie verification
+app.post('/api/admin/drivers/:email/selfie/review', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { email } = req.params;
+  const { decision, rejection_reason } = req.body; // decision: 'approve' | 'reject'
+
+  if (!['approve', 'reject'].includes(decision)) {
+    return res.status(400).json({ error: "decision must be 'approve' or 'reject'" });
+  }
+
+  db.query('SELECT id FROM public.users WHERE email = $1', [email], (err, userResult) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const userId = userResult.rows[0].id;
+
+    const status = decision === 'approve' ? 'verified' : 'rejected';
+    const isVerified = decision === 'approve';
+    const reason = decision === 'reject' ? (rejection_reason || 'Rejected by moderator') : null;
+
+    db.query(
+      `UPDATE selfie_verifications
+         SET verification_status = $1,
+             is_verified = $2,
+             rejection_reason = $3,
+             reviewed_at = NOW()
+       WHERE user_id = $4 AND id = (
+         SELECT id FROM selfie_verifications WHERE user_id = $4 ORDER BY created_at DESC LIMIT 1
+       )`,
+      [status, isVerified, reason, userId],
+      (err2) => {
+        if (err2) return res.status(500).json({ error: 'Failed to review selfie' });
+        res.json({ message: `Selfie ${status}`, email, verification_status: status, is_verified: isVerified });
+      }
+    );
+  });
+});
+
+// Approve or reject an ID document
+app.post('/api/admin/drivers/:email/id-document/review', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { email } = req.params;
+  const { decision, rejection_reason } = req.body;
+
+  if (!['approve', 'reject'].includes(decision)) {
+    return res.status(400).json({ error: "decision must be 'approve' or 'reject'" });
+  }
+
+  db.query('SELECT id FROM public.users WHERE email = $1', [email], (err, userResult) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const userId = userResult.rows[0].id;
+
+    const status = decision === 'approve' ? 'verified' : 'rejected';
+    const isVerified = decision === 'approve';
+    const reason = decision === 'reject' ? (rejection_reason || 'Rejected by moderator') : null;
+
+    db.query(
+      `UPDATE id_documents
+         SET verification_status = $1,
+             is_verified = $2,
+             rejection_reason = $3
+       WHERE user_id = $4 AND id = (
+         SELECT id FROM id_documents WHERE user_id = $4 ORDER BY created_at DESC LIMIT 1
+       )`,
+      [status, isVerified, reason, userId],
+      (err2) => {
+        if (err2) return res.status(500).json({ error: 'Failed to review ID document' });
+        res.json({ message: `ID document ${status}`, email, verification_status: status, is_verified: isVerified });
+      }
+    );
+  });
+});
+
+// Approve or reject a phone verification
+app.post('/api/admin/drivers/:email/phone/review', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { email } = req.params;
+  const { decision, verified } = req.body; // decision: 'approve' | 'reject' OR verified: boolean
+
+  const isVerified = decision ? decision === 'approve' : !!verified;
+  if (typeof isVerified !== 'boolean') {
+    return res.status(400).json({ error: "decision must be 'approve' or 'reject'" });
+  }
+
+  db.query('SELECT id FROM public.users WHERE email = $1', [email], (err, userResult) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const userId = userResult.rows[0].id;
+
+    db.query(
+      `UPDATE phone_verifications SET is_verified = $1 WHERE user_id = $2 AND id = (
+         SELECT id FROM phone_verifications WHERE user_id = $2 ORDER BY created_at DESC LIMIT 1
+       )`,
+      [isVerified, userId],
+      (err2) => {
+        if (err2) return res.status(500).json({ error: 'Failed to review phone' });
+        res.json({ message: `Phone ${isVerified ? 'verified' : 'rejected'}`, email, is_verified: isVerified });
+      }
+    );
+  });
+});
+
+// Approve or reject a bank account
+app.post('/api/admin/drivers/:email/bank/review', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { email } = req.params;
+  const { decision, rejection_reason } = req.body;
+
+  if (!['approve', 'reject'].includes(decision)) {
+    return res.status(400).json({ error: "decision must be 'approve' or 'reject'" });
+  }
+
+  db.query('SELECT id FROM public.users WHERE email = $1', [email], (err, userResult) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const userId = userResult.rows[0].id;
+
+    const status = decision === 'approve' ? 'verified' : 'rejected';
+    const isVerified = decision === 'approve';
+    const reason = decision === 'reject' ? (rejection_reason || 'Rejected by moderator') : null;
+
+    db.query(
+      `UPDATE bank_accounts
+         SET verification_status = $1, is_verified = $2, rejection_reason = $3
+       WHERE user_id = $4 AND id = (
+         SELECT id FROM bank_accounts WHERE user_id = $4 ORDER BY created_at DESC LIMIT 1
+       )`,
+      [status, isVerified, reason, userId],
+      (err2) => {
+        if (err2) return res.status(500).json({ error: 'Failed to review bank account' });
+        res.json({ message: `Bank account ${status}`, email, verification_status: status, is_verified: isVerified });
+      }
+    );
+  });
+});
+
+// Get the FULL verification bundle for a driver (ID doc + images, selfie + image, phone, bank) for moderator review
+app.get('/api/admin/drivers/:email/verification', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { email } = req.params;
+
+  db.query(
+    `SELECT id, first_name, last_name, email, phone, role, created_at FROM public.users WHERE email = $1`,
+    [email],
+    (err, userResult) => {
+      if (err) return res.status(500).json({ error: 'Server error' });
+      if (userResult.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+      const user = userResult.rows[0];
+      const userId = user.id;
+
+      db.query(
+        `SELECT * FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [userId],
+        (e1, idResult) => {
+          db.query(
+            `SELECT * FROM selfie_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+            [userId],
+            (e2, selfieResult) => {
+              db.query(
+                `SELECT * FROM phone_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+                [userId],
+                (e3, phoneResult) => {
+                  db.query(
+                    `SELECT * FROM bank_accounts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+                    [userId],
+                    (e4, bankResult) => {
+                      const id = idResult.rows[0] || null;
+                      const selfie = selfieResult.rows[0] || null;
+                      const phone = phoneResult.rows[0] || null;
+                      const bank = bankResult.rows[0] || null;
+
+                      res.json({
+                        driver: {
+                          id: user.id,
+                          first_name: user.first_name,
+                          last_name: user.last_name,
+                          email: user.email,
+                          phone: user.phone,
+                          role: user.role,
+                          created_at: user.created_at,
+                        },
+                        id_document: id ? {
+                          id: id.id,
+                          document_type: id.document_type,
+                          document_number: id.document_number,
+                          expiry_date: id.expiry_date,
+                          front_image: resolveImageRef(id.front_image_url),
+                          back_image: resolveImageRef(id.back_image_url),
+                          is_verified: id.is_verified,
+                          verification_status: id.verification_status,
+                          rejection_reason: id.rejection_reason,
+                        } : null,
+                        selfie: selfie ? {
+                          id: selfie.id,
+                          selfie_image: resolveImageRef(selfie.selfie_image_url),
+                          id_document_image: resolveImageRef(selfie.id_document_image_url),
+                          match_confidence: selfie.match_confidence,
+                          is_verified: selfie.is_verified,
+                          verification_status: selfie.verification_status,
+                          rejection_reason: selfie.rejection_reason,
+                          created_at: selfie.created_at,
+                        } : null,
+                        phone: phone ? {
+                          id: phone.id,
+                          phone_number: phone.phone_number,
+                          is_verified: phone.is_verified,
+                          verified_at: phone.verified_at,
+                        } : null,
+                        bank_account: bank ? {
+                          id: bank.id,
+                          bank_name: bank.bank_name,
+                          account_holder_name: bank.account_holder_name,
+                          account_number: bank.account_number,
+                          routing_number: bank.routing_number,
+                          iban: bank.iban,
+                          swift_code: bank.swift_code,
+                          is_verified: bank.is_verified,
+                          verification_status: bank.verification_status,
+                          rejection_reason: bank.rejection_reason,
+                        } : null,
+                      });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+// Approve/reject overall driver (sets the aggregated verification flags + is_approved)
+app.post('/api/admin/drivers/:email/approve', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    jwt.verify(token, process.env.JWT_SECRET);
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  const { email } = req.params;
+  const { approved } = req.body; // boolean
+
+  if (typeof approved !== 'boolean') {
+    return res.status(400).json({ error: 'approved must be a boolean' });
+  }
+
+  db.query('SELECT id FROM public.users WHERE email = $1 AND LOWER(role) = \'driver\'', [email], (err, userResult) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'Driver not found' });
+    const userId = userResult.rows[0].id;
+
+    db.query(
+      `INSERT INTO driver_verification_status (user_id, is_approved, approval_date)
+       VALUES ($1, $2, CASE WHEN $2 THEN NOW() ELSE NULL END)
+       ON CONFLICT (user_id) DO UPDATE SET is_approved = $2, approval_date = CASE WHEN $2 THEN NOW() ELSE NULL END`,
+      [userId, approved],
+      (err2) => {
+        if (err2) return res.status(500).json({ error: 'Failed to update approval' });
+        res.json({ message: approved ? 'Driver approved' : 'Driver not approved', email, is_approved: approved });
+      }
+    );
   });
 });
 

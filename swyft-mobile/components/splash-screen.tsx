@@ -25,7 +25,9 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
         const role = await AsyncStorage.getItem('userRole');
-        if (role === 'driver') {
+        if (role === 'admin') {
+          router.replace('/(admin)/review');
+        } else if (role === 'driver') {
           router.replace('/(driver)/dashboard');
         } else {
           router.replace('/(passenger)/home');

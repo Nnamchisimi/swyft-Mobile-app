@@ -19,6 +19,7 @@ export default function DriverProfileScreen() {
   const router = useRouter();
   const [driverInfo, setDriverInfo] = useState(null);
   const [userEmail, setUserEmail] = useState('');
+  const [userRole, setUserRole] = useState('');
   const [earnings, setEarnings] = useState({
     today_earnings: 0,
     total_earnings: 0,
@@ -36,6 +37,8 @@ export default function DriverProfileScreen() {
     try {
       const email = await authService.getUserEmail();
       setUserEmail(email || '');
+      const role = await authService.getUserRole();
+      setUserRole(role || '');
 
       // Fetch fresh driver info from API (includes car details from cars table)
       if (email) {
@@ -394,7 +397,16 @@ export default function DriverProfileScreen() {
           </View>
         </View>
 
-        {}
+        {userRole === 'admin' && (
+          <TouchableOpacity
+            style={styles.moderatorButton}
+            onPress={() => router.push('/(admin)/review')}
+          >
+            <Ionicons name="shield-checkmark" size={20} color={COLORS.white} />
+            <Text style={styles.moderatorButtonText}>Moderator Review</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out" size={20} color={COLORS.white} />
           <Text style={styles.logoutButtonText}>Logout</Text>
@@ -764,6 +776,22 @@ const styles = StyleSheet.create({
   menuArrow: {
     fontSize: 16,
     color: COLORS.textSecondary,
+  },
+  moderatorButton: {
+    margin: 16,
+    marginBottom: 0,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moderatorButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
+    fontSize: 16,
+    marginLeft: 8,
   },
   logoutButton: {
     margin: 16,

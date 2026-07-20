@@ -48,7 +48,9 @@ export default function VerifyLinkScreen() {
 
       const role = (decoded.role || 'passenger').toLowerCase();
       setTimeout(() => {
-        if (role === 'driver') {
+        if (role === 'admin') {
+          router.replace('/(admin)/review');
+        } else if (role === 'driver') {
           router.replace('/(driver)/dashboard');
         } else {
           router.replace('/(passenger)/home');

@@ -16,6 +16,7 @@ export default function PassengerMap({ passengerEmail, pickupLocation, dropoffLo
   const [socket, setSocket] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [routeMode, setRouteMode] = useState('pickup');
+  const [map, setMap] = useState(null);
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: "AIzaSyBrptwerlWpVYRC3P9hsxm415pTkqIEfME",

@@ -87,6 +87,21 @@ export const driverAPI = {
   approveDriver: (email, approvalData) => api.patch(`/api/drivers/${encodeURIComponent(email)}/approve`, approvalData),
 };
 
+export const adminAPI = {
+  getPendingDrivers: () => api.get('/api/admin/drivers/pending'),
+  getDriverVerification: (email) => api.get(`/api/admin/drivers/${encodeURIComponent(email)}/verification`),
+  reviewIdDocument: (email, decision, rejection_reason) =>
+    api.post(`/api/admin/drivers/${encodeURIComponent(email)}/id-document/review`, { decision, rejection_reason }),
+  reviewSelfie: (email, decision, rejection_reason) =>
+    api.post(`/api/admin/drivers/${encodeURIComponent(email)}/selfie/review`, { decision, rejection_reason }),
+  reviewPhone: (email, decision) =>
+    api.post(`/api/admin/drivers/${encodeURIComponent(email)}/phone/review`, { decision }),
+  reviewBank: (email, decision, rejection_reason) =>
+    api.post(`/api/admin/drivers/${encodeURIComponent(email)}/bank/review`, { decision, rejection_reason }),
+  approveDriver: (email, approved) =>
+    api.post(`/api/admin/drivers/${encodeURIComponent(email)}/approve`, { approved }),
+};
+
 export const fareAPI = {
   calculate: (distanceKm, rideType = 'standard', vehicleType = 'sedan') => 
     api.post('/api/fare/calculate', { distance_km: distanceKm, ride_type: rideType, vehicle_type: vehicleType }),

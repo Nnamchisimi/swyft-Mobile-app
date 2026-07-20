@@ -35,7 +35,9 @@ export default function SignInScreen() {
 
       if (result.success) {
         const role = result.user.role || 'passenger';
-        if (role === 'driver') {
+        if (role === 'admin') {
+          router.replace('/(admin)/review');
+        } else if (role === 'driver') {
           router.replace('/(driver)/dashboard');
         } else {
           router.replace('/(passenger)/home');
