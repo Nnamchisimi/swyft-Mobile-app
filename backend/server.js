@@ -2058,12 +2058,13 @@ app.post('/api/drivers/:email/bank-account', (req, res) => {
 app.get('/api/drivers/:email/verification-status', (req, res) => {
   const { email } = req.params;
   
-  db.query('SELECT id FROM public.users WHERE email = $1 AND LOWER(role) = \'driver\'', [email], (err, userResult) => {
+  db.query('SELECT id, is_verified FROM public.users WHERE email = $1 AND LOWER(role) = \'driver\'', [email], (err, userResult) => {
     if (err) return res.status(500).json({ error: 'Server error' });
     if (userResult.rows.length === 0) return res.status(404).json({ error: 'Driver not found' });
-    
+
     const userId = userResult.rows[0].id;
-    
+    const userVerified = !!userResult.rows[0].is_verified;
+
     // Get ID document status
     db.query('SELECT verification_status, is_verified FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err1, idResult) => {
       // Get selfie verification status
