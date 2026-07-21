@@ -16,7 +16,7 @@ DROP TYPE IF EXISTS ride_type CASCADE;
 
 -- Create custom ENUM types
 CREATE TYPE user_role AS ENUM ('passenger', 'driver');
-CREATE TYPE ride_status AS ENUM ('requested', 'accepted', 'arrived', 'in_progress', 'active', 'completed', 'confirmed', 'cancelled', 'canceled');
+CREATE TYPE ride_status AS ENUM ('requested', 'accepted', 'arrived_pickup', 'active', 'arriving', 'completed', 'confirmed', 'cancelled', 'canceled');
 CREATE TYPE ride_type AS ENUM ('lefkosa', 'girne', 'magusa', 'iskele');
 
 -- Create users table
@@ -85,6 +85,9 @@ CREATE TABLE rides (
   package_details TEXT,
   special_instructions TEXT,
   vehicle_type VARCHAR(50),
+  receiver_name VARCHAR(100),
+  receiver_phone VARCHAR(20),
+  receiver_email VARCHAR(255),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   FOREIGN KEY (driver_id) REFERENCES users(id),
@@ -348,3 +351,24 @@ BEGIN
       CHECK (verification_status IN ('pending', 'verified', 'rejected', 'manual_review'));
   END IF;
 END $$;
+
+-- Create driver verification archive table (reference snapshot of reviewed drivers)
+CREATE TABLE IF NOT EXISTS driver_verification_archive (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email VARCHAR(255) NOT NULL,
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  phone VARCHAR(50),
+  decision VARCHAR(20) NOT NULL CHECK (decision IN ('approved', 'rejected')),
+  reviewer_email VARCHAR(255),
+  notes TEXT,
+  id_document JSONB,
+  selfie JSONB,
+  phone JSONB,
+  bank_account JSONB,
+  archived_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_driver_verification_archive_user_id ON driver_verification_archive(user_id);
+CREATE INDEX IF NOT EXISTS idx_driver_verification_archive_archived_at ON driver_verification_archive(archived_at DESC);

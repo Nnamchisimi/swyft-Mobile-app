@@ -232,7 +232,7 @@ const loadDriverData = async () => {
           const currentLng = loc.coords.longitude;
           
           
-          if ((ride.status === 'accepted' || ride.status === 'arrived') && ride.pickup_lat && ride.pickup_lng) {
+          if ((ride.status === 'accepted' || ride.status === 'arrived_pickup') && ride.pickup_lat && ride.pickup_lng) {
             const distanceToPickup = calculateDistance(currentLat, currentLng, parseFloat(ride.pickup_lat), parseFloat(ride.pickup_lng));
             setEta(calculateETA(distanceToPickup));
           }
@@ -280,7 +280,7 @@ const loadDriverData = async () => {
     socketService.on('rideUpdated', (ride) => {
       console.log('rideUpdated received:', ride);
       if (ride.driver_email === driverInfo?.email || ride.driver_email === driverInfo?.email) {
-        if (ride.status === 'accepted' || ride.status === 'arrived' || ride.status === 'active') {
+        if (ride.status === 'accepted' || ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
           setCurrentRide(ride);
           
           if (ride.pickup_lat && ride.pickup_lng) {
@@ -351,7 +351,7 @@ const loadDriverData = async () => {
     socketService.on('dispatchUpdated', (dispatch) => {
       console.log('Dispatch updated received:', dispatch);
       if (dispatch.driver_email === driverInfo?.email) {
-        if (dispatch.status === 'accepted' || dispatch.status === 'arrived' || dispatch.status === 'active') {
+        if (dispatch.status === 'accepted' || dispatch.status === 'arrived_pickup' || dispatch.status === 'active' || dispatch.status === 'arriving') {
           setCurrentRide(dispatch);
           if (dispatch.pickup_lat && dispatch.pickup_lng) {
             setPassengerLocation({
@@ -511,8 +511,8 @@ const loadDriverData = async () => {
     
     try {
       await ridesAPI.startRide(currentRide.id);
-      setCurrentRide({ ...currentRide, status: 'arrived' });
-      Alert.alert('Passenger Notified', 'The passenger has been notified that you have arrived. Waiting for pickup confirmation...');
+      setCurrentRide({ ...currentRide, status: 'arrived_pickup' });
+      Alert.alert('Arrived at Pickup', 'The sender has been notified that you have arrived. Waiting for package handoff...');
     } catch (error) {
       Alert.alert('Error', 'Failed to update status');
     }
@@ -522,7 +522,7 @@ const loadDriverData = async () => {
     if (!currentRide) return;
     
     try {
-      await ridesAPI.startRide(currentRide.id);
+      await ridesAPI.confirmPickup(currentRide.id);
       setCurrentRide({ ...currentRide, status: 'active' });
       
       
@@ -548,9 +548,21 @@ const loadDriverData = async () => {
         }, 1000);
       }
       
-      Alert.alert('Ride Started', 'Drive safely!');
+      Alert.alert('Package Picked Up', 'Drive safely!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to start Dispatch');
+      Alert.alert('Error', 'Failed to start delivery');
+    }
+  };
+
+  const handleArriving = async () => {
+    if (!currentRide) return;
+    
+    try {
+      await ridesAPI.arriveRide(currentRide.id);
+      setCurrentRide({ ...currentRide, status: 'arriving' });
+      Alert.alert('Arriving', 'You have marked as arriving at destination.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update status');
     }
   };
 
@@ -923,27 +935,31 @@ const loadDriverData = async () => {
               <Text style={styles.arrivedButtonText}>Arrived at Pickup</Text>
             </TouchableOpacity>
           )}
-          {currentRide.status === 'arrived' && (
-            <View style={styles.waitingContainer}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-              <Text style={styles.waitingText}>Waiting for passenger to confirm pickup...</Text>
-            </View>
+          {currentRide.status === 'arrived_pickup' && (
+            <TouchableOpacity style={styles.startButton} onPress={handleStartRide}>
+              <Text style={styles.startButtonText}>Pick Up Package</Text>
+            </TouchableOpacity>
           )}
-          {currentRide.status === 'in_progress' && (
+          {currentRide.status === 'active' && (
             <>
               <TouchableOpacity style={styles.navigationButton} onPress={() => openNavigation(currentRide.dropoff_lat, currentRide.dropoff_lng, currentRide.dropoff_location)}>
                 <Ionicons name="navigate" size={20} color={COLORS.white} />
                 <Text style={styles.navigationButtonText}>Navigate to Dropoff</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.completeButton} onPress={handleCompleteRide}>
-                <Text style={styles.completeButtonText}>Complete Ride</Text>
+              <TouchableOpacity style={styles.arrivingButton} onPress={handleArriving}>
+                <Text style={styles.arrivingButtonText}>Arriving at Destination</Text>
               </TouchableOpacity>
             </>
+          )}
+          {currentRide.status === 'arriving' && (
+            <TouchableOpacity style={styles.completeButton} onPress={handleCompleteRide}>
+              <Text style={styles.completeButtonText}>Complete Delivery (OTP)</Text>
+            </TouchableOpacity>
           )}
           {currentRide.status === 'completed' && (
             <View style={styles.waitingContainer}>
               <ActivityIndicator size="small" color={COLORS.success} />
-              <Text style={styles.waitingText}>Waiting for passenger to confirm delivery...</Text>
+              <Text style={styles.waitingText}>Waiting for receiver to confirm delivery...</Text>
             </View>
           )}
           {currentRide.status === 'confirmed' && (
@@ -952,7 +968,7 @@ const loadDriverData = async () => {
               <Text style={[styles.waitingText, { color: COLORS.success }]}>Delivery confirmed! Payment received.</Text>
             </View>
           )}
-          {currentRide.status !== 'confirmed' && (
+          {currentRide.status !== 'confirmed' && currentRide.status !== 'completed' && (
             <TouchableOpacity style={styles.cancelRideButton} onPress={handleCancelCurrentRide}>
               <Text style={styles.cancelRideButtonText}>Cancel Ride</Text>
             </TouchableOpacity>
@@ -1043,7 +1059,7 @@ const loadDriverData = async () => {
               description="You are here"
             >
               <View style={styles.driverMarkerStyle}>
-                <Ionicons name="car" size={20} color="white" />
+                <Ionicons name="bicycle" size={20} color="white" />
               </View>
             </Marker>
             
@@ -1085,7 +1101,7 @@ const loadDriverData = async () => {
             )}
             
             {}
-            {currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived' || currentRide.status === 'active') && location && currentRide?.pickup_lat && currentRide?.pickup_lng && (
+            {currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived_pickup' || currentRide.status === 'active' || currentRide.status === 'arriving') && location && currentRide?.pickup_lat && currentRide?.pickup_lng && (
               <Polyline
                 coordinates={[
                   { latitude: location.latitude, longitude: location.longitude },
@@ -1151,7 +1167,7 @@ const loadDriverData = async () => {
             </View>
           ) : pendingRides.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="car" size={48} color={COLORS.gray} />
+              <Ionicons name="bicycle" size={48} color={COLORS.gray} />
               <Text style={styles.emptyTitle}>No Deliveries available</Text>
               <Text style={styles.emptyText}>Waiting for delivery requests...</Text>
               <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>

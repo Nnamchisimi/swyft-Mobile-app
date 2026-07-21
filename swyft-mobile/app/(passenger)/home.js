@@ -115,14 +115,14 @@ export default function PassengerHomeScreen() {
                 onPress: () => router.push('/(passenger)/book-ride')
               }]
             );
-          } else if (ride.status === 'arrived' || ride.status === 'active') {
+          } else if (ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
             Alert.alert(
-              '🚗 Driver Arrived', 
-              'Your driver has arrived at the pickup location!',
+              '🚗 Courier Arrived', 
+              'Your courier has arrived at the pickup location!',
               [{ 
                 text: 'View Ride', 
                 onPress: () => router.push({
-                  pathname: '/(passenger)/driver-arrived',
+                  pathname: '/(passenger)/book-ride',
                   params: {
                     rideId: ride.id,
                     driverName: ride.driver_name,
@@ -136,7 +136,7 @@ export default function PassengerHomeScreen() {
                 })
               }]
             );
-          } else if (ride.status === 'in_progress') {
+          } else if (ride.status === 'active' || ride.status === 'arriving') {
             Alert.alert('🚀 Ride Started', 'Your ride has begun. Enjoy your trip!');
           } else if (ride.status === 'completed') {
             Alert.alert(

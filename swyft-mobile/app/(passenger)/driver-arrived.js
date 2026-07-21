@@ -175,11 +175,11 @@ export default function DriverArrivedScreen() {
     socketService.on('rideUpdated', (ride) => {
       console.log('rideUpdated received in driver-arrived:', ride);
       if (ride.id === rideId) {
-        if (ride.status === 'arrived' || ride.status === 'active') {
+        if (ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
           
           Alert.alert(
-            'Driver Arrived!',
-            'Your Courier has arrived at the pickup location.',
+            'Courier Status Updated',
+            'Your courier is at the pickup location.',
             [{ text: 'OK' }]
           );
         } else if (ride.status === 'completed') {

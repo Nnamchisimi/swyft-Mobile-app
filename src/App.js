@@ -6,6 +6,7 @@ import SignIn from './signin'
 import GetStarted from './getstarted'
 import DriverDashboard from './driverdashboard'
 import ModeratorDashboard from './moderatordashboard'
+import ArchivePage from './archivepage'
 
 function App () {
   return (
@@ -17,6 +18,7 @@ function App () {
         <Route path='/getstarted' element={<GetStarted />} />
         <Route path='/driver' element={<DriverDashboard />} />
         <Route path='/moderator' element={<ModeratorDashboard />} />
+        <Route path='/moderator/archive' element={<ArchivePage />} />
 
       </Routes>
     </Router>

@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  CircularProgress, Chip, TextField, useTheme, useMediaQuery, Grid, Divider, Alert
+  CircularProgress, Chip, useTheme, useMediaQuery, Grid, Divider, TextField, Alert
 } from '@mui/material'
 
 const API = 'http://localhost:3001'
@@ -12,11 +12,7 @@ const authHeaders = () => ({
   'Content-Type': 'application/json'
 })
 
-const statusColor = (status) => {
-  if (status === 'verified') return 'success'
-  if (status === 'rejected') return 'error'
-  return 'warning'
-}
+const decisionColor = (decision) => (decision === 'approved' ? 'success' : 'error')
 
 const renderImage = (img) => {
   if (!img || !img.url) return <Typography color='text.secondary' variant='body2'>No image on file</Typography>
@@ -39,40 +35,36 @@ const Section = ({ title, status, children }) => (
   <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 2, p: 2, mb: 2, bgcolor: '#fff' }}>
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
       <Typography variant='h6'>{title}</Typography>
-      {status != null && <Chip size='small' label={status} color={statusColor(status)} />}
+      {status != null && <Chip size='small' label={status} color={status === 'approved' || status === 'verified' ? 'success' : 'warning'} />}
     </Box>
     <Divider sx={{ mb: 2 }} />
     {children}
   </Box>
 )
 
-export default function ModeratorDashboard () {
+export default function ArchivePage () {
   const navigate = useNavigate()
   const theme = useTheme()
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
 
-  const [drivers, setDrivers] = useState([])
+  const [archived, setArchived] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const [selected, setSelected] = useState(null)
   const [bundle, setBundle] = useState(null)
   const [loadingBundle, setLoadingBundle] = useState(false)
-  const [rejectReason, setRejectReason] = useState('')
-  const [rejectTarget, setRejectTarget] = useState('')
-  const [acting, setActing] = useState(false)
-  const [message, setMessage] = useState('')
 
-  const loadDrivers = useCallback(async () => {
+  const loadArchived = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`${API}/api/admin/drivers/pending`, { headers: authHeaders() })
+      const res = await fetch(`${API}/api/admin/drivers/archived`, { headers: authHeaders() })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || 'Failed to load drivers')
+        throw new Error(data.error || 'Failed to load archived drivers')
       }
-      setDrivers(await res.json())
+      setArchived(await res.json())
     } catch (err) {
       setError(err.message)
     } finally {
@@ -80,83 +72,26 @@ export default function ModeratorDashboard () {
     }
   }, [])
 
-  useEffect(() => { loadDrivers() }, [loadDrivers])
+  useEffect(() => { loadArchived() }, [loadArchived])
 
   const openDriver = async (driver) => {
     setSelected(driver)
     setBundle(null)
-    setRejectReason('')
-    setRejectTarget('')
-    setMessage('')
     setLoadingBundle(true)
     try {
-      const res = await fetch(`${API}/api/admin/drivers/${encodeURIComponent(driver.email)}/verification`, {
-        headers: authHeaders()
-      })
-      if (res.ok) setBundle(await res.json())
+      const res = await fetch(
+        `${API}/api/admin/drivers/archived/${driver.id}`,
+        { headers: authHeaders() }
+      )
+      if (res.ok) {
+        const full = await res.json()
+        setSelected(full)
+        setBundle(full)
+      }
     } catch (e) {
       console.error(e)
     } finally {
       setLoadingBundle(false)
-    }
-  }
-
-  const review = async (kind, decision) => {
-    if (!selected) return
-    setActing(true)
-    setMessage('')
-    try {
-      const body = decision === 'reject'
-        ? { decision, rejection_reason: rejectReason || 'Rejected by moderator' }
-        : { decision }
-      const res = await fetch(
-        `${API}/api/admin/drivers/${encodeURIComponent(selected.email)}/${kind}/review`,
-        { method: 'POST', headers: authHeaders(), body: JSON.stringify(body) }
-      )
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'Review failed')
-      setMessage(`${kind} ${decision === 'approve' ? 'approved' : 'rejected'}`)
-      setRejectTarget('')
-      setRejectReason('')
-      await archiveDriver(decision, `${kind} ${decision === 'approve' ? 'approved' : 'rejected'}`)
-      await openDriver(selected)
-    } catch (err) {
-      setMessage(`Error: ${err.message}`)
-    } finally {
-      setActing(false)
-    }
-  }
-
-  const archiveDriver = async (decision, notes) => {
-    if (!selected) return
-    try {
-      await fetch(`${API}/api/admin/drivers/${encodeURIComponent(selected.email)}/archive`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ decision, notes })
-      })
-    } catch (e) {
-      console.error('Archive failed', e)
-    }
-  }
-
-  const approveAll = async () => {
-    if (!selected) return
-    setActing(true)
-    try {
-      for (const kind of ['id-document', 'selfie', 'phone', 'bank']) {
-        const body = kind === 'phone' ? { decision: 'approve' } : { decision: 'approve' }
-        await fetch(`${API}/api/admin/drivers/${encodeURIComponent(selected.email)}/${kind}/review`, {
-          method: 'POST', headers: authHeaders(), body: JSON.stringify(body)
-        })
-      }
-      setMessage('All sections approved')
-      await archiveDriver('approved', 'All sections approved')
-      await openDriver(selected)
-    } catch (err) {
-      setMessage(`Error: ${err.message}`)
-    } finally {
-      setActing(false)
     }
   }
 
@@ -168,38 +103,45 @@ export default function ModeratorDashboard () {
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <img src='/taxifav.png' alt='' style={{ width: 35, height: 35, marginRight: 10 }} />
-          <span>SWYFT - Moderator Review</span>
+          <span>SWYFT - Driver Archive</span>
         </Box>
-        <Button variant='outlined' sx={{ borderRadius: '15px', borderColor: '#fff', color: '#fff' }} onClick={() => navigate('/moderator/archive')}>
-          Driver Archive
-        </Button>
-        <Button variant='outlined' sx={{ borderRadius: '15px', borderColor: '#fff', color: '#fff' }} onClick={() => navigate('/')}>
-          Home
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant='outlined' sx={{ borderRadius: '15px', borderColor: '#fff', color: '#fff' }} onClick={() => navigate('/moderator')}>
+            Review Queue
+          </Button>
+          <Button variant='outlined' sx={{ borderRadius: '15px', borderColor: '#fff', color: '#fff' }} onClick={() => navigate('/')}>
+            Home
+          </Button>
+        </Box>
       </Box>
 
       <Box sx={{ p: isDesktop ? 5 : 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <Typography variant='h6'>Newly Registered Drivers Awaiting Verification</Typography>
-          <Button variant='contained' onClick={loadDrivers}>Refresh</Button>
+          <Typography variant='h6'>Archived Driver Details (Reference)</Typography>
+          <Button variant='contained' onClick={loadArchived}>Refresh</Button>
         </Box>
 
         {loading && <CircularProgress sx={{ mt: 2 }} />}
         {error && <Typography color='error'>{error}</Typography>}
-        {!loading && !error && drivers.length === 0 && (
-          <Typography sx={{ mt: 2 }}>No drivers pending review.</Typography>
+        {!loading && !error && archived.length === 0 && (
+          <Typography sx={{ mt: 2 }}>No archived drivers yet.</Typography>
         )}
 
         <Grid container spacing={2}>
-          {drivers.map((d) => (
+          {archived.map((d) => (
             <Grid item xs={12} sm={6} md={4} key={d.id}>
               <Box sx={{ border: '1px solid #ccc', borderRadius: 2, p: 2, bgcolor: '#fff', height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Typography fontWeight='bold'>{d.first_name} {d.last_name}</Typography>
                 <Typography variant='body2' color='text.secondary'>{d.email}</Typography>
-                <Typography variant='body2' color='text.secondary'>{d.phone}</Typography>
-                {d.is_approved && <Chip size='small' sx={{ mt: 1, width: 'fit-content' }} label='Approved' color='success' />}
+                <Typography variant='body2' color='text.secondary'>{d.phone || '—'}</Typography>
+                <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Chip size='small' label={d.decision} color={decisionColor(d.decision)} />
+                  <Typography variant='caption' color='text.secondary' sx={{ alignSelf: 'center' }}>
+                    {new Date(d.archived_at).toLocaleDateString()}
+                  </Typography>
+                </Box>
                 <Box sx={{ mt: 'auto', pt: 2 }}>
-                  <Button fullWidth variant='contained' onClick={() => openDriver(d)}>Review Details</Button>
+                  <Button fullWidth variant='contained' onClick={() => openDriver(d)}>View Details</Button>
                 </Box>
               </Box>
             </Grid>
@@ -209,17 +151,19 @@ export default function ModeratorDashboard () {
 
       <Dialog open={!!selected} onClose={() => setSelected(null)} maxWidth='md' fullWidth>
         <DialogTitle>
-          Verification Details — {selected?.first_name} {selected?.last_name}
+          Archived Driver — {selected?.first_name} {selected?.last_name}
         </DialogTitle>
         <DialogContent dividers>
-          {message && <Alert severity={message.startsWith('Error') ? 'error' : 'success'} sx={{ mb: 2 }}>{message}</Alert>}
           {loadingBundle && <CircularProgress />}
           {bundle && (
             <>
               <Section title='Driver' status={null}>
-                <Typography>Email: {bundle.driver.email}</Typography>
-                <Typography>Phone: {bundle.driver.phone || '—'}</Typography>
-                <Typography>Registered: {new Date(bundle.driver.created_at).toLocaleString()}</Typography>
+                <Typography>Email: {bundle.email}</Typography>
+                <Typography>Phone: {bundle.phone || '—'}</Typography>
+                <Typography>Decision: <Chip size='small' label={bundle.decision} color={decisionColor(bundle.decision)} /></Typography>
+                <Typography>Archived At: {new Date(bundle.archived_at).toLocaleString()}</Typography>
+                {bundle.reviewer_email && <Typography>Reviewed By: {bundle.reviewer_email}</Typography>}
+                {bundle.notes && <Typography>Notes: {bundle.notes}</Typography>}
               </Section>
 
               <Section title='ID Document' status={bundle.id_document?.verification_status}>
@@ -274,49 +218,11 @@ export default function ModeratorDashboard () {
                   </>
                 ) : <Typography color='text.secondary'>Not submitted</Typography>}
               </Section>
-
-              {rejectTarget && (
-                <TextField
-                  fullWidth
-                  size='small'
-                  label={`Rejection reason for ${rejectTarget}`}
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  sx={{ mb: 2 }}
-                />
-              )}
             </>
           )}
         </DialogContent>
-        <DialogActions sx={{ flexWrap: 'wrap', gap: 1 }}>
+        <DialogActions>
           <Button onClick={() => setSelected(null)}>Close</Button>
-          <Button
-            variant='outlined'
-            color='success'
-            disabled={acting || !bundle}
-            onClick={approveAll}
-          >
-            Approve All
-          </Button>
-          {['id-document', 'selfie', 'phone', 'bank'].map((kind) => (
-            <Box key={kind} sx={{ display: 'flex', gap: 0.5 }}>
-              <Button
-                size='small'
-                color='success'
-                disabled={acting || !bundle}
-                onClick={() => review(kind, 'approve')}
-              >Approve {kind.split('-')[0]}</Button>
-              <Button
-                size='small'
-                color='error'
-                disabled={acting || !bundle}
-                onClick={() => {
-                  setRejectTarget(kind)
-                  review(kind, 'reject')
-                }}
-              >Reject</Button>
-            </Box>
-          ))}
         </DialogActions>
       </Dialog>
     </Box>

@@ -112,7 +112,7 @@ BEGIN
   
   -- Check and add constraint for bank_accounts verification_status
   IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint 
+    SELECT 1 FROM pg_constraint 74
     WHERE conname = 'chk_bank_verification_status' AND conrelid = 'bank_accounts'::regclass
   ) THEN
     ALTER TABLE bank_accounts ADD CONSTRAINT chk_bank_verification_status 

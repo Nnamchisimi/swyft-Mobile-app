@@ -100,6 +100,11 @@ export default function AdminReviewScreen() {
   const [rejectFor, setRejectFor] = useState('');
   const [rejectReason, setRejectReason] = useState('');
 
+  const [view, setView] = useState('pending'); // 'pending' | 'archive'
+  const [archived, setArchived] = useState([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
+  const [archiveDetail, setArchiveDetail] = useState(null);
+
   const loadDrivers = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -117,6 +122,32 @@ export default function AdminReviewScreen() {
     loadDrivers();
   }, [loadDrivers]);
 
+  const loadArchived = useCallback(async () => {
+    setLoadingArchived(true);
+    try {
+      const res = await adminAPI.getArchivedDrivers();
+      setArchived(res.data || []);
+    } catch (e) {
+      setError(e.response?.data?.error || e.message || 'Failed to load archive');
+    } finally {
+      setLoadingArchived(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view === 'archive') loadArchived();
+  }, [view, loadArchived]);
+
+  const archiveDriver = async (decision) => {
+    if (!selected) return;
+    try {
+      await adminAPI.archiveDriver(selected.email, decision);
+    } catch (e) {
+      // archive failure shouldn't block the review action
+      console.warn('Archive failed:', e?.response?.data?.error || e.message);
+    }
+  };
+
   const openDriver = async (driver) => {
     setSelected(driver);
     setBundle(null);
@@ -128,7 +159,7 @@ export default function AdminReviewScreen() {
       const res = await adminAPI.getDriverVerification(driver.email);
       setBundle(res.data);
     } catch (e) {
-      Alert.alert('Error', e.response?.data?.error || e.message);
+      setBanner({ text: e.response?.data?.error || e.message || 'Failed to load driver', type: 'error' });
     } finally {
       setLoadingBundle(false);
     }
@@ -160,6 +191,7 @@ export default function AdminReviewScreen() {
         text: `${label} ${decision === 'approve' ? 'approved' : 'rejected'}`,
         type: decision === 'approve' ? 'success' : 'error',
       });
+      await archiveDriver(decision === 'approve' ? 'approved' : 'rejected');
       setRejectFor('');
       setRejectReason('');
       await openDriver(selected);
@@ -180,9 +212,10 @@ export default function AdminReviewScreen() {
       await adminAPI.reviewPhone(selected.email, 'approve');
       await adminAPI.reviewBank(selected.email, 'approve');
       setBanner({ text: 'All sections approved', type: 'success' });
+      await archiveDriver('approved');
       await openDriver(selected);
     } catch (e) {
-      Alert.alert('Error', e.response?.data?.error || e.message);
+      setBanner({ text: e.response?.data?.error || e.message || 'Action failed', type: 'error' });
     } finally {
       setActing(false);
     }
@@ -209,6 +242,10 @@ export default function AdminReviewScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => {
+            if (view === 'archive' && archiveDetail) {
+              setArchiveDetail(null);
+              return;
+            }
             if (router.canGoBack && router.canGoBack()) {
               router.back();
             } else {
@@ -223,7 +260,22 @@ export default function AdminReviewScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {!selected && (
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, view === 'pending' && styles.tabActive]}
+          onPress={() => { setView('pending'); setSelected(null); setBundle(null); }}
+        >
+          <Text style={[styles.tabText, view === 'pending' && styles.tabTextActive]}>Pending</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, view === 'archive' && styles.tabActive]}
+          onPress={() => { setView('archive'); setSelected(null); setBundle(null); }}
+        >
+          <Text style={[styles.tabText, view === 'archive' && styles.tabTextActive]}>Archive</Text>
+        </TouchableOpacity>
+      </View>
+
+      {!selected && !archiveDetail && view === 'pending' && (
         <ScrollView
           style={styles.list}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={loadDrivers} />}
@@ -258,6 +310,56 @@ export default function AdminReviewScreen() {
               ) : (
                 <Ionicons name="chevron-forward" size={20} color="#999" />
               )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {!selected && !archiveDetail && view === 'archive' && (
+        <ScrollView
+          style={styles.list}
+          refreshControl={<RefreshControl refreshing={loadingArchived} onRefresh={loadArchived} />}
+        >
+          <Text style={styles.sectionHint}>Archived drivers (reference)</Text>
+          {loadingArchived && <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.primary} />}
+          {!loadingArchived && archived.length === 0 && (
+            <View style={styles.emptyWrap}>
+              <Ionicons name="archive-outline" size={48} color="#9E9E9E" />
+              <Text style={styles.emptyText}>No archived drivers yet. Reviewed drivers will appear here.</Text>
+            </View>
+          )}
+          {archived.map((a) => (
+            <TouchableOpacity
+              key={a.id}
+              style={styles.driverRow}
+              onPress={() =>
+                setArchiveDetail({
+                  driver: { first_name: a.first_name, last_name: a.last_name, email: a.email, phone: a.phone },
+                  id_document: a.id_document,
+                  selfie: a.selfie,
+                  phone: a.phone,
+                  bank_account: a.bank_account,
+                  decision: a.decision,
+                  reviewer_email: a.reviewer_email,
+                  notes: a.notes,
+                  archived_at: a.archived_at,
+                })
+              }
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>
+                  {(a.first_name?.[0] || '') + (a.last_name?.[0] || '')}
+                </Text>
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.driverName}>
+                  {a.first_name} {a.last_name}
+                </Text>
+                <Text style={styles.driverSub}>{a.email}</Text>
+              </View>
+              <View style={[styles.badge, { backgroundColor: a.decision === 'approved' ? '#4CAF50' : '#F44336' }]}>
+                <Text style={styles.badgeText}>{a.decision === 'approved' ? 'Approved' : 'Rejected'}</Text>
+              </View>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -427,6 +529,113 @@ export default function AdminReviewScreen() {
         </ScrollView>
       )}
 
+      {archiveDetail && (
+        <ScrollView style={styles.detail}>
+          <View style={[styles.banner, archiveDetail.decision === 'approved' ? styles.bannerSuccess : styles.bannerError]}>
+            <Ionicons
+              name={archiveDetail.decision === 'approved' ? 'checkmark-circle' : 'close-circle'}
+              size={18}
+              color="#fff"
+            />
+            <Text style={styles.bannerText}>
+              {archiveDetail.decision === 'approved' ? 'Approved' : 'Rejected'} · archived for reference
+            </Text>
+          </View>
+
+          {archiveDetail.reviewer_email ? (
+            <Text style={styles.archiveMeta}>Reviewed by: {archiveDetail.reviewer_email}</Text>
+          ) : null}
+          {archiveDetail.archived_at ? (
+            <Text style={styles.archiveMeta}>
+              Archived: {new Date(archiveDetail.archived_at).toLocaleString()}
+            </Text>
+          ) : null}
+
+          <View style={styles.driverCard}>
+            <View style={styles.avatarLg}>
+              <Text style={styles.avatarTextLg}>
+                {(archiveDetail.driver.first_name?.[0] || '') + (archiveDetail.driver.last_name?.[0] || '')}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.driverCardName}>
+                {archiveDetail.driver.first_name} {archiveDetail.driver.last_name}
+              </Text>
+              <Text style={styles.driverCardSub}>{archiveDetail.driver.email}</Text>
+              <Text style={styles.driverCardSub}>{archiveDetail.driver.phone || ''}</Text>
+            </View>
+          </View>
+
+          {archiveDetail.id_document ? (
+            <SectionBlock title="ID Document" status={getStatus(archiveDetail, 'id-document')} hasData acting={false}>
+              <DetailRow label="Type" value={archiveDetail.id_document.document_type} />
+              <DetailRow label="Number" value={archiveDetail.id_document.document_number} />
+              <DetailRow label="Expiry" value={archiveDetail.id_document.expiry_date} />
+              {archiveDetail.id_document.rejection_reason ? (
+                <Text style={styles.reasonText}>Reason: {archiveDetail.id_document.rejection_reason}</Text>
+              ) : null}
+              <View style={styles.imgRow}>
+                <Img img={archiveDetail.id_document.front_image} label="Front" />
+                <Img img={archiveDetail.id_document.back_image} label="Back" />
+              </View>
+            </SectionBlock>
+          ) : null}
+
+          {archiveDetail.selfie ? (
+            <SectionBlock title="Selfie Verification" status={getStatus(archiveDetail, 'selfie')} hasData acting={false}>
+              {archiveDetail.selfie.match_confidence != null && (
+                <DetailRow label="Match confidence" value={`${archiveDetail.selfie.match_confidence}%`} />
+              )}
+              {archiveDetail.selfie.rejection_reason ? (
+                <Text style={styles.reasonText}>Reason: {archiveDetail.selfie.rejection_reason}</Text>
+              ) : null}
+              <View style={styles.imgRow}>
+                <Img img={archiveDetail.selfie.selfie_image} label="Selfie" />
+                <Img img={archiveDetail.selfie.id_document_image} label="ID Used For Match" />
+              </View>
+            </SectionBlock>
+          ) : null}
+
+          {archiveDetail.phone ? (
+            <SectionBlock title="Phone Number" status={getStatus(archiveDetail, 'phone')} hasData acting={false}>
+              <DetailRow label="Number" value={archiveDetail.phone.phone_number} />
+              <DetailRow label="Verified" value={archiveDetail.phone.is_verified ? 'Yes' : 'No'} />
+            </SectionBlock>
+          ) : null}
+
+          {archiveDetail.bank_account ? (
+            <SectionBlock title="Bank Account" status={getStatus(archiveDetail, 'bank')} hasData acting={false}>
+              <DetailRow label="Bank" value={archiveDetail.bank_account.bank_name} />
+              <DetailRow label="Holder" value={archiveDetail.bank_account.account_holder_name} />
+              <DetailRow label="Account" value={archiveDetail.bank_account.account_number} />
+              {archiveDetail.bank_account.routing_number ? (
+                <DetailRow label="Routing" value={archiveDetail.bank_account.routing_number} />
+              ) : null}
+              {archiveDetail.bank_account.iban ? (
+                <DetailRow label="IBAN" value={archiveDetail.bank_account.iban} />
+              ) : null}
+              {archiveDetail.bank_account.swift_code ? (
+                <DetailRow label="Swift" value={archiveDetail.bank_account.swift_code} />
+              ) : null}
+              {archiveDetail.bank_account.rejection_reason ? (
+                <Text style={styles.reasonText}>Reason: {archiveDetail.bank_account.rejection_reason}</Text>
+              ) : null}
+            </SectionBlock>
+          ) : null}
+
+          {archiveDetail.notes ? (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Reviewer notes</Text>
+              <Text style={styles.field}>{archiveDetail.notes}</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity style={styles.closeBtn} onPress={() => setArchiveDetail(null)}>
+            <Text style={styles.closeText}>Back to archive</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
       <Modal visible={!!rejectFor} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -519,6 +728,12 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1, textAlign: 'center' },
   sectionHint: { fontSize: 13, fontWeight: '600', color: '#607D8B', marginBottom: 10, textTransform: 'uppercase' },
+  tabBar: { flexDirection: 'row', backgroundColor: '#ECEFF1', padding: 6 },
+  tab: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  tabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  tabText: { fontSize: 14, fontWeight: '600', color: '#607D8B' },
+  tabTextActive: { color: COLORS.primary },
+  archiveMeta: { fontSize: 12, color: '#757575', marginBottom: 2, paddingHorizontal: 2 },
   list: { flex: 1, padding: 14 },
   driverRow: {
     flexDirection: 'row',

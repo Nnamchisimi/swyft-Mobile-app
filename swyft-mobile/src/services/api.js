@@ -98,8 +98,9 @@ export const adminAPI = {
     api.post(`/api/admin/drivers/${encodeURIComponent(email)}/phone/review`, { decision }),
   reviewBank: (email, decision, rejection_reason) =>
     api.post(`/api/admin/drivers/${encodeURIComponent(email)}/bank/review`, { decision, rejection_reason }),
-  approveDriver: (email, approved) =>
-    api.post(`/api/admin/drivers/${encodeURIComponent(email)}/approve`, { approved }),
+  archiveDriver: (email, decision, notes) =>
+    api.post(`/api/admin/drivers/${encodeURIComponent(email)}/archive`, { decision, notes }),
+  getArchivedDrivers: () => api.get('/api/admin/drivers/archived'),
 };
 
 export const fareAPI = {

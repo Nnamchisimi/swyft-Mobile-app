@@ -73,7 +73,7 @@ export default function DriverDashboardScreen() {
 
     socketService.on('rideUpdated', (ride) => {
       if (ride.driver_email === driverInfo?.email) {
-        if (ride.status === 'accepted' || ride.status === 'in_progress') {
+        if (ride.status === 'accepted' || ride.status === 'active' || ride.status === 'arriving') {
           setCurrentRide(ride);
         } else if (ride.status === 'completed' || ride.status === 'cancelled') {
           setCurrentRide(null);
