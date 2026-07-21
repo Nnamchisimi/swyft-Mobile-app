@@ -126,15 +126,15 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
                 <Ionicons name={state.vehicleTypesExpanded ? 'chevron-up' : 'chevron-down'} size={24} color={COLORS.textSecondary} />
               </TouchableOpacity>
               
-              {state.vehicleTypesExpanded && (
+               {state.vehicleTypesExpanded && (
                 <View style={styles.vehicleTypeContainer}>
                   {defaultVehicleTypes.map((vehicle) => (
-                    <View key={vehicle.id} style={[styles.vehicleTypeCard, selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected]}>
+                    <TouchableOpacity key={vehicle.id} style={[styles.vehicleTypeCard, selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected]} onPress={() => state.set('selectedVehicleType', vehicle.id)}>
                       <Ionicons name={vehicle.icon} size={28} color={selectedVehicleType === vehicle.id ? COLORS.white : COLORS.textSecondary} />
                       <Text style={[styles.vehicleTypeName, selectedVehicleType === vehicle.id && styles.vehicleTypeNameSelected]}>{vehicle.name}</Text>
                       <Text style={[styles.vehicleTypeDesc, selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected]}>{vehicle.desc}</Text>
                       <Text style={[styles.vehicleTypeExamples, selectedVehicleType === vehicle.id && styles.vehicleTypeExamplesSelected]}>{vehicle.examples}</Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}
@@ -168,12 +168,12 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
               {state.vehicleTypesExpanded && (
                 <View style={styles.vehicleTypeContainer}>
                   {defaultVehicleTypes.map((vehicle) => (
-                    <View key={vehicle.id} style={[styles.vehicleTypeCard, selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected]}>
+                    <TouchableOpacity key={vehicle.id} style={[styles.vehicleTypeCard, selectedVehicleType === vehicle.id && styles.vehicleTypeCardSelected]} onPress={() => state.set('selectedVehicleType', vehicle.id)}>
                       <Ionicons name={vehicle.icon} size={28} color={selectedVehicleType === vehicle.id ? COLORS.white : COLORS.textSecondary} />
                       <Text style={[styles.vehicleTypeName, selectedVehicleType === vehicle.id && styles.vehicleTypeNameSelected]}>{vehicle.name}</Text>
                       <Text style={[styles.vehicleTypeDesc, selectedVehicleType === vehicle.id && styles.vehicleTypeDescSelected]}>{vehicle.desc}</Text>
                       <Text style={[styles.vehicleTypeExamples, selectedVehicleType === vehicle.id && styles.vehicleTypeExamplesSelected]}>{vehicle.examples}</Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}
