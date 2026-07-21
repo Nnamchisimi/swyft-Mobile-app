@@ -80,7 +80,7 @@ export default function PassengerHomeScreen() {
     try {
       const response = await ridesAPI.getRides({ 
         passenger_email: email,
-        status: 'accepted,arrived,active,pending' 
+        status: 'driver_accepted,accepted,arrived,active,pending' 
       });
       
       if (response.data && response.data.length > 0) {
@@ -101,21 +101,41 @@ export default function PassengerHomeScreen() {
       socketService.joinRoom(email);
       
       
-      socketService.on('rideUpdated', (ride) => {
-        console.log('rideUpdated received in home:', ride);
-        if (ride.passenger_email === email || ride.id === currentRideRef.current?.id) {
-          setCurrentRide(ride);
-          currentRideRef.current = ride;
-          if (ride.status === 'accepted') {
-            Alert.alert(
-              '🎉 Driver Found!',
-              `Your driver is on the way!\n\nDriver: ${ride.driver_name || 'Driver'}\nVehicle: ${ride.driver_vehicle || 'N/A'}`,
-              [{ 
-                text: 'View Ride', 
-                onPress: () => router.push('/(passenger)/book-ride')
-              }]
-            );
-          } else if (ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
+    socketService.on('rideUpdated', (ride) => {
+      console.log('rideUpdated received in home:', ride);
+      if (ride.passenger_email === email || ride.id === currentRideRef.current?.id) {
+        setCurrentRide(ride);
+        currentRideRef.current = ride;
+        if (ride.status === 'driver_accepted') {
+          Alert.alert(
+            '🎉 Driver Found!',
+            `${ride.driver_name || 'Your courier'} has accepted your ride.\n\nVehicle: ${ride.driver_vehicle || 'N/A'}\nPhone: ${ride.driver_phone || 'N/A'}\n\nDo you want to confirm this courier?`,
+            [
+              { text: 'Decline', style: 'destructive', onPress: async () => {
+                try {
+                  await ridesAPI.cancelRide(ride.id);
+                  setCurrentRide(null);
+                  Alert.alert('Ride Declined', 'You have declined this courier.');
+                } catch { Alert.alert('Error', 'Failed to decline ride'); }
+              }},
+              { text: 'Confirm', onPress: async () => {
+                try {
+                  await ridesAPI.passengerConfirmRide(ride.id);
+                  Alert.alert('Confirmed!', 'Your courier is on the way!');
+                } catch { Alert.alert('Error', 'Failed to confirm ride'); }
+              }}
+            ]
+          );
+        } else if (ride.status === 'accepted') {
+          Alert.alert(
+            '🎉 Driver Found!',
+            `Your driver is on the way!\n\nDriver: ${ride.driver_name || 'Driver'}\nVehicle: ${ride.driver_vehicle || 'N/A'}`,
+            [{ 
+              text: 'View Ride', 
+              onPress: () => router.push('/(passenger)/book-ride')
+            }]
+          );
+        } else if (ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
             Alert.alert(
               '🚗 Courier Arrived', 
               'Your courier has arrived at the pickup location!',

@@ -73,7 +73,10 @@ export default function DriverDashboardScreen() {
 
     socketService.on('rideUpdated', (ride) => {
       if (ride.driver_email === driverInfo?.email) {
-        if (ride.status === 'accepted' || ride.status === 'active' || ride.status === 'arriving') {
+        if (ride.status === 'driver_accepted') {
+          setCurrentRide(ride);
+          Alert.alert('Waiting for Confirmation', 'The passenger is reviewing your acceptance. Please wait for them to confirm.');
+        } else if (ride.status === 'accepted' || ride.status === 'active' || ride.status === 'arriving') {
           setCurrentRide(ride);
         } else if (ride.status === 'completed' || ride.status === 'cancelled') {
           setCurrentRide(null);
@@ -117,8 +120,8 @@ export default function DriverDashboardScreen() {
       
       await ridesAPI.acceptRide(ride.id, driverData);
       setPendingRides((prev) => prev.filter((r) => r.id !== ride.id));
-      setCurrentRide({ ...ride, ...driverData, status: 'accepted' });
-      Alert.alert('Success', 'Ride accepted!');
+      setCurrentRide({ ...ride, ...driverData, status: 'driver_accepted' });
+      Alert.alert('Success', 'Ride accepted! Waiting for passenger to confirm...');
     } catch (error) {
       Alert.alert('Error', 'Failed to accept ride');
     }

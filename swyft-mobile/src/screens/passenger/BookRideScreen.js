@@ -100,7 +100,29 @@ export default function BookRideScreen() {
       if (ride.passenger_email === userEmail) {
         console.log('Ride update matches passenger!');
         setCurrentRide(prev => ({ ...prev, ...ride }));
-        if (ride.status === 'accepted' || ride.status === 'driver_arrived') {
+        if (ride.status === 'driver_accepted') {
+          setRideBooked(true);
+          Alert.alert(
+            'Driver Found!',
+            `${ride.driver_name || 'Your driver'} has accepted your ride.\n\nDo you want to confirm?`,
+            [
+              { text: 'Decline', style: 'destructive', onPress: async () => {
+                try {
+                  await ridesAPI.cancelRide(ride.id);
+                  setRideBooked(false);
+                  setCurrentRide(null);
+                  Alert.alert('Ride Declined', 'You have declined this courier.');
+                } catch { Alert.alert('Error', 'Failed to decline ride'); }
+              }},
+              { text: 'Confirm', onPress: async () => {
+                try {
+                  await ridesAPI.passengerConfirmRide(ride.id);
+                  Alert.alert('Confirmed!', 'Your driver is on the way!');
+                } catch { Alert.alert('Error', 'Failed to confirm ride'); }
+              }}
+            ]
+          );
+        } else if (ride.status === 'accepted' || ride.status === 'driver_arrived') {
           setRideBooked(true);
           Alert.alert('Driver Found!', `Your driver ${ride.driver_name} has accepted the ride!`);
         } else if (ride.status === 'cancelled' || ride.status === 'canceled') {

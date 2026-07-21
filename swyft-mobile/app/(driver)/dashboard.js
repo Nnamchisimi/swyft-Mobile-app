@@ -124,7 +124,7 @@ const loadDriverData = async () => {
       
       const response = await ridesAPI.getRides({ 
         driver_email: email,
-        status: 'accepted,arrived,active' 
+        status: 'driver_accepted,accepted,arrived,active' 
       });
       
       if (response.data && response.data.length > 0) {
@@ -232,7 +232,7 @@ const loadDriverData = async () => {
           const currentLng = loc.coords.longitude;
           
           
-          if ((ride.status === 'accepted' || ride.status === 'arrived_pickup') && ride.pickup_lat && ride.pickup_lng) {
+          if ((ride.status === 'driver_accepted' || ride.status === 'accepted' || ride.status === 'arrived_pickup') && ride.pickup_lat && ride.pickup_lng) {
             const distanceToPickup = calculateDistance(currentLat, currentLng, parseFloat(ride.pickup_lat), parseFloat(ride.pickup_lng));
             setEta(calculateETA(distanceToPickup));
           }
@@ -280,7 +280,10 @@ const loadDriverData = async () => {
     socketService.on('rideUpdated', (ride) => {
       console.log('rideUpdated received:', ride);
       if (ride.driver_email === driverInfo?.email || ride.driver_email === driverInfo?.email) {
-        if (ride.status === 'accepted' || ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
+        if (ride.status === 'driver_accepted') {
+          setCurrentRide(ride);
+          Alert.alert('Waiting for Confirmation', 'The passenger is reviewing your acceptance. Please wait for them to confirm.');
+        } else if (ride.status === 'accepted' || ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
           setCurrentRide(ride);
           
           if (ride.pickup_lat && ride.pickup_lng) {
@@ -486,12 +489,12 @@ const loadDriverData = async () => {
                 vehicle: driverInfo?.vehicle || `${driverInfo?.vehicleYear || ''} ${driverInfo?.vehicleMake || ''} ${driverInfo?.vehicleModel || ''}`.trim(),
               };
               
-              await ridesAPI.acceptRide(ride.id, driverData);
-              
-              setCurrentRide({ ...ride, ...driverData, status: 'accepted' });
-              setPendingRides((prev) => prev.filter((r) => r.id !== ride.id));
-              
-              Alert.alert('Success', 'Ride accepted! Navigate to pickup location.');
+               await ridesAPI.acceptRide(ride.id, driverData);
+               
+               setCurrentRide({ ...ride, ...driverData, status: 'driver_accepted' });
+               setPendingRides((prev) => prev.filter((r) => r.id !== ride.id));
+               
+               Alert.alert('Success', 'Ride accepted! Waiting for passenger to confirm...');
             } catch (error) {
               Alert.alert('Error', error.response?.data?.error || 'Failed to accept ride');
             }
@@ -822,17 +825,20 @@ const loadDriverData = async () => {
     if (!currentRide) return null;
     
     const statusColors = {
+      'driver_accepted': '#FF9500',
       'accepted': COLORS.primary,
       'arrived': COLORS.secondary,
       'active': COLORS.success,
     };
     
     const statusLabels = {
+      'driver_accepted': 'Awaiting Passenger',
       'accepted': 'Accepted',
       'arrived': 'Arrived at Pickup',
       'active': 'In Progress',
     };
     
+    const isWaitingConfirmation = currentRide.status === 'driver_accepted';
     
     const displayEta = currentRide.status === 'active' ? etaDropoff : eta;
     const etaLabel = currentRide.status === 'active' ? 'ETA to Dropoff' : 'ETA to Pickup';
@@ -930,43 +936,52 @@ const loadDriverData = async () => {
         )}
         
         <View style={styles.currentRideActions}>
-          {currentRide.status === 'accepted' && (
-            <TouchableOpacity style={styles.arrivedButton} onPress={handleArrivedAtPickup}>
-              <Text style={styles.arrivedButtonText}>Arrived at Pickup</Text>
-            </TouchableOpacity>
-          )}
-          {currentRide.status === 'arrived_pickup' && (
-            <TouchableOpacity style={styles.startButton} onPress={handleStartRide}>
-              <Text style={styles.startButtonText}>Pick Up Package</Text>
-            </TouchableOpacity>
-          )}
-          {currentRide.status === 'active' && (
+          {isWaitingConfirmation ? (
+            <View style={styles.waitingContainer}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={styles.waitingText}>Waiting for passenger to confirm your acceptance...</Text>
+            </View>
+          ) : (
             <>
-              <TouchableOpacity style={styles.navigationButton} onPress={() => openNavigation(currentRide.dropoff_lat, currentRide.dropoff_lng, currentRide.dropoff_location)}>
-                <Ionicons name="navigate" size={20} color={COLORS.white} />
-                <Text style={styles.navigationButtonText}>Navigate to Dropoff</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.arrivingButton} onPress={handleArriving}>
-                <Text style={styles.arrivingButtonText}>Arriving at Destination</Text>
-              </TouchableOpacity>
+              {currentRide.status === 'accepted' && (
+                <TouchableOpacity style={styles.arrivedButton} onPress={handleArrivedAtPickup}>
+                  <Text style={styles.arrivedButtonText}>Arrived at Pickup</Text>
+                </TouchableOpacity>
+              )}
+              {currentRide.status === 'arrived_pickup' && (
+                <TouchableOpacity style={styles.startButton} onPress={handleStartRide}>
+                  <Text style={styles.startButtonText}>Pick Up Package</Text>
+                </TouchableOpacity>
+              )}
+              {currentRide.status === 'active' && (
+                <>
+                  <TouchableOpacity style={styles.navigationButton} onPress={() => openNavigation(currentRide.dropoff_lat, currentRide.dropoff_lng, currentRide.dropoff_location)}>
+                    <Ionicons name="navigate" size={20} color={COLORS.white} />
+                    <Text style={styles.navigationButtonText}>Navigate to Dropoff</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.arrivingButton} onPress={handleArriving}>
+                    <Text style={styles.arrivingButtonText}>Arriving at Destination</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+              {currentRide.status === 'arriving' && (
+                <TouchableOpacity style={styles.completeButton} onPress={handleCompleteRide}>
+                  <Text style={styles.completeButtonText}>Complete Delivery (OTP)</Text>
+                </TouchableOpacity>
+              )}
+              {currentRide.status === 'completed' && (
+                <View style={styles.waitingContainer}>
+                  <ActivityIndicator size="small" color={COLORS.success} />
+                  <Text style={styles.waitingText}>Waiting for receiver to confirm delivery...</Text>
+                </View>
+              )}
+              {currentRide.status === 'confirmed' && (
+                <View style={styles.waitingContainer}>
+                  <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
+                  <Text style={[styles.waitingText, { color: COLORS.success }]}>Delivery confirmed! Payment received.</Text>
+                </View>
+              )}
             </>
-          )}
-          {currentRide.status === 'arriving' && (
-            <TouchableOpacity style={styles.completeButton} onPress={handleCompleteRide}>
-              <Text style={styles.completeButtonText}>Complete Delivery (OTP)</Text>
-            </TouchableOpacity>
-          )}
-          {currentRide.status === 'completed' && (
-            <View style={styles.waitingContainer}>
-              <ActivityIndicator size="small" color={COLORS.success} />
-              <Text style={styles.waitingText}>Waiting for receiver to confirm delivery...</Text>
-            </View>
-          )}
-          {currentRide.status === 'confirmed' && (
-            <View style={styles.waitingContainer}>
-              <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
-              <Text style={[styles.waitingText, { color: COLORS.success }]}>Delivery confirmed! Payment received.</Text>
-            </View>
           )}
           {currentRide.status !== 'confirmed' && currentRide.status !== 'completed' && (
             <TouchableOpacity style={styles.cancelRideButton} onPress={handleCancelCurrentRide}>

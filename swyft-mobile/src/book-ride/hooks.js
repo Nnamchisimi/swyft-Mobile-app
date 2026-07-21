@@ -79,7 +79,12 @@ export function useBookRideState() {
   const navigateToDriverArrived = (params) => router.push({ pathname: '/(passenger)/driver-arrived', params });
 
   const actions = useBookRideActions({
+    interCityMode, interCityRoute, selectedRideType, selectedVehicleType,
+    pickupAddress, dropoffLocation, dropoffAddress, receiverName, receiverEmail, receiverPhone,
+    userName, userEmail, userPhone, estimatedPrice, packageType, packageSize,
+    packageDetails, specialInstructions, pickupLocation, currentLocation, currentRide,
     setCurrentRide, setRideBooked, setPickupLockedForRide, setLoading, resetForm,
+    setPickupManuallySelected,
   });
 
   const set = (key, value) => {
@@ -234,7 +239,7 @@ export function useBookRideEffects(state) {
     try {
       const response = await ridesAPI.getRides({ email });
       if (response.data?.length) {
-        const activeRide = response.data.find(r => ['accepted', 'arrived_pickup', 'active', 'arriving', 'pending'].includes(r.status));
+        const activeRide = response.data.find(r => ['driver_accepted', 'accepted', 'arrived_pickup', 'active', 'arriving', 'pending'].includes(r.status));
         if (activeRide) {
           setCurrentRide(activeRide); setRideBooked(true);
           setPickupAddr(activeRide.pickup || activeRide.pickup_location || '');
@@ -312,7 +317,27 @@ export function useBookRideEffects(state) {
     socketService.on('rideUpdated', (ride) => {
       if (ride.id === currentRide?.id || ride.passenger_email === userEmail || ride.passengerEmail === userEmail) {
         setCurrentRide(ride); setRideBooked(true);
-        if (ride.status === 'accepted') {
+        if (ride.status === 'driver_accepted') {
+          Alert.alert(
+            'Driver Found!',
+            `${ride.driver_name || 'Your courier'} has accepted your ride.\n\nVehicle: ${ride.driver_vehicle || ride.vehicle_type || 'N/A'}\nPhone: ${ride.driver_phone || 'N/A'}\n\nDo you want to confirm this courier?`,
+            [
+              { text: 'Decline', style: 'destructive', onPress: async () => {
+                try {
+                  await ridesAPI.cancelRide(ride.id || currentRide?.id);
+                  state.resetForm();
+                  Alert.alert('Ride Declined', 'You have declined this courier.');
+                } catch { Alert.alert('Error', 'Failed to decline ride'); }
+              }},
+              { text: 'Confirm', onPress: async () => {
+                try {
+                  await ridesAPI.passengerConfirmRide(ride.id || currentRide?.id);
+                  Alert.alert('Confirmed!', 'Your courier is on the way!');
+                } catch { Alert.alert('Error', 'Failed to confirm ride'); }
+              }}
+            ]
+          );
+        } else if (ride.status === 'accepted') {
           Alert.alert('Driver Found!', `Your courier is on the way!\n\nCourier: ${ride.driver_name || 'Courier'}\nRating: ⭐ ${ride.driver_rating ? Number(ride.driver_rating).toFixed(1) : '5.0'}\nPhone: ${ride.driver_phone || 'N/A'}\nVehicle: ${ride.driver_vehicle || ride.vehicle_type || 'N/A'}`, [{ text: 'Great!' }]);
           if (ride.driver_lat && ride.driver_lng) {
             setDriverLocation({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) });
