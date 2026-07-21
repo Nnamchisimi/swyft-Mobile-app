@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../../../src/constants/config';
-import { handleCallDriver } from '../_actions';
+import { COLORS } from '../../constants/config';
+import { handleCallDriver } from '../actions';
 
 export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, onCancelRide }) {
   const { currentRide, pickupAddress, dropoffAddress, driverLocation, driverDistance, driverStatus, estimatedPrice } = state;

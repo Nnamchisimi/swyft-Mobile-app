@@ -1,4 +1,4 @@
-import geoService from '../../../src/services/geo';
+import geoService from '../services/geo';
 
 export function parseGoogleMapsUrl(url) {
   try {

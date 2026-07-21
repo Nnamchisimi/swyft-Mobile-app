@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
-import { ridesAPI, fareAPI } from '../../../src/services/api';
-import { authService } from '../../../src/services/auth';
-import { socketService } from '../../../src/services/socket';
-import geoService from '../../../src/services/geo';
+import { ridesAPI, fareAPI } from '../services/api';
+import { authService } from '../services/auth';
+import { socketService } from '../services/socket';
+import geoService from '../services/geo';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { interCityRoutesData, defaultRideTypes, defaultVehicleTypes, mountainKeywords } from './_constants';
+import { interCityRoutesData, defaultRideTypes, defaultVehicleTypes, mountainKeywords } from './constants';
 
 export function useBookRideState() {
   const router = useRouter();

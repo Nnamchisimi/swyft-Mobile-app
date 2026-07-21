@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { socketService } from '../../../src/services/socket';
-import { ridesAPI } from '../../../src/services/api';
-import geoService from '../../../src/services/geo';
+import { socketService } from '../services/socket';
+import { ridesAPI } from '../services/api';
+import geoService from '../services/geo';
 import { Alert, Linking } from 'react-native';
 
 export function setupSocketListeners(state) {

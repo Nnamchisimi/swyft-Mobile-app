@@ -4,20 +4,20 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../../src/constants/config';
-import { ridesAPI, fareAPI } from '../../../src/services/api';
-import { authService } from '../../../src/services/auth';
-import { socketService } from '../../../src/services/socket';
-import geoService from '../../../src/services/geo';
-import { useBookRideState, useBookRideEffects, useBookRideActions } from './_hooks';
-import { setupSocketListeners, useDriverLocationListener } from './_socket';
-import { handleBookRide, handleCancelRide, handleConfirmPickup, handleConfirmComplete, handleCallDriver } from './_actions';
-import { calculateFare } from './_pricing';
-import { parseGoogleMapsUrl, reverseGeocode, getPlaceDetails, getRouteCoordinates } from './_location';
-import { interCityRoutesData, defaultVehicleTypes } from './_constants';
-import { RideStatus } from './_components/ride-status';
-import { BookingForm } from './_components/booking-form';
-import styles from './_styles';
+import { COLORS } from '../constants/config';
+import { ridesAPI, fareAPI } from '../services/api';
+import { authService } from '../services/auth';
+import { socketService } from '../services/socket';
+import geoService from '../services/geo';
+import { useBookRideState, useBookRideEffects, useBookRideActions } from './hooks';
+import { setupSocketListeners, useDriverLocationListener } from './socket';
+import { handleBookRide, handleCancelRide, handleConfirmPickup, handleConfirmComplete, handleCallDriver } from './actions';
+import { calculateFare } from './pricing';
+import { parseGoogleMapsUrl, reverseGeocode, getPlaceDetails, getRouteCoordinates } from './location';
+import { interCityRoutesData, defaultVehicleTypes } from './constants';
+import { RideStatus } from './components/ride-status';
+import { BookingForm } from './components/booking-form';
+import styles from './styles';
 
 const { width } = Dimensions.get('window');
 
@@ -181,13 +181,13 @@ export default function BookRideScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView 
-          style={styles.scrollView} 
-          contentContainerStyle={styles.scrollContent} 
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-        >
-          {state.rideBooked ? (
+        {state.rideBooked ? (
+          <ScrollView 
+            style={styles.scrollView} 
+            contentContainerStyle={styles.scrollContent} 
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+          >
             <RideStatus 
               state={state} 
               styles={styles} 
@@ -195,20 +195,20 @@ export default function BookRideScreen() {
               onConfirmComplete={confirmComplete}
               onCancelRide={cancelRide}
             />
-          ) : (
-            <BookingForm 
-              state={state} 
-              styles={styles} 
-              mapRef={mapRef}
-              onPickupChange={handlePickupChange}
-              onDropoffChange={handleDropoffChange}
-              onPickupSelect={handleSelectPickupSuggestion}
-              onDropoffSelect={handleSelectDropoffSuggestion}
-              onGetCurrentLocation={handleGetCurrentLocation}
-              onBookRide={bookRide}
-            />
-          )}
-        </ScrollView>
+          </ScrollView>
+        ) : (
+          <BookingForm 
+            state={state} 
+            styles={styles} 
+            mapRef={mapRef}
+            onPickupChange={handlePickupChange}
+            onDropoffChange={handleDropoffChange}
+            onPickupSelect={handleSelectPickupSuggestion}
+            onDropoffSelect={handleSelectDropoffSuggestion}
+            onGetCurrentLocation={handleGetCurrentLocation}
+            onBookRide={bookRide}
+          />
+        )}
       </KeyboardAvoidingView>
 
       <View style={styles.bottomNav}>

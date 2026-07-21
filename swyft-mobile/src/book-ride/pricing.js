@@ -1,4 +1,4 @@
-import { interCityRoutesData, defaultVehicleTypes, mountainKeywords } from './_constants';
+import { interCityRoutesData, defaultVehicleTypes, mountainKeywords } from './constants';
 
 export function calculateFare(state) {
   const { selectedRideType, selectedVehicleType, interCityMode, interCityRoute, rideTypes, vehicleTypes, dropoffAddress, setEstimatedPrice, setSurchargeDetails } = state;

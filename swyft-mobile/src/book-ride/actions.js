@@ -1,5 +1,5 @@
 import { Alert, Linking } from 'react-native';
-import { ridesAPI } from '../../../src/services/api';
+import { ridesAPI } from '../services/api';
 
 export async function handleBookRide(state) {
   const {
@@ -11,16 +11,26 @@ export async function handleBookRide(state) {
     setPickupLockedForRide, setLoading
   } = state;
 
+  const vehicleType = selectedVehicleType || (packageSize === 'Small' ? 'motorcycle' : packageSize === 'Medium' ? 'sedan' : packageSize === 'Large' ? 'truck' : null);
+
+  const missing = [];
+  if (!pickupAddress?.trim()) missing.push('pickup location');
+  if (!dropoffLocationValue) missing.push('dropoff location');
+  if (!receiverName?.trim()) missing.push('receiver name');
+  if (!receiverEmail?.trim()) missing.push('receiver email');
+  if (!receiverPhone?.trim()) missing.push('receiver phone');
+  if (!userName?.trim()) missing.push('user data');
   if (interCityMode) {
-    if (!interCityRoute || !selectedVehicleType) { Alert.alert('Error', 'Please select a route and vehicle type'); return; }
+    if (!interCityRoute) missing.push('inter-city route');
   } else {
-    if (!selectedRideType || !selectedVehicleType) { Alert.alert('Error', 'Please select a city hub area and vehicle type'); return; }
+    if (!selectedRideType) missing.push('city hub area');
   }
-  if (!pickupAddress || !dropoffLocationValue) { Alert.alert('Error', 'Please enter both pickup and dropoff locations'); return; }
-  if (!receiverName?.trim()) { Alert.alert('Error', 'Please enter receiver name'); return; }
-  if (!receiverEmail?.trim()) { Alert.alert('Error', 'Please enter receiver email'); return; }
-  if (!receiverPhone?.trim()) { Alert.alert('Error', 'Please enter receiver phone number'); return; }
-  if (!userName?.trim()) { Alert.alert('Error', 'User data not loaded yet.'); return; }
+  if (!vehicleType) missing.push('vehicle type (select package size)');
+
+  if (missing.length > 0) {
+    Alert.alert('Missing Information', 'Please select: ' + missing.join(', '));
+    return;
+  }
 
   Alert.alert('Confirm Receiver Details', `Please verify the receiver details are correct before booking:\n\nName: ${receiverName}\nEmail: ${receiverEmail}\nPhone: ${receiverPhone}`, [
     { text: 'Edit', style: 'cancel' },
@@ -40,7 +50,7 @@ export async function handleBookRide(state) {
             dropoff_lat: dropoffLocationValue?.latitude,
             dropoff_lng: dropoffLocationValue?.longitude,
             ride_type: interCityMode ? interCityRoute : selectedRideType,
-            vehicle_type: selectedVehicleType,
+            vehicle_type: vehicleType,
             package_type: packageType,
             package_size: packageSize,
             package_details: packageDetails,
