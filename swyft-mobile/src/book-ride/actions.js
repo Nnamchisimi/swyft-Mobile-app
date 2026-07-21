@@ -72,8 +72,9 @@ export async function handleBookRide(state) {
 
           Alert.alert('Courier Requested!', 'Looking for nearby couriers...\n\nYou will be notified when a courier accepts your ride.');
         } catch (error) {
-          console.error('Booking error:', error);
-          Alert.alert('Error', 'Failed to book dispatch. Please try again.');
+          const message = error?.response?.data?.message || error?.message || 'Failed to book dispatch. Please try again.';
+          console.error('[BOOK_RIDE_ERROR]', JSON.stringify({ message, data: error?.response?.data, stack: error?.stack }));
+          Alert.alert('Booking Error', message);
         } finally {
           setLoading(false);
         }
@@ -97,7 +98,9 @@ export async function handleCancelRide(state) {
           resetForm();
           Alert.alert('Cancelled', 'Your ride has been cancelled.');
         } catch (error) {
-          Alert.alert('Error', 'Failed to cancel ride');
+          const message = error?.response?.data?.message || error?.message || 'Failed to cancel ride';
+          console.error('[CANCEL_RIDE_ERROR]', JSON.stringify({ message, data: error?.response?.data }));
+          Alert.alert('Error', message);
         }
       },
     },
@@ -112,7 +115,9 @@ export async function handleConfirmPickup(state) {
     setCurrentRide({ ...currentRide, status: 'in_progress' });
     Alert.alert('Pickup Confirmed', 'Your ride has started!');
   } catch (error) {
-    Alert.alert('Error', 'Failed to confirm pickup');
+    const message = error?.response?.data?.message || error?.message || 'Failed to confirm pickup';
+    console.error('[CONFIRM_PICKUP_ERROR]', JSON.stringify({ message, data: error?.response?.data }));
+    Alert.alert('Error', message);
   }
 }
 
@@ -129,8 +134,10 @@ export async function handleConfirmComplete(state) {
           setCurrentRide({ ...currentRide, status: 'confirmed' });
           setRideBooked(false);
           Alert.alert('Delivery Confirmed', 'Payment has been released to the courier. Thank you!');
-        } catch (error) {
-          Alert.alert('Error', 'Failed to confirm delivery');
+          } catch (error) {
+            const message = error?.response?.data?.message || error?.message || 'Failed to confirm delivery';
+            console.error('[CONFIRM_COMPLETE_ERROR]', JSON.stringify({ message, data: error?.response?.data }));
+            Alert.alert('Error', message);
         }
       },
     },

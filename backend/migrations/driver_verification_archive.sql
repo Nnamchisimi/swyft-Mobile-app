@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS driver_verification_archive (
   decision VARCHAR(20) NOT NULL CHECK (decision IN ('approved', 'rejected')),
   reviewer_email VARCHAR(255),
   notes TEXT,
-  id_document JSONB,
-  selfie JSONB,
-  phone JSONB,
-  bank_account JSONB,
+   id_document JSONB,
+   selfie JSONB,
+   phone_verification JSONB,
+   bank_account JSONB,
   archived_at TIMESTAMPTZ DEFAULT NOW()
 );
 

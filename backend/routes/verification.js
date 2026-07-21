@@ -83,22 +83,22 @@ function registerVerificationRoutes(app, db) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`,
-      `CREATE TABLE IF NOT EXISTS driver_verification_archive (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        email VARCHAR(255) NOT NULL,
-        first_name VARCHAR(100),
-        last_name VARCHAR(100),
-        phone VARCHAR(50),
-        decision VARCHAR(20) NOT NULL,
-        reviewer_email VARCHAR(255),
-        notes TEXT,
-        id_document JSONB,
-        selfie JSONB,
-        phone JSONB,
-        bank_account JSONB,
-        archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`,
+       `CREATE TABLE IF NOT EXISTS driver_verification_archive (
+         id SERIAL PRIMARY KEY,
+         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+         email VARCHAR(255) NOT NULL,
+         first_name VARCHAR(100),
+         last_name VARCHAR(100),
+         phone VARCHAR(50),
+         decision VARCHAR(20) NOT NULL,
+         reviewer_email VARCHAR(255),
+         notes TEXT,
+         id_document JSONB,
+         selfie JSONB,
+         phone_verification JSONB,
+         bank_account JSONB,
+         archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+       )`,
       `CREATE TABLE IF NOT EXISTS ratings (
         id SERIAL PRIMARY KEY,
         ride_id INTEGER NOT NULL REFERENCES rides(id) ON DELETE CASCADE,
@@ -1007,15 +1007,15 @@ function registerVerificationRoutes(app, db) {
         if (bundleErr) return res.status(500).json({ error: 'Failed to build archive' });
         const snapshot = buildArchiveSnapshot(bundle);
         db.query(
-          `INSERT INTO driver_verification_archive
-             (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone, bank_account)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-          [
-            userId, email, user.first_name, user.last_name, user.phone, decision, reviewerEmail,
-            notes || null,
-            JSON.stringify(snapshot.id_document), JSON.stringify(snapshot.selfie),
-            JSON.stringify(snapshot.phone), JSON.stringify(snapshot.bank_account),
-          ],
+           `INSERT INTO driver_verification_archive
+              (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+           [
+             userId, email, user.first_name, user.last_name, user.phone, decision, reviewerEmail,
+             notes || null,
+             JSON.stringify(snapshot.id_document), JSON.stringify(snapshot.selfie),
+             JSON.stringify(snapshot.phone), JSON.stringify(snapshot.bank_account),
+           ],
           (err2) => {
             if (err2) return res.status(500).json({ error: 'Failed to archive driver' });
             res.json({ message: 'Driver archived', email, decision });
@@ -1048,8 +1048,8 @@ function registerVerificationRoutes(app, db) {
 
     const { id } = req.params;
     db.query(
-      `SELECT id, user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone, bank_account, archived_at
-       FROM driver_verification_archive WHERE id = $1`,
+       `SELECT id, user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, archived_at
+        FROM driver_verification_archive WHERE id = $1`,
       [id],
       (err, results) => {
         if (err) return res.status(500).json({ error: 'Failed to load archived driver' });
@@ -1059,7 +1059,7 @@ function registerVerificationRoutes(app, db) {
           ...row,
           id_document: row.id_document ? JSON.parse(row.id_document) : null,
           selfie: row.selfie ? JSON.parse(row.selfie) : null,
-          phone: row.phone ? JSON.parse(row.phone) : null,
+          phone_verification: row.phone_verification ? JSON.parse(row.phone_verification) : null,
           bank_account: row.bank_account ? JSON.parse(row.bank_account) : null,
         });
       }
