@@ -107,58 +107,34 @@ export default function PassengerHomeScreen() {
         setCurrentRide(ride);
         currentRideRef.current = ride;
         if (ride.status === 'driver_accepted') {
-          Alert.alert(
-            '🎉 Driver Found!',
-            `${ride.driver_name || 'Your courier'} has accepted your ride.\n\nVehicle: ${ride.driver_vehicle || 'N/A'}\nPhone: ${ride.driver_phone || 'N/A'}\n\nDo you want to confirm this courier?`,
-            [
-              { text: 'Decline', style: 'destructive', onPress: async () => {
-                try {
-                  await ridesAPI.cancelRide(ride.id);
-                  setCurrentRide(null);
-                  Alert.alert('Ride Declined', 'You have declined this courier.');
-                } catch { Alert.alert('Error', 'Failed to decline ride'); }
-              }},
-              { text: 'Confirm', onPress: async () => {
-                try {
-                  await ridesAPI.passengerConfirmRide(ride.id);
-                  Alert.alert('Confirmed!', 'Your courier is on the way!');
-                } catch { Alert.alert('Error', 'Failed to confirm ride'); }
-              }}
-            ]
-          );
-        } else if (ride.status === 'accepted') {
-          Alert.alert(
-            '🎉 Driver Found!',
-            `Your driver is on the way!\n\nDriver: ${ride.driver_name || 'Driver'}\nVehicle: ${ride.driver_vehicle || 'N/A'}`,
-            [{ 
-              text: 'View Ride', 
-              onPress: () => router.push('/(passenger)/book-ride')
-            }]
-          );
-        } else if (ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
-            Alert.alert(
-              '🚗 Courier Arrived', 
-              'Your courier has arrived at the pickup location!',
-              [{ 
-                text: 'View Ride', 
-                onPress: () => router.push({
-                  pathname: '/(passenger)/book-ride',
-                  params: {
-                    rideId: ride.id,
-                    driverName: ride.driver_name,
-                    driverPhone: ride.driver_phone,
-                    driverVehicle: ride.driver_vehicle,
-                    pickupAddress: ride.pickup_location,
-                    dropoffAddress: ride.dropoff_location,
-                    pickupLat: ride.pickup_lat,
-                    pickupLng: ride.pickup_lng,
-                  },
-                })
-              }]
-            );
-          } else if (ride.status === 'active' || ride.status === 'arriving') {
-            Alert.alert('🚀 Ride Started', 'Your ride has begun. Enjoy your trip!');
-          } else if (ride.status === 'completed') {
+          router.push({
+            pathname: '/(passenger)/book-ride',
+            params: {
+              rideId: ride.id,
+              driverName: ride.driver_name,
+              driverPhone: ride.driver_phone,
+              driverVehicle: ride.driver_vehicle,
+              pickupAddress: ride.pickup_location,
+              dropoffAddress: ride.dropoff_location,
+              pickupLat: ride.pickup_lat,
+              pickupLng: ride.pickup_lng,
+            },
+          });
+        } else if (ride.status === 'accepted' || ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
+          router.push({
+            pathname: '/(passenger)/book-ride',
+            params: {
+              rideId: ride.id,
+              driverName: ride.driver_name,
+              driverPhone: ride.driver_phone,
+              driverVehicle: ride.driver_vehicle,
+              pickupAddress: ride.pickup_location,
+              dropoffAddress: ride.dropoff_location,
+              pickupLat: ride.pickup_lat,
+              pickupLng: ride.pickup_lng,
+            },
+          });
+        } else if (ride.status === 'completed') {
             Alert.alert(
               '🎉 Arrived at Destination!', 
               `You have arrived at your destination!

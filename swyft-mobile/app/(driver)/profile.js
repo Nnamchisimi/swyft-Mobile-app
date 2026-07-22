@@ -312,11 +312,57 @@ export default function DriverProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Vehicle</Text>
           <View style={styles.vehicleCard}>
-            <View style={styles.vehicleInfoContainer}>
-              <Text style={styles.vehicleInfoTitle}>Vehicle:</Text>
-              <Text style={styles.vehicleInfo}>{driverInfo?.vehicleMake || 'N/A'} {driverInfo?.vehicleModel || ''} {driverInfo?.vehicleYear || ''}</Text>
-              <Text style={styles.vehicleInfo}>Plate: {driverInfo?.vehiclePlate || 'N/A'}</Text>
+            <View style={styles.vehicleHeader}>
+              <View style={styles.vehicleIconContainer}>
+                <Ionicons name="car" size={24} color={COLORS.primary} />
+              </View>
+              <View style={styles.vehicleTitleContainer}>
+                <Text style={styles.vehicleTitle}>
+                  {driverInfo?.vehicleMake && driverInfo?.vehicleModel ? (
+                    <>{driverInfo.vehicleMake} {driverInfo.vehicleModel}</>
+                  ) : (
+                    'Not specified'
+                  )}
+                </Text>
+                <Text style={styles.vehicleSubtitle}>
+                  {driverInfo?.vehicleYear || ''} {driverInfo?.vehicleColor ? `• ${driverInfo.vehicleColor}` : ''}
+                </Text>
+              </View>
+              {driverInfo?.vehiclePlate && (
+                <View style={styles.plateBadge}>
+                  <Text style={styles.plateText}>{driverInfo.vehiclePlate}</Text>
+                </View>
+              )}
             </View>
+            <View style={styles.vehicleDivider} />
+            <View style={styles.vehicleDetailsGrid}>
+              <View style={styles.vehicleDetailItem}>
+                <Ionicons name="car-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.vehicleDetailLabel}>Make</Text>
+                <Text style={styles.vehicleDetailValue}>{driverInfo?.vehicleMake || 'N/A'}</Text>
+              </View>
+              <View style={styles.vehicleDetailItem}>
+                <Ionicons name="settings-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.vehicleDetailLabel}>Model</Text>
+                <Text style={styles.vehicleDetailValue}>{driverInfo?.vehicleModel || 'N/A'}</Text>
+              </View>
+              <View style={styles.vehicleDetailItem}>
+                <Ionicons name="calendar-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.vehicleDetailLabel}>Year</Text>
+                <Text style={styles.vehicleDetailValue}>{driverInfo?.vehicleYear || 'N/A'}</Text>
+              </View>
+              <View style={styles.vehicleDetailItem}>
+                <Ionicons name="color-palette-outline" size={16} color={COLORS.textSecondary} />
+                <Text style={styles.vehicleDetailLabel}>Color</Text>
+                <Text style={styles.vehicleDetailValue}>{driverInfo?.vehicleColor || 'N/A'}</Text>
+              </View>
+            </View>
+            {driverInfo?.vehiclePlate && (
+              <View style={styles.plateContainer}>
+                <Text style={styles.plateLabel}>License Plate</Text>
+                <Text style={styles.plateValue}>{driverInfo.vehiclePlate}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -630,72 +676,117 @@ const styles = StyleSheet.create({
   },
   vehicleCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
-  },
-  vehicleHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  vehicleName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    flex: 1,
-  },
-  vehicleColorBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  colorDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  vehicleColorText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  vehicleDetails: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 12,
-  },
-  vehicleDetailRow: {
+  vehicleHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  vehicleIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.primaryLight || '#E3F2FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  vehicleTitleContainer: {
+    flex: 1,
+  },
+  vehicleTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    textTransform: 'capitalize',
+  },
+  vehicleSubtitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    textTransform: 'capitalize',
+  },
+  plateBadge: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  plateText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: 0.5,
+  },
+  vehicleDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginBottom: 16,
+  },
+  vehicleDetailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    gap: 12,
+    marginBottom: 16,
+  },
+  vehicleDetailItem: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: COLORS.surface,
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
   },
   vehicleDetailLabel: {
-    fontSize: 14,
+    fontSize: 11,
     color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 4,
+    fontWeight: '600',
   },
   vehicleDetailValue: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '700',
     color: COLORS.text,
+    marginTop: 2,
+    textTransform: 'capitalize',
   },
-  vehicleInfoContainer: {
-    marginTop: 8,
-    padding: 8,
+  plateContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
   },
-  vehicleInfoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  vehicleInfo: {
-    fontSize: 12,
+  plateLabel: {
+    fontSize: 13,
     color: COLORS.textSecondary,
-    marginBottom: 2,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  plateValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.text,
+    letterSpacing: 0.5,
   },
   noVehicle: {
     alignItems: 'center',

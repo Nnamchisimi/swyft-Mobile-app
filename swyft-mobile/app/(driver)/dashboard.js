@@ -101,11 +101,6 @@ export default function DriverDashboard() {
           <Text style={styles.brandName}>SWYFTinc</Text>
           <Text style={styles.headerTitle}>Driver Mode</Text>
           <Text style={styles.headerSubtitle}>{state.driverInfo?.firstName || 'Driver'}</Text>
-<View style={styles.vehicleInfoContainer}>
-  <Text style={styles.vehicleInfoTitle}>Vehicle:</Text>
-  <Text style={styles.vehicleInfo}>{state.driverInfo?.vehicleMake || 'N/A'} {state.driverInfo?.vehicleModel || ''} {state.driverInfo?.vehicleYear || ''}</Text>
-  <Text style={styles.vehicleInfo}>Plate: {state.driverInfo?.vehiclePlate || 'N/A'}</Text>
-</View>
         </View>
         <TouchableOpacity
           style={styles.profileButton}

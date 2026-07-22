@@ -62,7 +62,7 @@ function registerRidesRoutes(app, io, db) {
     const { driver_email } = req.query;
     if (!driver_email) return res.status(400).json({ error: 'driver_email is required' });
 
-    db.query('SELECT * FROM rides WHERE driver_email = $1 AND status IN ($2, $3) ORDER BY created_at DESC', [driver_email, 'accepted', 'active'], (err, results) => {
+    db.query('SELECT * FROM rides WHERE driver_email = $1 AND status IN ($2, $3, $4) ORDER BY created_at DESC', [driver_email, 'accepted', 'active', 'driver_accepted'], (err, results) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch active rides' });
       res.json(results.rows);
     });
@@ -361,37 +361,10 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
                 return res.status(500).json({ error: 'Failed to accept ride', details: err2.message });
               }
 
-              // Get full ride details including pickup location
-              db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err4, rideResults) => {
-                if (rideResults && rideResults.rows.length > 0) {
-                  const ride = rideResults.rows[0];
-                  const passengerEmail = ride.passenger_email;
-                  console.log('Emitting rideUpdated to passenger room:', passengerEmail);
-                  // Emit to specific passenger room
-                   io.to(passengerEmail).emit('rideUpdated', {
-                     id: rideId,
-                     passenger_email: passengerEmail,
-                     status: 'driver_accepted',
-                     driver_name: driverName,
-                     driver_email: email,
-                     driver_phone: driverPhone,
-                     driver_vehicle: vehicleDetails,
-                     driver_id: driverUserId,
-                     driver_lat: driverLat,
-                     driver_lng: driverLng,
-                     driver_rating: driverRating,
-                     pickup_lat: ride.pickup_lat,
-                     pickup_lng: ride.pickup_lng
-                   });
-                } else {
-                  console.log('Could not find ride details for ride:', rideId);
-                }
-              });
-
-              // Also broadcast to all clients
-              console.log('Broadcasting rideUpdated to all clients');
-              io.emit('rideUpdated', {
+                // Notify passenger
+              io.to(ride.passenger_email).emit('rideUpdated', {
                 id: rideId,
+                passenger_email: ride.passenger_email,
                 status: 'driver_accepted',
                 driver_name: driverName,
                 driver_email: email,
@@ -401,9 +374,17 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
                 driver_lat: driverLat,
                 driver_lng: driverLng,
                 driver_rating: driverRating,
-                pickup_lat: null,
-                pickup_lng: null
+                pickup_lat: ride.pickup_lat,
+                pickup_lng: ride.pickup_lng
               });
+
+              // Notify other online drivers that this ride has been taken
+              io.to('onlineDrivers').emit('rideUpdated', {
+                id: rideId,
+                status: 'driver_accepted',
+                driver_email: email
+              });
+
               res.json({ message: 'Ride accepted successfully', rideId });
             });
           });
@@ -415,7 +396,23 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
               console.error('UPDATE rides error (no user):', err2);
               return res.status(500).json({ error: 'Failed to accept ride', details: err2.message });
             }
-            io.emit('rideUpdated', { id: rideId, status: 'driver_accepted', driver_name: driverName, driver_email: email, driver_vehicle: vehicleDetails });
+
+            io.to(ride.passenger_email).emit('rideUpdated', {
+              id: rideId,
+              passenger_email: ride.passenger_email,
+              status: 'driver_accepted',
+              driver_name: driverName,
+              driver_email: email,
+              driver_phone: driverPhone,
+              driver_vehicle: vehicleDetails
+            });
+
+            io.to('onlineDrivers').emit('rideUpdated', {
+              id: rideId,
+              status: 'driver_accepted',
+              driver_email: email
+            });
+
             res.json({ message: 'Ride accepted successfully', rideId });
           });
         }

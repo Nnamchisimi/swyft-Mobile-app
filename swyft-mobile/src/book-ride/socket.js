@@ -37,25 +37,13 @@ export function setupSocketListeners(state) {
       setRideBooked(true);
       
       if (ride.status === 'driver_accepted') {
-        Alert.alert(
-          'Driver Found!',
-          `${ride.driver_name || 'Your courier'} has accepted your ride.\n\nVehicle: ${ride.driver_vehicle || ride.vehicle_type || 'N/A'}\nPhone: ${ride.driver_phone || 'N/A'}\n\nDo you want to confirm this courier?`,
-          [
-            { text: 'Decline', style: 'destructive', onPress: async () => {
-              try {
-                await ridesAPI.cancelRide(ride.id || currentRide?.id);
-                state.resetForm();
-                Alert.alert('Ride Declined', 'You have declined this courier.');
-              } catch { Alert.alert('Error', 'Failed to decline ride'); }
-            }},
-            { text: 'Confirm', onPress: async () => {
-              try {
-                await ridesAPI.passengerConfirmRide(ride.id || currentRide?.id);
-                Alert.alert('Confirmed!', 'Your courier is on the way!');
-              } catch { Alert.alert('Error', 'Failed to confirm ride'); }
-            }}
-          ]
-        );
+        setCurrentRide(ride);
+        setRideBooked(true);
+        
+        if (ride.pickup_lat && ride.pickup_lng) {
+          setPickupLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
+        }
+        if (ride.pickup || ride.pickup_location) setPickupAddress(ride.pickup || ride.pickup_location);
       } else if (ride.status === 'accepted') {
         Alert.alert(
           'Driver Found!',

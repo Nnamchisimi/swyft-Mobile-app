@@ -135,13 +135,12 @@ export default function DriverDashboard () {
 
       const acceptedRide = {
         ...selectedRide,
-        status: 'accepted',
+        status: 'driver_accepted',
         driver_name: driverInfo.name,
         driver_phone: driverInfo.phone,
         driver_vehicle: driverInfo.vehicle,
         driver_email: driverInfo.email
       }
-      socket.emit('rideUpdated', acceptedRide)
 
       setPendingRides(prev => prev.filter(r => (r.id || r._id) !== selectedRide.id))
       setActiveRides(prev => [...prev, acceptedRide])

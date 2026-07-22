@@ -237,7 +237,7 @@ export function useBookRideEffects(state) {
   async function loadActiveRide(email) {
     if (!email) { setUserDataLoading(false); return; }
     try {
-      const response = await ridesAPI.getRides({ email });
+      const response = await ridesAPI.getRides({ passenger_email: email });
       if (response.data?.length) {
         const activeRide = response.data.find(r => ['driver_accepted', 'accepted', 'arrived_pickup', 'active', 'arriving', 'pending'].includes(r.status));
         if (activeRide) {
@@ -318,36 +318,23 @@ export function useBookRideEffects(state) {
       if (ride.id === currentRide?.id || ride.passenger_email === userEmail || ride.passengerEmail === userEmail) {
         setCurrentRide(ride); setRideBooked(true);
         if (ride.status === 'driver_accepted') {
-          Alert.alert(
-            'Driver Found!',
-            `${ride.driver_name || 'Your courier'} has accepted your ride.\n\nVehicle: ${ride.driver_vehicle || ride.vehicle_type || 'N/A'}\nPhone: ${ride.driver_phone || 'N/A'}\n\nDo you want to confirm this courier?`,
-            [
-              { text: 'Decline', style: 'destructive', onPress: async () => {
-                try {
-                  await ridesAPI.cancelRide(ride.id || currentRide?.id);
-                  state.resetForm();
-                  Alert.alert('Ride Declined', 'You have declined this courier.');
-                } catch { Alert.alert('Error', 'Failed to decline ride'); }
-              }},
-              { text: 'Confirm', onPress: async () => {
-                try {
-                  await ridesAPI.passengerConfirmRide(ride.id || currentRide?.id);
-                  Alert.alert('Confirmed!', 'Your courier is on the way!');
-                } catch { Alert.alert('Error', 'Failed to confirm ride'); }
-              }}
-            ]
-          );
+          setCurrentRide(ride); setRideBooked(true);
         } else if (ride.status === 'accepted') {
-          Alert.alert('Driver Found!', `Your courier is on the way!\n\nCourier: ${ride.driver_name || 'Courier'}\nRating: ⭐ ${ride.driver_rating ? Number(ride.driver_rating).toFixed(1) : '5.0'}\nPhone: ${ride.driver_phone || 'N/A'}\nVehicle: ${ride.driver_vehicle || ride.vehicle_type || 'N/A'}`, [{ text: 'Great!' }]);
           if (ride.driver_lat && ride.driver_lng) {
             setDriverLocation({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) });
             if (pickupLocation) geoService.getETA({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) }, pickupLocation).then(result => { if (result?.duration) setDriverDistance(Math.round(result.duration / 60)); });
           } else if (ride.pickup_lat && ride.pickup_lng) setDriverLocation({ latitude: ride.pickup_lat, longitude: ride.pickup_lng });
-        } else if (ride.status === 'arrived_pickup') Alert.alert('Courier Arrived!', `${ride.driver_name || 'Your courier'} has arrived at pickup.\n\nPlease hand over the package.`, [{ text: 'OK' }]);
-        else if (ride.status === 'active') Alert.alert('Package Picked Up', 'Your package is now in transit!');
-        else if (ride.status === 'arriving') Alert.alert('Arriving Soon', 'The courier is almost at your destination!');
-        else if (ride.status === 'completed') Alert.alert('Delivery Completed!', `Fare: ₺${ride.price || 0}\n\nPlease confirm to release payment.`, [{ text: 'Confirm Delivery', onPress: async () => { try { await ridesAPI.confirmComplete(ride.id); Alert.alert('Payment Released', 'Thank you!'); state.resetForm(); } catch { Alert.alert('Error', 'Failed to confirm delivery'); } } }]);
-        else if (ride.status === 'cancelled' || ride.status === 'canceled') { Alert.alert('Ride Cancelled', 'Your ride has been cancelled.'); state.resetForm(); }
+        } else if (ride.status === 'arrived_pickup') {
+          setCurrentRide(ride); setRideBooked(true);
+        } else if (ride.status === 'active') {
+          setCurrentRide(ride); setRideBooked(true);
+        } else if (ride.status === 'arriving') {
+          setCurrentRide(ride); setRideBooked(true);
+        } else if (ride.status === 'completed') {
+          setCurrentRide(ride); setRideBooked(true);
+        } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
+          setRideBooked(false); setCurrentRide(null); state.resetForm?.();
+        }
       }
     });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/constants/config';
 
@@ -174,3 +174,266 @@ export default function CurrentRide({ ride, eta, etaDropoff, onArrivedAtPickup, 
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  currentRideCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 20,
+    margin: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  currentRideHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  currentRideTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  etaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  etaLabel: {
+    fontSize: 12,
+    color: COLORS.textLight,
+  },
+  etaText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.primary,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  statusText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  rideLocations: {
+    marginBottom: 20,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  locationDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 4,
+    marginRight: 12,
+  },
+  locationTextContainer: {
+    flex: 1,
+  },
+  locationLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textLight,
+    marginBottom: 2,
+  },
+  locationText: {
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 18,
+  },
+  locationConnector: {
+    width: 2,
+    height: 24,
+    backgroundColor: COLORS.border,
+    marginLeft: 5,
+    marginVertical: 4,
+  },
+  passengerContact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  passengerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  passengerAvatarText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  passengerInfo: {
+    flex: 1,
+  },
+  passengerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  passengerPhone: {
+    fontSize: 13,
+    color: COLORS.textLight,
+  },
+  vehicleTypeBadge: {
+    fontSize: 11,
+    color: COLORS.primary,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  ridePriceLarge: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.success,
+  },
+  packageInfoCurrent: {
+    backgroundColor: COLORS.background,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  packageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  packageHeaderText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginLeft: 6,
+  },
+  packageDetailsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  packageChip: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  packageChipSpecial: {
+    backgroundColor: '#FFF3F3',
+    borderColor: COLORS.error,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  packageChipText: {
+    fontSize: 12,
+    color: COLORS.text,
+  },
+  packageChipTextSpecial: {
+    marginLeft: 4,
+    color: COLORS.error,
+  },
+  currentRideActions: {
+    gap: 10,
+  },
+  arrivedButton: {
+    backgroundColor: COLORS.secondary,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  arrivedButtonText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  startButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  startButtonText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  navigationButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 14,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  navigationButtonText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  arrivingButton: {
+    backgroundColor: COLORS.secondary,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  arrivingButtonText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  completeButton: {
+    backgroundColor: COLORS.success,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  completeButtonText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  waitingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 10,
+  },
+  waitingText: {
+    fontSize: 14,
+    color: COLORS.textLight,
+    flex: 1,
+  },
+  cancelRideButton: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.error,
+    borderRadius: 10,
+  },
+  cancelRideButtonText: {
+    color: COLORS.error,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+});
