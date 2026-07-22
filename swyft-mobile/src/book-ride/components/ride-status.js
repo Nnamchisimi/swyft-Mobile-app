@@ -33,7 +33,7 @@ export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, 
             {dropoffLocation && (
               <Marker coordinate={{ latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude }} title="Dropoff" pinColor={COLORS.error} />
             )}
-            {driverLocation && currentRide.status !== 'driver_accepted' && (
+            {driverLocation && (
               <Marker coordinate={{ latitude: driverLocation.latitude, longitude: driverLocation.longitude }} title="Courier">
                 <View style={styles.driverMarkerStyle}>
                   <Ionicons name="car" size={14} color="white" />
@@ -141,7 +141,7 @@ export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, 
         </View>
       </View>
 
-      {driverLocation && (driverDistance || driverDistance === 0) && currentRide.status !== 'driver_accepted' && (
+      {driverLocation && (driverDistance || driverDistance === 0) && (
         <View style={styles.etaContainer}>
           <Ionicons name="car" size={20} color={COLORS.white} />
           <Text style={styles.etaText}>
@@ -150,7 +150,7 @@ export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, 
         </View>
       )}
 
-      {driverLocation && !driverDistance && currentRide.status !== 'driver_accepted' && (
+      {driverLocation && !driverDistance && (
         <View style={[styles.etaContainer, { backgroundColor: COLORS.secondary }]}>
           <Ionicons name="time" size={20} color={COLORS.white} />
           <Text style={styles.etaText}>Calculating ETA...</Text>

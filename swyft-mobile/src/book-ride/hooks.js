@@ -198,6 +198,39 @@ export function useBookRideEffects(state) {
 
   useEffect(() => { if (userEmail) socketService.joinRoom(userEmail); }, [userEmail]);
 
+   useEffect(() => {
+    let passengerSubscription = null;
+    const startPassengerLocationTracking = async () => {
+      if (!userEmail || !currentRide) return;
+      if (!['driver_accepted', 'accepted', 'arrived_pickup', 'active', 'arriving'].includes(currentRide.status)) return;
+
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+
+        passengerSubscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 15 },
+          (loc) => {
+            socketService.updateDriverLocation(userEmail, {
+              lat: loc.coords.latitude,
+              lng: loc.coords.longitude,
+            }, currentRide.id, currentRide.status);
+          }
+        );
+      } catch (error) {
+        console.error('Error starting passenger location tracking:', error);
+      }
+    };
+
+    startPassengerLocationTracking();
+
+    return () => {
+      if (passengerSubscription) {
+        try { passengerSubscription.remove(); } catch (e) {}
+      }
+    };
+  }, [userEmail, currentRide]);
+
   useEffect(() => { loadPricing(); }, []);
 
   useEffect(() => { calculateFare(); }, [selectedRideType, selectedVehicleType, interCityMode, interCityRoute, pricingLoaded, dropoffAddress]);

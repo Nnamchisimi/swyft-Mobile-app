@@ -430,36 +430,48 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
        }
        if (result.rowCount === 0) return res.status(400).json({ error: "Cannot confirm ride - may already be confirmed or cancelled" });
 
-       db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err2, rides) => {
-         if (err2) {
-           console.error('Error getting ride details:', err2.message);
-           return res.status(500).json({ error: "Server error" });
-         }
-         const ride = rides.rows[0];
+        db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err2, rides) => {
+          if (err2) {
+            console.error('Error getting ride details:', err2.message);
+            return res.status(500).json({ error: "Server error" });
+          }
+          const ride = rides.rows[0];
 
-         io.to(ride.passenger_email).emit('rideUpdated', {
-           id: rideId,
-           status: "accepted",
-           driver_name: ride.driver_name,
-           driver_email: ride.driver_email,
-           driver_phone: ride.driver_phone,
-           driver_vehicle: ride.driver_vehicle,
-           driver_lat: ride.driver_lat,
-           driver_lng: ride.driver_lng,
-           pickup_lat: ride.pickup_lat,
-           pickup_lng: ride.pickup_lng
-         });
+          io.to(ride.passenger_email).emit('rideUpdated', {
+            id: rideId,
+            status: "accepted",
+            passenger_confirmed: true,
+            driver_name: ride.driver_name,
+            driver_email: ride.driver_email,
+            driver_phone: ride.driver_phone,
+            driver_vehicle: ride.driver_vehicle,
+            driver_lat: ride.driver_lat,
+            driver_lng: ride.driver_lng,
+            pickup_lat: ride.pickup_lat,
+            pickup_lng: ride.pickup_lng,
+            dropoff_lat: ride.dropoff_lat,
+            dropoff_lng: ride.dropoff_lng,
+            dropoff_location: ride.dropoff_location,
+            pickup_location: ride.pickup_location
+          });
 
-         if (ride.driver_email) {
-           io.to(ride.driver_email).emit('rideUpdated', {
-             id: rideId,
-             status: "accepted",
-             passenger_confirmed: true
-           });
-         }
+          if (ride.driver_email) {
+            io.to(ride.driver_email).emit('rideUpdated', {
+              id: rideId,
+              status: "accepted",
+              passenger_confirmed: true,
+              passenger_email: ride.passenger_email,
+              pickup_lat: ride.pickup_lat,
+              pickup_lng: ride.pickup_lng,
+              pickup_location: ride.pickup_location,
+              dropoff_lat: ride.dropoff_lat,
+              dropoff_lng: ride.dropoff_lng,
+              dropoff_location: ride.dropoff_location
+            });
+          }
 
-         res.json({ message: "Ride confirmed successfully", rideId });
-       });
+          res.json({ message: "Ride confirmed successfully", rideId });
+        });
      });
    });
 
