@@ -125,6 +125,11 @@ class AuthService {
         vehicleYear: user.vehicle_year || '',
         vehicleColor: user.vehicle_color || '',
         vehiclePlate: user.vehicle_plate || '',
+        vehicleMake: user.vehicle_make || '',
+        vehicleModel: user.vehicle_model || '',
+        vehicleYear: user.vehicle_year || '',
+        vehicleColor: user.vehicle_color || '',
+        vehiclePlate: user.vehicle_plate || '',
       })],
     ]);
   }

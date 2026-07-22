@@ -94,7 +94,8 @@ export async function handleCancelRide(state) {
       style: 'destructive',
       onPress: async () => {
         try {
-          await ridesAPI.cancelRide(currentRide.id || currentRide.rideId);
+          const email = await authService.getUserEmail();
+          await ridesAPI.cancelRide(currentRide.id || currentRide.rideId, email);
           resetForm();
           Alert.alert('Cancelled', 'Your ride has been cancelled.');
         } catch (error) {

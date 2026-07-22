@@ -310,7 +310,7 @@ export function useBookRideEffects(state) {
       if (ride.passenger_email === userEmail) {
         setCurrentRide({ id: ride.id, ...ride, status: 'requested' }); setRideBooked(true); setPickupLockedForRide(true);
         if (ride.pickup_lat && ride.pickup_lng) setPickupLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
-        if (ride.pickup || ride.pickup_location) setPickupAddr(ride.pickup || ride.pickup_location);
+        if (ride.pickup || ride.pickup_location) setPickupAddress(ride.pickup || ride.pickup_location);
       }
     });
 

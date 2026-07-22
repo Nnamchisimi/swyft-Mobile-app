@@ -51,7 +51,7 @@ export const ridesAPI = {
   getRides: (params) => api.get('/api/rides', { params }),
   getRideById: (rideId) => api.get(`/api/rides/${rideId}`),
   updateRideStatus: (rideId, status) => api.post(`/api/rides/${rideId}/${status === 'active' ? 'start' : status}`),
-  cancelRide: (rideId) => api.post(`/api/rides/${rideId}/cancel`),
+  cancelRide: (rideId, cancelledBy) => api.post(`/api/rides/${rideId}/cancel`, cancelledBy ? { cancelled_by: cancelledBy } : {}),
   rateRide: (rideId, ratingData) => api.post(`/api/rides/${rideId}/rate`, ratingData),
   acceptRide: (rideId, driverData) => api.post(`/api/rides/${rideId}/accept`, driverData),
   startRide: (rideId) => api.post(`/api/rides/${rideId}/start`),

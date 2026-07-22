@@ -213,7 +213,8 @@ export async function handleCancelCurrentRide(currentRide, ridesAPI, setCurrentR
         style: 'destructive',
         onPress: async () => {
           try {
-            await ridesAPI.cancelRide(currentRide.id);
+            const email = await authService.getUserEmail();
+            await ridesAPI.cancelRide(currentRide.id, email);
             setCurrentRide(null);
             fetchPendingRides();
           } catch (error) {

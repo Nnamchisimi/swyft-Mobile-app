@@ -8,6 +8,13 @@ const {
 
 // Register auth/user endpoints: verify-code, resend, signup, verify (GET), login, profile, google oauth
 function registerAuthRoutes(app, db) {
+  const dbQuery = (sql, params) => new Promise((resolve, reject) => {
+    db.query(sql, params, (err, results) => {
+      if (err) reject(err);
+      else resolve(results);
+    });
+  });
+
   // === VERIFY EMAIL CODE (POST - for mobile app) ===
   app.post('/api/users/verify-code', (req, res) => {
     const { email, code } = req.body;
@@ -127,7 +134,7 @@ function registerAuthRoutes(app, db) {
       const userQuery = 'INSERT INTO public.users (first_name, last_name, email, password, role, phone, is_verified) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, role';
       const userValues = [first_name?.trim(), last_name?.trim(), email?.trim(), hashedPassword, normalizedRole, phone || null, false];
 
-      db.query(userQuery, userValues, (err2, result) => {
+      db.query(userQuery, userValues, async (err2, result) => {
         if (err2) {
           console.log('User insert error:', err2.message);
           return res.status(500).json({ error: 'Failed to create user', details: err2.message });
@@ -139,19 +146,16 @@ function registerAuthRoutes(app, db) {
 
         // If driver, create car record
         if (userRole === 'driver') {
-          const carQuery = 'INSERT INTO cars (user_id, make, model, year, color, plate_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id';
-          const carValues = [userId, vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate];
-
-          db.query(carQuery, carValues, (err2, carResult) => {
-            if (err2) {
-              console.log('Car insert error:', err2.message);
-            } else {
-              const carId = carResult.rows[0].id;
-
-              // Update user record to reference the car
-              db.query('UPDATE users SET vehicle_id = $1 WHERE id = $2', [carId, userId]);
-            }
-          });
+          try {
+            const carQuery = 'INSERT INTO cars (user_id, make, model, year, color, plate_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id';
+            const carValues = [userId, vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate];
+            const carResult = await dbQuery(carQuery, carValues);
+            const carId = carResult.rows[0].id;
+            await dbQuery('UPDATE users SET vehicle_id = $1 WHERE id = $2', [carId, userId]);
+            console.log('Car record created for driver:', userId, 'carId:', carId);
+          } catch (carErr) {
+            console.log('Car insert error:', carErr.message);
+          }
         }
 
         // Generate and store verification code

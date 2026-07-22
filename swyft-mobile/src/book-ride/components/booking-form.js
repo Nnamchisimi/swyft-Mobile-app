@@ -27,7 +27,7 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
   const assignedVehicleId = packageSize ? SIZE_TO_VEHICLE[packageSize] : null;
   const assignedVehicle = assignedVehicleId ? defaultVehicleTypes.find(v => v.id === assignedVehicleId) : null;
 
-  const canBook = selectedRideType && assignedVehicleId && pickupAddress && dropoffLocation && receiverName?.trim() && receiverEmail?.trim() && receiverPhone?.trim();
+  const canBook = selectedRideType && assignedVehicleId && pickupAddress && dropoffLocation && receiverName?.trim() && receiverEmail?.trim() && receiverPhone?.trim() && !loading;
 
   return (
     <ScrollView 

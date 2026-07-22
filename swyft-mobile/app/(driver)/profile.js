@@ -312,39 +312,11 @@ export default function DriverProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Vehicle</Text>
           <View style={styles.vehicleCard}>
-            {(driverInfo?.vehicleMake || driverInfo?.vehicleModel || driverInfo?.vehiclePlate) ? (
-              <>
-                <View style={styles.vehicleHeader}>
-                  <Text style={styles.vehicleName}>
-                    {driverInfo.vehicleYear} {driverInfo.vehicleMake} {driverInfo.vehicleModel}
-                  </Text>
-                  <View style={styles.vehicleColorBadge}>
-                    <View style={[styles.colorDot, { 
-                      backgroundColor: driverInfo.vehicleColor?.toLowerCase() === 'white' ? '#E0E0E0' : 
-                                      driverInfo.vehicleColor?.toLowerCase() === 'black' ? '#333' : 
-                                      driverInfo.vehicleColor?.toLowerCase() === 'red' ? '#F44336' : 
-                                      driverInfo.vehicleColor?.toLowerCase() === 'blue' ? '#2196F3' : '#888' 
-                    }]} />
-                    <Text style={styles.vehicleColorText}>{driverInfo.vehicleColor || 'N/A'}</Text>
-                  </View>
-                </View>
-                
-                <View style={styles.vehicleDetails}>
-                  <View style={styles.vehicleDetailRow}>
-                    <Text style={styles.vehicleDetailLabel}>License Plate</Text>
-                    <Text style={styles.vehicleDetailValue}>{driverInfo.vehiclePlate || 'N/A'}</Text>
-                  </View>
-                </View>
-              </>
-            ) : (
-              <View style={styles.noVehicle}>
-                <Ionicons name="car" size={40} color={COLORS.gray} />
-                <Text style={styles.noVehicleText}>No vehicle registered</Text>
-                <TouchableOpacity style={styles.addVehicleButton} onPress={handleAddVehicle}>
-                  <Text style={styles.addVehicleButtonText}>Add Vehicle</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            <View style={styles.vehicleInfoContainer}>
+              <Text style={styles.vehicleInfoTitle}>Vehicle:</Text>
+              <Text style={styles.vehicleInfo}>{driverInfo?.vehicleMake || 'N/A'} {driverInfo?.vehicleModel || ''} {driverInfo?.vehicleYear || ''}</Text>
+              <Text style={styles.vehicleInfo}>Plate: {driverInfo?.vehiclePlate || 'N/A'}</Text>
+            </View>
           </View>
         </View>
 
@@ -707,6 +679,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: COLORS.text,
+  },
+  vehicleInfoContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+  },
+  vehicleInfoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  vehicleInfo: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
   },
   noVehicle: {
     alignItems: 'center',

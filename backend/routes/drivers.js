@@ -181,7 +181,7 @@ function registerDriversRoutes(app, db) {
         c.make, c.model, c.year, c.color, c.plate_number
       FROM public.users u
       LEFT JOIN driver_profiles dp ON u.id = dp.user_id
-      LEFT JOIN cars c ON c.id = u.vehicle_id
+      LEFT JOIN cars c ON c.user_id = u.id
       WHERE u.email = $1 AND LOWER(u.role) = 'driver'
     `, [email], (err, results) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch driver info', details: err.message });
@@ -192,7 +192,16 @@ function registerDriversRoutes(app, db) {
 
       const driver = results.rows[0];
       console.log(`[DEBUG] Driver info found:`, JSON.stringify(driver));
-      res.json(driver);
+      res.json({
+      ...driver,
+      vehicle: {
+        make: driver.make,
+        model: driver.model,
+        year: driver.year,
+        color: driver.color,
+        plate: driver.plate_number
+      }
+    });
     });
   });
 

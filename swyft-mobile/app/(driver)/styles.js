@@ -85,6 +85,23 @@ export default StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 2,
   },
+  vehicleInfoContainer: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+  },
+  vehicleInfoTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  vehicleInfo: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
   profileButton: {
     padding: 4,
   },

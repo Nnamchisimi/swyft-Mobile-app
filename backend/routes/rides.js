@@ -513,11 +513,30 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
 // Cancel ride
   app.post('/api/rides/:id/cancel', (req, res) => {
     const rideId = req.params.id;
-    db.query('UPDATE rides SET status=$1, driver_assigned=false WHERE id=$2', ['cancelled', rideId], (err, result) => {
+    const cancelledBy = req.body?.cancelled_by;
+
+    db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, results) => {
       if (err) return res.status(500).json({ error: "Server error" });
-      if (result.rowCount === 0) return res.status(404).json({ error: "Ride not found" });
-      io.emit('rideUpdated', { id: rideId, status: "cancelled", driver_assigned: false });
-      res.json({ message: "Ride cancelled successfully", rideId });
+      if (results.rows.length === 0) return res.status(404).json({ error: "Ride not found" });
+
+      const ride = results.rows[0];
+      const cancelledByDriver = cancelledBy === ride.driver_email;
+      const cancelledByPassenger = cancelledBy === ride.passenger_email;
+
+      db.query('UPDATE rides SET status=$1, driver_assigned=false WHERE id=$2', ['cancelled', rideId], (err, result) => {
+        if (err) return res.status(500).json({ error: "Server error" });
+        if (result.rowCount === 0) return res.status(404).json({ error: "Ride not found" });
+
+        if (cancelledByDriver && ride.passenger_email) {
+          io.to(ride.passenger_email).emit('rideUpdated', { id: rideId, status: "cancelled", driver_assigned: false, cancelled_by: ride.driver_email });
+        } else if (cancelledByPassenger && ride.driver_email) {
+          io.to(ride.driver_email).emit('rideUpdated', { id: rideId, status: "cancelled", driver_assigned: false, cancelled_by: ride.passenger_email });
+        } else if (cancelledByPassenger && !ride.driver_email) {
+          io.to('onlineDrivers').emit('rideUpdated', { id: rideId, status: "cancelled", driver_assigned: false });
+        }
+
+        res.json({ message: "Ride cancelled successfully", rideId, cancelled_by: cancelledBy });
+      });
     });
   });
 

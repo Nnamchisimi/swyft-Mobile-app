@@ -100,7 +100,7 @@ export function setupSocketListeners(state) {
             },
           ]
         );
-      } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
+      } else if (ride.status === 'cancelled') {
         Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
         state.resetForm();
       }

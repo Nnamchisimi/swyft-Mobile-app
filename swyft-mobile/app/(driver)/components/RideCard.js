@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/constants/config';
 import { calculateDistance, calculateETA } from '../utils';
-import styles from '../../styles';
+import styles from '../styles';
 
 export default function RideCard({ ride, onAccept, onDecline, location }) {
   return (

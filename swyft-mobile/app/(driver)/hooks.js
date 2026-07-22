@@ -98,12 +98,6 @@ export function useDriverDashboardEffects(state, refs) {
 
     socketService.joinRoom(email);
     socketService.connectDriver({ email, location: { lat: location?.latitude, lng: location?.longitude } });
-
-    const interval = setInterval(() => {
-      fetchPendingRides();
-    }, 10000);
-
-    return () => clearInterval(interval);
   }, [isOnline, state.driverInfo?.email, location]);
 
   useEffect(() => {
@@ -277,6 +271,18 @@ export function useDriverDashboardEffects(state, refs) {
 
   const setupSocketListeners = () => {
     socketService.on('newRide', (ride) => {
+    console.log('New ride received:', ride);
+    if (isOnlineRef.current) {
+      setPendingRides((prev) => {
+        if (prev.find(r => r.id === ride.id)) return prev;
+        return [...prev, ride];
+      });
+      Alert.alert(
+        'New Ride Request!',
+        `Passenger: ${ride.passenger_name || 'Customer'}\nPickup: ${ride.pickup_location || ride.pickup || 'Nearby'}\nFare: ₺${ride.price || '0.00'}`,
+        [{ text: 'OK' }]
+      );
+    }
       console.log('Received newRide event:', ride);
 
       if (ride.status === 'pending') {
@@ -299,6 +305,7 @@ export function useDriverDashboardEffects(state, refs) {
 
     socketService.on('rideUpdated', (ride) => {
       console.log('rideUpdated received:', ride);
+
       if (ride.driver_email === state.driverInfo?.email) {
         if (ride.status === 'driver_accepted') {
           setCurrentRide(ride);
@@ -323,6 +330,20 @@ export function useDriverDashboardEffects(state, refs) {
           setCurrentRide(null);
           setPassengerLocation(null);
           fetchPendingRides();
+        }
+      }
+
+      if (ride.id) {
+        const acceptedByOther = ride.status === 'driver_accepted' && ride.driver_email !== state.driverInfo?.email;
+        const isCancelled = ride.status === 'cancelled' || ride.status === 'canceled';
+
+        if (acceptedByOther || isCancelled) {
+          setPendingRides((prev) => {
+            const exists = prev.some((r) => (r.id || r._id) === ride.id);
+            if (!exists) return prev;
+            console.log('Removing stale ride from pending:', ride.id);
+            return prev.filter((r) => (r.id || r._id) !== ride.id);
+          });
         }
       }
     });

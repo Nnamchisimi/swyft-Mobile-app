@@ -9,11 +9,13 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useDriverDashboardState } from './hooks';
 import { useDriverDashboardEffects } from './hooks';
 import { toggleOnline, handleAcceptRide, handleDeclineRide, handleArrivedAtPickup, handleStartRide, handleArriving, handleCompleteRide, handleCancelCurrentRide, handleLogout, openNavigation } from './actions';
 import { socketService } from '../../src/services/socket';
+import { authService } from '../../src/services/auth';
+import { ridesAPI } from '../../src/services/api';
 import RideCard from './components/RideCard';
 import CurrentRide from './components/CurrentRide';
 import { COLORS } from '../../src/constants/config';
@@ -99,6 +101,11 @@ export default function DriverDashboard() {
           <Text style={styles.brandName}>SWYFTinc</Text>
           <Text style={styles.headerTitle}>Driver Mode</Text>
           <Text style={styles.headerSubtitle}>{state.driverInfo?.firstName || 'Driver'}</Text>
+<View style={styles.vehicleInfoContainer}>
+  <Text style={styles.vehicleInfoTitle}>Vehicle:</Text>
+  <Text style={styles.vehicleInfo}>{state.driverInfo?.vehicleMake || 'N/A'} {state.driverInfo?.vehicleModel || ''} {state.driverInfo?.vehicleYear || ''}</Text>
+  <Text style={styles.vehicleInfo}>Plate: {state.driverInfo?.vehiclePlate || 'N/A'}</Text>
+</View>
         </View>
         <TouchableOpacity
           style={styles.profileButton}
@@ -149,7 +156,7 @@ export default function DriverDashboard() {
             <MapView
               ref={mapRef}
               style={styles.map}
-              provider={PROVIDER_OSM}
+              provider={PROVIDER_GOOGLE}
               initialRegion={{
                 latitude: state.location.latitude,
                 longitude: state.location.longitude,
