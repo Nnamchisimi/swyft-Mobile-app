@@ -138,7 +138,7 @@ function registerAuthRoutes(app, db) {
         console.log('User created (pending verification):', userId, 'Role:', userRole);
 
         // If driver, create car record
-        if (userRole === 'Driver') {
+        if (userRole === 'driver') {
           const carQuery = 'INSERT INTO cars (user_id, make, model, year, color, plate_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id';
           const carValues = [userId, vehicle_make, vehicle_model, vehicle_year, vehicle_color, vehicle_plate];
 

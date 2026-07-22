@@ -1,5 +1,5 @@
 import { Alert, Linking, Platform } from 'react-native';
-import { COLORS } from '../../../../src/constants/config';
+import { COLORS } from '../../src/constants/config';
 
 export const calculateDistance = (lat1, lng1, lat2, lng2) => {
   const R = 6371;

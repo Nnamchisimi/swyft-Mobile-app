@@ -13,8 +13,10 @@ import MapView, { Marker, Polyline, PROVIDER_OSM } from 'react-native-maps';
 import { useDriverDashboardState } from './hooks';
 import { useDriverDashboardEffects } from './hooks';
 import { toggleOnline, handleAcceptRide, handleDeclineRide, handleArrivedAtPickup, handleStartRide, handleArriving, handleCompleteRide, handleCancelCurrentRide, handleLogout, openNavigation } from './actions';
+import { socketService } from '../../src/services/socket';
 import RideCard from './components/RideCard';
 import CurrentRide from './components/CurrentRide';
+import { COLORS } from '../../src/constants/config';
 import styles from './styles';
 
 export default function DriverDashboard() {

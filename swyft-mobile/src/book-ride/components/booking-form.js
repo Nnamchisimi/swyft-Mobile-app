@@ -424,7 +424,7 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
           <>
             <Ionicons name="send" size={20} color={COLORS.white} />
             <Text style={styles.bookButtonText}>
-              {canBook ? `Book Courier • ₺${estimatedPrice}` : 'Complete all fields to book'}
+              {canBook ? `Book Courier • ₺${estimatedPrice}` : 'Book Courier'}
             </Text>
           </>
         )}

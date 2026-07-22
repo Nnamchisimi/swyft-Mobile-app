@@ -7,7 +7,7 @@ class SocketService {
     this.listeners = new Map();
   }
 
-  connect() {
+  connect(driverOnlineData = null) {
     if (this.socket?.connected) {
       console.log('Socket already connected');
       return;
@@ -20,11 +20,14 @@ class SocketService {
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 2000,
-      timeout: 10000,
+      timeout: 20000,
     });
 
     this.socket.on('connect', () => {
       console.log('Connected to socket server');
+      if (driverOnlineData) {
+        this.socket.emit('driverOnline', driverOnlineData);
+      }
     });
 
     this.socket.on('disconnect', () => {
@@ -33,8 +36,15 @@ class SocketService {
 
     this.socket.on('connect_error', (error) => {
       console.log('Socket connection error:', error.message);
-      // Don't log full error object to avoid circular reference
     });
+  }
+
+  connectDriver(driverOnlineData) {
+    if (!this.socket || !this.socket.connected) {
+      this.connect(driverOnlineData);
+      return;
+    }
+    this.socket.emit('driverOnline', driverOnlineData);
   }
 
   disconnect() {

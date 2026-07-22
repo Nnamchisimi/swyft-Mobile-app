@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import * as Location from 'expo-location';
-import { ridesAPI, driverAPI } from '../../../../src/services/api';
-import { socketService } from '../../../../src/services/socket';
-import { authService } from '../../../../src/services/auth';
+import { ridesAPI, driverAPI } from '../../src/services/api';
+import { socketService } from '../../src/services/socket';
+import { authService } from '../../src/services/auth';
 import { calculateDistance, calculateETA } from './utils';
 
 export function useDriverDashboardState() {
@@ -37,12 +37,18 @@ export function useDriverDashboardState() {
 export function useDriverDashboardEffects(state, refs) {
   const {
     setDriverInfo,
+    setIsOnline,
     isOnline,
     location,
     setCurrentRide,
     setPendingRides,
     setEarnings,
     setPassengerLocation,
+    setLoading,
+    setRefreshing,
+    setLocation,
+    setEta,
+    setEtaDropoff,
   } = state;
 
   const { currentRideRef, locationSubscriptionRef, isOnlineRef, locationRef } = refs;
@@ -63,6 +69,42 @@ export function useDriverDashboardEffects(state, refs) {
       }
     };
   }, []);
+
+  // Make socket re-announce driverOnline after reconnect
+  useEffect(() => {
+    if (!isOnline || !state.driverInfo?.email || !location) return;
+
+    const email = state.driverInfo.email;
+    const driverOnlineData = { email, location: { lat: location.latitude, lng: location.longitude } };
+
+    const handleReconnect = () => {
+      console.log('Socket reconnected, re-joining as online driver');
+      socketService.joinRoom(email);
+      socketService.connectDriver(driverOnlineData);
+    };
+
+    socketService.socket?.on('reconnect', handleReconnect);
+
+    return () => {
+      socketService.socket?.off('reconnect', handleReconnect);
+    };
+  }, [isOnline, state.driverInfo?.email, location]);
+
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const email = state.driverInfo?.email;
+    if (!email) return;
+
+    socketService.joinRoom(email);
+    socketService.connectDriver({ email, location: { lat: location?.latitude, lng: location?.longitude } });
+
+    const interval = setInterval(() => {
+      fetchPendingRides();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [isOnline, state.driverInfo?.email, location]);
 
   useEffect(() => {
     if (isOnline && location) {

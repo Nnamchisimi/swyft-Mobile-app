@@ -169,12 +169,10 @@ io.on('connection', (socket) => {
 
   // New ride request - broadcast to all online drivers with countdown
   socket.on('newRide', (ride) => {
-    // Add created timestamp for countdown
     ride.createdAt = new Date().toISOString();
-    ride.expiresAt = new Date(Date.now() + 15000).toISOString(); // 15 seconds countdown
+    ride.expiresAt = new Date(Date.now() + 15000).toISOString();
 
     io.to('onlineDrivers').emit('newRide', ride);
-    io.emit('newRide', ride);
   });
 
   socket.on('rideUpdated', (ride) => {

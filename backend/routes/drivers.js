@@ -181,7 +181,7 @@ function registerDriversRoutes(app, db) {
         c.make, c.model, c.year, c.color, c.plate_number
       FROM public.users u
       LEFT JOIN driver_profiles dp ON u.id = dp.user_id
-      LEFT JOIN cars c ON u.vehicle_id = c.user_id
+      LEFT JOIN cars c ON c.id = u.vehicle_id
       WHERE u.email = $1 AND LOWER(u.role) = 'driver'
     `, [email], (err, results) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch driver info', details: err.message });

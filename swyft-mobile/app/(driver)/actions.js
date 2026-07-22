@@ -1,7 +1,7 @@
 import { Alert } from 'react-native';
-import { authService } from '../../../src/services/auth';
-import { ridesAPI, driverAPI } from '../../../src/services/api';
-import { socketService } from '../../../src/services/socket';
+import { authService } from '../../src/services/auth';
+import { ridesAPI, driverAPI } from '../../src/services/api';
+import { socketService } from '../../src/services/socket';
 
 export async function toggleOnline(isOnline, setIsOnline, isOnlineRef, driverInfo, socketService, fetchPendingRides, setPendingRides, location, locationRef, router) {
   if (!isOnline && !location && !locationRef.current) {
