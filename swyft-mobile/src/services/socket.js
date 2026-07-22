@@ -74,6 +74,10 @@ class SocketService {
     this.socket?.emit('updateDriverLocation', { email, location, rideId });
   }
 
+  updatePassengerLocation(email, location, rideId = null) {
+    this.socket?.emit('passengerLocationUpdate', { email, location, rideId });
+  }
+
   driverHeartbeat(email) {
     this.socket?.emit('driverHeartbeat', { email });
   }

@@ -9,21 +9,27 @@ export default function CurrentRide({ ride, eta, etaDropoff, onArrivedAtPickup, 
   const statusColors = {
     'driver_accepted': '#FF9500',
     'accepted': COLORS.primary,
-    'arrived': COLORS.secondary,
+    'arrived_pickup': COLORS.secondary,
     'active': COLORS.success,
+    'arriving': '#34C759',
+    'completed': '#8E8E93',
+    'confirmed': '#34C759',
   };
 
   const statusLabels = {
     'driver_accepted': 'Awaiting Passenger',
     'accepted': 'Accepted',
-    'arrived': 'Arrived at Pickup',
+    'arrived_pickup': 'Arrived at Pickup',
     'active': 'In Progress',
+    'arriving': 'Arriving at Destination',
+    'completed': 'Completed',
+    'confirmed': 'Confirmed',
   };
 
   const isWaitingConfirmation = ride.status === 'driver_accepted';
 
-  const displayEta = ride.status === 'active' ? etaDropoff : eta;
-  const etaLabel = ride.status === 'active' ? 'ETA to Dropoff' : 'ETA to Pickup';
+  const displayEta = ride.status === 'active' || ride.status === 'arriving' ? etaDropoff : eta;
+  const etaLabel = ride.status === 'active' || ride.status === 'arriving' ? 'ETA to Dropoff' : 'ETA to Pickup';
 
   return (
     <View style={styles.currentRideCard}>

@@ -113,7 +113,7 @@ export async function handleConfirmPickup(state) {
   if (!currentRide) return;
   try {
     await ridesAPI.confirmPickup(currentRide.id);
-    setCurrentRide({ ...currentRide, status: 'in_progress' });
+    setCurrentRide({ ...currentRide, status: 'active' });
     Alert.alert('Pickup Confirmed', 'Your ride has started!');
   } catch (error) {
     const message = error?.response?.data?.message || error?.message || 'Failed to confirm pickup';
