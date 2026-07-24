@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useDriverDashboardState } from './hooks';
 import { useDriverDashboardEffects } from './hooks';
-import { toggleOnline, handleAcceptRide, handleDeclineRide, handleArrivedAtPickup, handleStartRide, handleArriving, handleCompleteRide, handleCancelCurrentRide, handleLogout, openNavigation } from './actions';
+import { toggleOnline, handleAcceptRide, handleDeclineRide, handleStartRide, handleCompleteRide, handleCancelCurrentRide, handleLogout, openNavigation } from './actions';
 import { socketService } from '../../src/services/socket';
 import { authService } from '../../src/services/auth';
 import { ridesAPI } from '../../src/services/api';
@@ -66,20 +66,12 @@ export default function DriverDashboard() {
     await effects.onRefreshHandler();
   };
 
-  const onArrivedAtPickup = async () => {
-    await handleArrivedAtPickup(state.currentRide, ridesAPI, state.setCurrentRide);
+  const onCompleteRide = async () => {
+    await handleCompleteRide(state.currentRide, ridesAPI, state.setCurrentRide, state.setLoading);
   };
 
   const onStartRide = async () => {
-    await handleStartRide(state.currentRide, ridesAPI, state.setCurrentRide, mapRef);
-  };
-
-  const onArriving = async () => {
-    await handleArriving(state.currentRide, ridesAPI, state.setCurrentRide);
-  };
-
-  const onCompleteRide = async () => {
-    await handleCompleteRide(state.currentRide, ridesAPI, state.setCurrentRide, state.setLoading);
+    await handleStartRide(state.currentRide, ridesAPI, state.setCurrentRide);
   };
 
   const onCancelCurrentRide = async () => {
@@ -254,9 +246,7 @@ export default function DriverDashboard() {
             ride={state.currentRide}
             eta={state.eta}
             etaDropoff={state.etaDropoff}
-            onArrivedAtPickup={onArrivedAtPickup}
             onStartRide={onStartRide}
-            onArriving={onArriving}
             onCompleteRide={onCompleteRide}
             onCancelCurrentRide={onCancelCurrentRide}
             onOpenNavigation={onOpenNavigation}
@@ -314,9 +304,7 @@ export default function DriverDashboard() {
             <Text style={styles.offlineText}>
               Go online to start receiving ride requests from passengers nearby.
             </Text>
-            <TouchableOpacity style={styles.goOnlineButton} onPress={onToggleOnline}>
-              <Text style={styles.goOnlineButtonText}>Go Online Now</Text>
-            </TouchableOpacity>
+            
           </View>
         )}
 

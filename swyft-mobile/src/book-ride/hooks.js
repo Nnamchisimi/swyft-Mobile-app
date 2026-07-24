@@ -202,7 +202,7 @@ export function useBookRideEffects(state) {
     let passengerSubscription = null;
     const startPassengerLocationTracking = async () => {
       if (!userEmail || !currentRide) return;
-      if (!['driver_accepted', 'accepted', 'arrived_pickup', 'active', 'arriving'].includes(currentRide.status)) return;
+       if (!['accepted'].includes(currentRide.status)) return;
 
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -242,23 +242,6 @@ export function useBookRideEffects(state) {
       else if (packageSize === 'Large') setVehicleType('truck');
     }
   }, [packageSize]);
-
-  useEffect(() => {
-    let etaInterval = null;
-    if (currentRide && ['accepted', 'arrived_pickup', 'active', 'arriving'].includes(currentRide.status) && driverLocation && pickupLocation) {
-      geoService.getETA(driverLocation, pickupLocation).then(result => {
-        if (result?.duration) setDriverDistance(Math.round(result.duration / 60));
-      });
-      etaInterval = setInterval(() => {
-        if (driverLocation && pickupLocation && currentRide && ['accepted', 'arrived_pickup', 'active', 'arriving'].includes(currentRide.status)) {
-          geoService.getETA(driverLocation, pickupLocation).then(result => {
-            if (result?.duration) setDriverDistance(Math.round(result.duration / 60));
-          });
-        }
-      }, 30000);
-    }
-    return () => { if (etaInterval) clearInterval(etaInterval); };
-  }, [driverLocation, pickupLocation, currentRide]);
 
   async function loadUserData() {
     const email = await authService.getUserEmail();
@@ -349,32 +332,50 @@ export function useBookRideEffects(state) {
 
     socketService.on('rideUpdated', (ride) => {
       if (ride.id === currentRide?.id || ride.passenger_email === userEmail || ride.passengerEmail === userEmail) {
-        setCurrentRide((prev) => {
-          const base = prev || {};
-          const merged = { ...base, ...ride };
-          if (ride.status === 'driver_accepted') {
-            if (ride.dropoff_location || ride.dropoff) {
-              setDropoffAddress(ride.dropoff_location || ride.dropoff);
-            }
-            if (ride.price) {
-              setEstimatedPrice(ride.price);
-            }
-          }
-          if (['accepted', 'arrived_pickup', 'active', 'arriving'].includes(ride.status)) {
-            if (ride.driver_lat && ride.driver_lng) {
-              setDriverLocation({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) });
-              if (pickupLocation) geoService.getETA({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) }, pickupLocation).then(result => { if (result?.duration) setDriverDistance(Math.round(result.duration / 60)); });
-            } else if (ride.pickup_lat && ride.pickup_lng) setDriverLocation({ latitude: ride.pickup_lat, longitude: ride.png });
-          }
-          return merged;
-        });
-        setRideBooked(true);
-        if (ride.status === 'cancelled') { setRideBooked(false); state.resetForm?.(); }
+    setCurrentRide((prev) => {
+      const base = prev || {};
+      const safeRide = Object.fromEntries(
+        Object.entries(ride).filter(([_, v]) => v !== undefined)
+      );
+      return { ...base, ...safeRide };
+    });
+    if (ride.status === 'driver_accepted' || ride.status === 'accepted') {
+      if (ride.dropoff_location || ride.dropoff) {
+        setDropoffAddress(ride.dropoff_location || ride.dropoff);
+      }
+      if (ride.price) {
+        setEstimatedPrice(ride.price);
+      }
+      if (ride.pickup_lat && ride.pickup_lng) {
+        setPickupLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
+      }
+      if (ride.dropoff_lat && ride.dropoff_lng) {
+        setDropoffLocation({ latitude: parseFloat(ride.dropoff_lat), longitude: parseFloat(ride.dropoff_lng) });
+      }
+    }
+    if (['accepted', 'arrived_pickup', 'active', 'arriving'].includes(ride.status)) {
+      if (ride.driver_lat && ride.driver_lng) {
+        setDriverLocation({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) });
+        if (pickupLocation) geoService.getETA({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) }, pickupLocation).then(result => { if (result?.duration) setDriverDistance(Math.round(result.duration / 60)); });
+      } else if (ride.pickup_lat && ride.pickup_lng) setDriverLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
+    }
+    setRideBooked(true);
+    if (ride.status === 'cancelled' || ride.status === 'canceled') {
+      Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
+      setRideBooked(false);
+      state.resetForm?.();
+    }
       }
     });
 
     socketService.on('dispatchUpdated', (dispatch) => {
-      if (dispatch.passenger_email === userEmail || dispatch.passengerEmail === userEmail) { setCurrentRide(dispatch); setRideBooked(true); }
+      if (dispatch.passenger_email === userEmail || dispatch.passengerEmail === userEmail) {
+        const safeDispatch = Object.fromEntries(
+          Object.entries(dispatch).filter(([_, v]) => v !== undefined)
+        );
+        setCurrentRide((prev) => ({ ...(prev || {}), ...safeDispatch }));
+        setRideBooked(true);
+      }
     });
 
     return () => socketService.removeAllListeners();

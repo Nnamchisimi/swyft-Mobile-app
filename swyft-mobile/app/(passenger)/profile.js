@@ -56,14 +56,14 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>Back</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.brandName}>SWYFTinc</Text>
-          <Text style={styles.title}>Profile</Text>
+          <Text style={styles.headerTitle}>Profile</Text>
         </View>
-        <View style={{ width: 50 }} />
+        <View style={{ width: 40 }} />
       </View>
 
       <View style={styles.content}>
@@ -174,16 +174,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   backButton: {
-    fontSize: 16,
-    color: COLORS.primary,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  backButtonText: {
+    fontSize: 24,
+    color: COLORS.text,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
     color: COLORS.text,
   },
   headerTitleContainer: {

@@ -3,15 +3,12 @@ import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/constants/config';
 
-export default function CurrentRide({ ride, eta, etaDropoff, onArrivedAtPickup, onStartRide, onArriving, onCompleteRide, onCancelCurrentRide, onOpenNavigation }) {
+export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onCompleteRide, onCancelCurrentRide, onOpenNavigation }) {
   if (!ride) return null;
 
   const statusColors = {
     'driver_accepted': '#FF9500',
     'accepted': COLORS.primary,
-    'arrived_pickup': COLORS.secondary,
-    'active': COLORS.success,
-    'arriving': '#34C759',
     'completed': '#8E8E93',
     'confirmed': '#34C759',
   };
@@ -19,29 +16,17 @@ export default function CurrentRide({ ride, eta, etaDropoff, onArrivedAtPickup, 
   const statusLabels = {
     'driver_accepted': 'Awaiting Passenger',
     'accepted': 'Accepted',
-    'arrived_pickup': 'Arrived at Pickup',
-    'active': 'In Progress',
-    'arriving': 'Arriving at Destination',
     'completed': 'Completed',
     'confirmed': 'Confirmed',
   };
 
   const isWaitingConfirmation = ride.status === 'driver_accepted';
 
-  const displayEta = ride.status === 'active' || ride.status === 'arriving' ? etaDropoff : eta;
-  const etaLabel = ride.status === 'active' || ride.status === 'arriving' ? 'ETA to Dropoff' : 'ETA to Pickup';
-
   return (
     <View style={styles.currentRideCard}>
       <View style={styles.currentRideHeader}>
         <View style={styles.headerLeft}>
           <Text style={styles.currentRideTitle}>Current Ride</Text>
-          {displayEta && (
-            <View style={styles.etaContainer}>
-              <Text style={styles.etaLabel}>{etaLabel}: </Text>
-              <Text style={styles.etaText}>{displayEta}</Text>
-            </View>
-          )}
         </View>
         <View style={[
           styles.statusBadge,
@@ -91,38 +76,6 @@ export default function CurrentRide({ ride, eta, etaDropoff, onArrivedAtPickup, 
         <Text style={styles.ridePriceLarge}>₺{ride.price || '15.00'}</Text>
       </View>
 
-      {(ride.package_type || ride.package_size || ride.package_details || ride.special_instructions) && (
-        <View style={styles.packageInfoCurrent}>
-          <View style={styles.packageHeader}>
-            <Ionicons name="cube-outline" size={16} color={COLORS.primary} />
-            <Text style={styles.packageHeaderText}>Package Details</Text>
-          </View>
-          <View style={styles.packageDetailsRow}>
-            {ride.package_type && (
-              <View style={styles.packageChip}>
-                <Text style={styles.packageChipText}>{ride.package_type}</Text>
-              </View>
-            )}
-            {ride.package_size && (
-              <View style={styles.packageChip}>
-                <Text style={styles.packageChipText}>{ride.package_size}</Text>
-              </View>
-            )}
-            {ride.package_details && (
-              <View style={styles.packageChip}>
-                <Text style={styles.packageChipText} numberOfLines={1}>{ride.package_details}</Text>
-              </View>
-            )}
-            {ride.special_instructions && (
-              <View style={[styles.packageChip, styles.packageChipSpecial]}>
-                <Ionicons name="alert-circle" size={12} color={COLORS.error} />
-                <Text style={[styles.packageChipText, styles.packageChipTextSpecial]}>{ride.special_instructions}</Text>
-              </View>
-            )}
-          </View>
-        </View>
-      )}
-
       <View style={styles.currentRideActions}>
         {isWaitingConfirmation ? (
           <View style={styles.waitingContainer}>
@@ -132,29 +85,8 @@ export default function CurrentRide({ ride, eta, etaDropoff, onArrivedAtPickup, 
         ) : (
           <>
             {ride.status === 'accepted' && (
-              <TouchableOpacity style={styles.arrivedButton} onPress={onArrivedAtPickup}>
-                <Text style={styles.arrivedButtonText}>Arrived at Pickup</Text>
-              </TouchableOpacity>
-            )}
-            {ride.status === 'arrived_pickup' && (
               <TouchableOpacity style={styles.startButton} onPress={onStartRide}>
-                <Text style={styles.startButtonText}>Pick Up Package</Text>
-              </TouchableOpacity>
-            )}
-            {ride.status === 'active' && (
-              <>
-                <TouchableOpacity style={styles.navigationButton} onPress={() => onOpenNavigation(ride.dropoff_lat, ride.dropoff_lng, ride.dropoff_location)}>
-                  <Ionicons name="navigate" size={20} color={COLORS.white} />
-                  <Text style={styles.navigationButtonText}>Navigate to Dropoff</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.arrivingButton} onPress={onArriving}>
-                  <Text style={styles.arrivingButtonText}>Arriving at Destination</Text>
-                </TouchableOpacity>
-              </>
-            )}
-            {ride.status === 'arriving' && (
-              <TouchableOpacity style={styles.completeButton} onPress={onCompleteRide}>
-                <Text style={styles.completeButtonText}>Complete Delivery (OTP)</Text>
+                <Text style={styles.startButtonText}>Start Ride</Text>
               </TouchableOpacity>
             )}
             {ride.status === 'completed' && (
@@ -207,19 +139,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: 4,
-  },
-  etaContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  etaLabel: {
-    fontSize: 12,
-    color: COLORS.textLight,
-  },
-  etaText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.primary,
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -313,110 +232,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.success,
   },
-  packageInfoCurrent: {
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-  },
-  packageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  packageHeaderText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginLeft: 6,
-  },
-  packageDetailsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  packageChip: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  packageChipSpecial: {
-    backgroundColor: '#FFF3F3',
-    borderColor: COLORS.error,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  packageChipText: {
-    fontSize: 12,
-    color: COLORS.text,
-  },
-  packageChipTextSpecial: {
-    marginLeft: 4,
-    color: COLORS.error,
-  },
   currentRideActions: {
     gap: 10,
-  },
-  arrivedButton: {
-    backgroundColor: COLORS.secondary,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  arrivedButtonText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  startButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  startButtonText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  navigationButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  navigationButtonText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  arrivingButton: {
-    backgroundColor: COLORS.secondary,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  arrivingButtonText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  completeButton: {
-    backgroundColor: COLORS.success,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  completeButtonText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '600',
   },
   waitingContainer: {
     flexDirection: 'row',
@@ -429,6 +246,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textLight,
     flex: 1,
+  },
+  startButton: {
+    backgroundColor: COLORS.success,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  startButtonText: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '600',
   },
   cancelRideButton: {
     paddingVertical: 12,

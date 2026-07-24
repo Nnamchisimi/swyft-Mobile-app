@@ -90,64 +90,17 @@ export function handleDeclineRide(ride, setPendingRides) {
   setPendingRides((prev) => prev.filter((r) => r.id !== ride.id));
 }
 
-export async function handleArrivedAtPickup(currentRide, ridesAPI, setCurrentRide) {
+export async function handleStartRide(currentRide, ridesAPI, setCurrentRide) {
   if (!currentRide) return;
 
-  ridesAPI.startRide(currentRide.id)
-    .then(() => {
-      setCurrentRide({ ...currentRide, status: 'arrived_pickup' });
-      Alert.alert('Arrived at Pickup', 'The sender has been notified that you have arrived. Waiting for package handoff...');
-    })
-    .catch(() => {
-      Alert.alert('Error', 'Failed to update status');
-    });
-}
-
-export async function handleStartRide(currentRide, ridesAPI, setCurrentRide, mapRef) {
-  if (!currentRide) return;
-
-  ridesAPI.confirmPickup(currentRide.id)
-    .then(() => {
-      setCurrentRide({ ...currentRide, status: 'active' });
-
-      if (mapRef.current && currentRide.pickup_lat && currentRide.pickup_lng && currentRide.dropoff_lat && currentRide.dropoff_lng) {
-        const pickupLat = parseFloat(currentRide.pickup_lat);
-        const pickupLng = parseFloat(currentRide.pickup_lng);
-        const dropoffLat = parseFloat(currentRide.dropoff_lat);
-        const dropoffLng = parseFloat(currentRide.dropoff_lng);
-
-        const centerLat = (pickupLat + dropoffLat) / 2;
-        const centerLng = (pickupLng + dropoffLng) / 2;
-
-        const latDelta = Math.abs(dropoffLat - pickupLat) * 1.5 + 0.01;
-        const lngDelta = Math.abs(dropoffLng - pickupLng) * 1.5 + 0.01;
-
-        mapRef.current.animateToRegion({
-          latitude: centerLat,
-          longitude: centerLng,
-          latitudeDelta: Math.max(latDelta, 0.02),
-          longitudeDelta: Math.max(lngDelta, 0.02),
-        }, 1000);
-      }
-
-      Alert.alert('Package Picked Up', 'Drive safely!');
-    })
-    .catch(() => {
-      Alert.alert('Error', 'Failed to start delivery');
-    });
-}
-
-export async function handleArriving(currentRide, ridesAPI, setCurrentRide) {
-  if (!currentRide) return;
-
-  ridesAPI.arriveRide(currentRide.id)
-    .then(() => {
-      setCurrentRide({ ...currentRide, status: 'arriving' });
-      Alert.alert('Arriving', 'You have marked as arriving at destination.');
-    })
-    .catch(() => {
-      Alert.alert('Error', 'Failed to update status');
-    });
+  try {
+    await ridesAPI.startRide(currentRide.id);
+    setCurrentRide({ ...currentRide, status: 'active' });
+    Alert.alert('Ride Started', 'The passenger has been notified you are on the way.');
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Failed to start ride';
+    Alert.alert('Error', message);
+  }
 }
 
 export async function handleCompleteRide(currentRide, ridesAPI, setCurrentRide, setLoading) {

@@ -32,35 +32,24 @@ export function setupSocketListeners(state) {
 
   socketService.on('rideUpdated', (ride) => {
     if (ride.id === currentRide?.id || ride.passenger_email === userEmail || ride.passengerEmail === userEmail) {
-        if (ride.status === 'driver_accepted') {
-          if (ride.dropoff_location || ride.dropoff) {
-            setDropoffAddress(ride.dropoff_location || ride.dropoff);
-          }
-          if (ride.price) {
-            state.set('estimatedPrice', ride.price);
-          }
+      if (ride.status === 'driver_accepted' || ride.status === 'accepted') {
+        if (ride.dropoff_location || ride.dropoff) {
+          setDropoffAddress(ride.dropoff_location || ride.dropoff);
         }
+        if (ride.price) {
+          state.set('estimatedPrice', ride.price);
+        }
+        if (ride.pickup_lat && ride.pickup_lng) {
+          setPickupLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
+        }
+        if (ride.dropoff_lat && ride.dropoff_lng) {
+          setDropoffLocation({ latitude: parseFloat(ride.dropoff_lat), longitude: parseFloat(ride.dropoff_lng) });
+        }
+      }
       setCurrentRide((prev) => ({ ...(prev || {}), ...ride }));
       setRideBooked(true);
-      if (ride.status === 'driver_accepted') {
-        if (ride.driver_lat && ride.driver_lng) {
-          setDriverLocation({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) });
-          if (state.pickupLocation) {
-            geoService.getETA({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) }, state.pickupLocation).then(result => { if (result?.duration) setDriverDistance(Math.round(result.duration / 60)); });
-          }
-        } else if (ride.pickup_lat && ride.pickup_lng) setDriverLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
-        if (ride.pickup_lat && ride.pickup_lng) setPickupLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
-        if (ride.pickup || ride.pickup_location) setPickupAddress(ride.pickup || ride.pickup_location);
-      } else if (ride.status === 'accepted') {
-        if (ride.driver_lat && ride.driver_lng) {
-          setDriverLocation({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) });
-          if (state.pickupLocation) {
-            geoService.getETA({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) }, state.pickupLocation).then(result => { if (result?.duration) setDriverDistance(Math.round(result.duration / 60)); });
-          }
-        } else if (ride.pickup_lat && ride.pickup_lng) setDriverLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
-      } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
+      if (ride.status === 'cancelled' || ride.status === 'canceled') {
         setRideBooked(false);
-        setCurrentRide(null);
         resetForm();
       }
     }

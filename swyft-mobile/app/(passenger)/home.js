@@ -101,40 +101,27 @@ export default function PassengerHomeScreen() {
       socketService.joinRoom(email);
       
       
-    socketService.on('rideUpdated', (ride) => {
-      console.log('rideUpdated received in home:', ride);
-      if (ride.passenger_email === email || ride.id === currentRideRef.current?.id) {
-        setCurrentRide(ride);
-        currentRideRef.current = ride;
-        if (ride.status === 'driver_accepted') {
-          router.push({
-            pathname: '/(passenger)/book-ride',
-            params: {
-              rideId: ride.id,
-              driverName: ride.driver_name,
-              driverPhone: ride.driver_phone,
-              driverVehicle: ride.driver_vehicle,
-              pickupAddress: ride.pickup_location,
-              dropoffAddress: ride.dropoff_location,
-              pickupLat: ride.pickup_lat,
-              pickupLng: ride.pickup_lng,
-            },
-          });
-        } else if (ride.status === 'accepted' || ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
-          router.push({
-            pathname: '/(passenger)/book-ride',
-            params: {
-              rideId: ride.id,
-              driverName: ride.driver_name,
-              driverPhone: ride.driver_phone,
-              driverVehicle: ride.driver_vehicle,
-              pickupAddress: ride.pickup_location,
-              dropoffAddress: ride.dropoff_location,
-              pickupLat: ride.pickup_lat,
-              pickupLng: ride.pickup_lng,
-            },
-          });
-        } else if (ride.status === 'completed') {
+     socketService.on('rideUpdated', (ride) => {
+       console.log('rideUpdated received in home:', ride);
+       if (ride.passenger_email === email || ride.id === currentRideRef.current?.id) {
+         setCurrentRide((prev) => {
+           const safeRide = Object.fromEntries(
+             Object.entries(ride).filter(([_, v]) => v !== undefined)
+           );
+           return { ...(prev || {}), ...safeRide };
+         });
+         currentRideRef.current = { ...(currentRideRef.current || {}), ...ride };
+          if (ride.status === 'driver_accepted') {
+            router.replace({
+              pathname: '/(passenger)/awaiting-driver',
+              params: { rideId: ride.id },
+            });
+          } else if (ride.status === 'accepted') {
+            router.replace({
+              pathname: '/(passenger)/awaiting-driver',
+              params: { rideId: ride.id },
+            });
+          } else if (ride.status === 'completed') {
             Alert.alert(
               '🎉 Arrived at Destination!', 
               `You have arrived at your destination!
@@ -175,7 +162,6 @@ Fare: ₺${ride.price || '0.00'}`,
             });
             setCurrentRide(null);
           } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
-            Alert.alert('❌ Ride Cancelled', 'Your ride has been cancelled.');
             setCurrentRide(null);
           }
         }
@@ -237,7 +223,7 @@ Fare: ₺${ride.price || '0.00'}`,
 
   const quickActions = [
     {
-      icon: <Ionicons name="car" size={24} color={'#2196F3'} />,
+      icon: <Ionicons name="car" size={24}  />,
       title: 'Book a Courier',
       description: 'Get your package to its destination',
       route: '/(passenger)/book-ride',
@@ -245,7 +231,7 @@ Fare: ₺${ride.price || '0.00'}`,
       iconBg: '#2196F3',
     },
     {
-      icon: <Ionicons name="list" size={24} color={'#FF9800'} />,
+      icon: <Ionicons name="list" size={24} />,
       title: 'Dispatch history',
       description: 'Track your past shipments',
       route: '/(passenger)/history',
@@ -253,7 +239,7 @@ Fare: ₺${ride.price || '0.00'}`,
       iconBg: '#FF9800',
     },
     {
-      icon: <Ionicons name="star" size={24} color={'#9C27B0'} />,
+      icon: <Ionicons name="star" size={24}  />,
       title: 'Favorites',
       description: 'Saved locations',
       route: '/(passenger)/favorites',
@@ -261,7 +247,7 @@ Fare: ₺${ride.price || '0.00'}`,
       iconBg: '#9C27B0',
     },
     {
-      icon: <Ionicons name="card" size={24} color={'#4CAF50'} />,
+      icon: <Ionicons name="card" size={24} />,
       title: 'Payment',
       description: 'Manage payment methods',
       route: '/(passenger)/payment',

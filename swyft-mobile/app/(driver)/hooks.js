@@ -70,17 +70,20 @@ export function useDriverDashboardEffects(state, refs) {
     };
   }, []);
 
-  // Make socket re-announce driverOnline after reconnect
-  useEffect(() => {
-    if (!isOnline || !state.driverInfo?.email || !location) return;
+  const driverOnlineDataRef = useRef(null);
 
-    const email = state.driverInfo.email;
-    const driverOnlineData = { email, location: { lat: location.latitude, lng: location.longitude } };
+  useEffect(() => {
+    const email = state.driverInfo?.email;
+    if (!email) return;
+
+    driverOnlineDataRef.current = { email, location: { lat: location?.latitude, lng: location?.longitude } };
 
     const handleReconnect = () => {
       console.log('Socket reconnected, re-joining as online driver');
       socketService.joinRoom(email);
-      socketService.connectDriver(driverOnlineData);
+      if (driverOnlineDataRef.current) {
+        socketService.connectDriver(driverOnlineDataRef.current);
+      }
     };
 
     socketService.socket?.on('reconnect', handleReconnect);
@@ -88,17 +91,7 @@ export function useDriverDashboardEffects(state, refs) {
     return () => {
       socketService.socket?.off('reconnect', handleReconnect);
     };
-  }, [isOnline, state.driverInfo?.email, location]);
-
-  useEffect(() => {
-    if (!isOnline) return;
-
-    const email = state.driverInfo?.email;
-    if (!email) return;
-
-    socketService.joinRoom(email);
-    socketService.connectDriver({ email, location: { lat: location?.latitude, lng: location?.longitude } });
-  }, [isOnline, state.driverInfo?.email, location]);
+  }, [state.driverInfo?.email]);
 
   useEffect(() => {
     if (isOnline && location) {
@@ -306,11 +299,13 @@ export function useDriverDashboardEffects(state, refs) {
     socketService.on('rideUpdated', (ride) => {
       console.log('rideUpdated received:', ride);
 
-      if (ride.driver_email === state.driverInfo?.email) {
+      const isForThisDriver = ride.driver_email === state.driverInfo?.email || ride.id === currentRideRef.current?.id;
+
+      if (isForThisDriver) {
         if (ride.status === 'driver_accepted') {
           setCurrentRide(ride);
           Alert.alert('Waiting for Confirmation', 'The passenger is reviewing your acceptance. Please wait for them to confirm.');
-        } else if (ride.status === 'accepted' || ride.status === 'arrived_pickup' || ride.status === 'active' || ride.status === 'arriving') {
+        } else if (ride.status === 'accepted' || ride.status === 'active') {
           setCurrentRide(ride);
 
           if (ride.pickup_lat && ride.pickup_lng) {
@@ -319,8 +314,8 @@ export function useDriverDashboardEffects(state, refs) {
               longitude: parseFloat(ride.pickup_lng),
             });
           }
-        } else if (ride.status === 'completed') {
-          console.log('Ride completed, reloading earnings');
+        } else if (ride.status === 'completed' || ride.status === 'confirmed') {
+          console.log('Ride completed/confirmed, reloading earnings');
           loadEarnings(state.driverInfo?.email);
           setCurrentRide(null);
           setPassengerLocation(null);

@@ -9,7 +9,11 @@ import { ridesAPI } from '../../services/api';
 export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, onCancelRide }) {
   const { currentRide, pickupAddress, dropoffAddress, driverLocation, driverDistance, driverStatus, estimatedPrice, pickupLocation, dropoffLocation } = state;
 
-  const showMap = currentRide && (currentRide.status === 'accepted' || currentRide.status === 'arrived_pickup' || currentRide.status === 'active' || currentRide.status === 'arriving' || currentRide.status === 'driver_accepted');
+  const resolvedDropoff = dropoffLocation || (currentRide?.dropoff_lat && currentRide?.dropoff_lng
+    ? { latitude: parseFloat(currentRide.dropoff_lat), longitude: parseFloat(currentRide.dropoff_lng) }
+    : null);
+
+  const showMap = currentRide && currentRide.status === 'accepted';
 
   return (
     <View style={styles.statusContainer}>
@@ -30,8 +34,8 @@ export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, 
             {pickupLocation && (
               <Marker coordinate={{ latitude: pickupLocation.latitude, longitude: pickupLocation.longitude }} title="Pickup" pinColor={COLORS.success} />
             )}
-            {dropoffLocation && (
-              <Marker coordinate={{ latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude }} title="Dropoff" pinColor={COLORS.error} />
+            {resolvedDropoff && (
+              <Marker coordinate={{ latitude: resolvedDropoff.latitude, longitude: resolvedDropoff.longitude }} title="Dropoff" pinColor={COLORS.error} />
             )}
             {driverLocation && (
               <Marker coordinate={{ latitude: driverLocation.latitude, longitude: driverLocation.longitude }} title="Courier">
@@ -49,10 +53,7 @@ export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, 
         <Text style={styles.statusTitle}>
           {currentRide?.status === 'pending' && 'Finding your courier...'}
           {currentRide?.status === 'driver_accepted' && 'Driver accepted! Waiting for your confirmation...'}
-          {currentRide?.status === 'accepted' && 'Courier is on the way!'}
-          {currentRide?.status === 'arrived_pickup' && 'Courier has arrived at pickup!'}
-          {currentRide?.status === 'active' && 'Package is in transit!'}
-          {currentRide?.status === 'arriving' && 'Courier is arriving at destination!'}
+          {currentRide?.status === 'accepted' && 'Driver is coming!'}
           {currentRide?.status === 'completed' && 'Delivery completed! Please confirm.'}
           {currentRide?.status === 'confirmed' && 'Delivery confirmed!'}
         </Text>
@@ -86,7 +87,7 @@ export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, 
         </View>
       )}
 
-      {(currentRide?.status === 'accepted' || currentRide?.status === 'arrived_pickup' || currentRide?.status === 'active' || currentRide?.status === 'arriving' || currentRide?.status === 'completed') && (
+      {currentRide?.status === 'accepted' && (
         <View style={styles.driverCard}>
           <View style={styles.driverInfo}>
             <View style={styles.driverAvatar}>
@@ -109,13 +110,6 @@ export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, 
         </View>
       )}
 
-      {currentRide?.status === 'arrived_pickup' && (
-        <TouchableOpacity style={styles.confirmPickupButton} onPress={onConfirmPickup}>
-          <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
-          <Text style={styles.confirmPickupButtonText}>Confirm Pickup</Text>
-        </TouchableOpacity>
-      )}
-
       {currentRide?.status === 'completed' && (
         <TouchableOpacity style={styles.confirmCompleteButton} onPress={onConfirmComplete}>
           <Ionicons name="checkmark-circle" size={20} color={COLORS.white} />
@@ -123,44 +117,32 @@ export function RideStatus({ state, styles, onConfirmPickup, onConfirmComplete, 
         </TouchableOpacity>
       )}
 
-      <View style={styles.tripDetails}>
-        <View style={styles.tripRow}>
-          <View style={[styles.tripDot, { backgroundColor: COLORS.success }]} />
-          <View style={styles.tripTextContainer}>
-            <Text style={styles.tripLabel}>PICKUP</Text>
-            <Text style={styles.tripText}>{pickupAddress}</Text>
+      {currentRide?.status === 'accepted' && (
+        <View style={styles.tripDetails}>
+          <View style={styles.tripRow}>
+            <View style={[styles.tripDot, { backgroundColor: COLORS.success }]} />
+            <View style={styles.tripTextContainer}>
+              <Text style={styles.tripLabel}>PICKUP</Text>
+              <Text style={styles.tripText}>{pickupAddress}</Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.tripConnector} />
-        <View style={styles.tripRow}>
-          <View style={[styles.tripDot, { backgroundColor: COLORS.error }]} />
-          <View style={styles.tripTextContainer}>
-            <Text style={styles.tripLabel}>DROPOFF</Text>
-            <Text style={styles.tripText}>{dropoffAddress}</Text>
+          <View style={styles.tripConnector} />
+          <View style={styles.tripRow}>
+            <View style={[styles.tripDot, { backgroundColor: COLORS.error }]} />
+            <View style={styles.tripTextContainer}>
+              <Text style={styles.tripLabel}>DROPOFF</Text>
+              <Text style={styles.tripText}>{dropoffAddress}</Text>
+            </View>
           </View>
-        </View>
-      </View>
-
-      {driverLocation && (driverDistance || driverDistance === 0) && (
-        <View style={styles.etaContainer}>
-          <Ionicons name="car" size={20} color={COLORS.white} />
-          <Text style={styles.etaText}>
-            {driverStatus === 'arrived' ? 'Driver has arrived!' : driverStatus === 'in_progress' ? 'Ride in progress' : `Driver arriving in ${driverDistance} min`}
-          </Text>
         </View>
       )}
 
-      {driverLocation && !driverDistance && (
-        <View style={[styles.etaContainer, { backgroundColor: COLORS.secondary }]}>
-          <Ionicons name="time" size={20} color={COLORS.white} />
-          <Text style={styles.etaText}>Calculating ETA...</Text>
+      {currentRide?.status === 'accepted' && (
+        <View style={styles.priceRow}>
+          <Text style={styles.priceLabel}>Estimated Fare</Text>
+          <Text style={styles.priceValue}>₺{estimatedPrice}</Text>
         </View>
       )}
-
-      <View style={styles.priceRow}>
-        <Text style={styles.priceLabel}>Estimated Fare</Text>
-        <Text style={styles.priceValue}>₺{estimatedPrice}</Text>
-      </View>
 
       {currentRide?.status !== 'confirmed' && currentRide?.status !== 'completed' && (
         <TouchableOpacity style={styles.cancelButton} onPress={onCancelRide}>

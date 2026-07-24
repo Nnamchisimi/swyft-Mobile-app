@@ -24,11 +24,11 @@ export default function HistoryScreen() {
   const [activeTab, setActiveTab] = useState('all');
 
   const tabs = [
-    { key: 'all', label: 'All', icon: ' rides' },
-    { key: 'accepted', label: 'Accepted', icon: ' rides' },
-    { key: 'active', label: 'In Progress', icon: ' rides' },
-    { key: 'completed', label: 'Completed', icon: ' rides' },
-    { key: 'cancelled', label: 'Cancelled', icon: ' rides' },
+    { key: 'all', label: 'All', icon: 'list' },
+    { key: 'accepted', label: 'Accepted', icon: 'checkmark-circle' },
+    { key: 'active', label: 'In Progress', icon: 'car' },
+    { key: 'completed', label: 'Completed', icon: 'checkmark-done' },
+    { key: 'cancelled', label: 'Cancelled', icon: 'close-circle' },
   ];
 
   useEffect(() => {
@@ -135,87 +135,134 @@ export default function HistoryScreen() {
     </View>
   );
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await authService.logout();
-            router.replace('/(auth)/signin');
-          },
-        },
-      ]
-    );
-  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>← Back</Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>My dispatch History</Text>
-        <TouchableOpacity onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.brandName}>SWYFTinc</Text>
+          <Text style={styles.headerTitle}>My dispatch History</Text>
+        </View>
+        <View style={{ width: 40 }} />
       </View>
 
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-        </View>
-      ) : rides.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No rides yet</Text>
-          <TouchableOpacity
-            style={styles.bookButton}
-            onPress={() => router.push('/(passenger)/book-ride')}
+      <View style={styles.tabContent}>
+    <ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  style={styles.tabScroll}
+  contentContainerStyle={styles.tabContainer}
+  bounces={false}
+>
+  {tabs.map((tab) => {
+    const isActive = activeTab === tab.key;
+
+    return (
+      <TouchableOpacity
+        key={tab.key}
+        style={[styles.tab, isActive && styles.activeTab]}
+        onPress={() => setActiveTab(tab.key)}
+      >
+        <Ionicons
+          name={tab.icon}
+          size={16}
+          color={isActive ? COLORS.white : COLORS.text}
+        />
+
+        <Text style={[styles.tabLabel, isActive && styles.activeTabLabel]}>
+          {tab.label}
+        </Text>
+
+        {getRideCounts()[tab.key] > 0 && (
+          <View
+            style={[
+              styles.tabBadge,
+              {
+                backgroundColor: isActive
+                  ? COLORS.white
+                  : COLORS.primary,
+              },
+            ]}
           >
-            <Text style={styles.bookButtonText}>Book Your First Ride</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
+            <Text
+              style={[
+                styles.tabBadgeText,
+                {
+                  color: isActive
+                    ? COLORS.primary
+                    : COLORS.white,
+                },
+              ]}
+            >
+              {getRideCounts()[tab.key]}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  })}
+</ScrollView>
+
         <FlatList
-          data={rides}
+          style={{ flex: 1 }}
+          data={getFilteredRides()}
           renderItem={renderRide}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
-        />
-      )}
-
-           {}
-            <View style={styles.bottomNav}>
-              <TouchableOpacity style={styles.navItem}
-              onPress={() => router.push('/(passenger)/home')}>
-                <Ionicons name="home" size={24} color={COLORS.gray} />
-                <Text style={styles.navText}>Home</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.navItem}
-                onPress={() => router.push('/(passenger)/book-ride')}
-              >
-                <Ionicons name="car" size={24} color={COLORS.gray} />
-                <Text style={styles.navText}>Book</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.navItem}
-              >
-                <Ionicons name="list" size={24} color={COLORS.primary} />
-                <Text style={[styles.navText, styles.navTextActive]}>History</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.navItem}
-                onPress={() => router.push('/(passenger)/profile')}
-              >
-                <Ionicons name="person" size={24} color={COLORS.gray} />
-                <Text style={styles.navText}>Profile</Text>
-              </TouchableOpacity>
+          ListEmptyComponent={
+            <View style={styles.listEmptyContainer}>
+              <Ionicons name="car-outline" size={48} color={COLORS.gray} />
+              {rides.length === 0 ? (
+                <>
+                  <Text style={styles.listEmptyText}>No rides yet</Text>
+                  <Text style={styles.listEmptySubtext}>Book your first ride to get started</Text>
+                  <TouchableOpacity
+                    style={styles.listEmptyButton}
+                    onPress={() => router.push('/(passenger)/book-ride')}
+                  >
+                    <Text style={styles.listEmptyButtonText}>Book Your First Ride</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.listEmptyText}>No {activeTab} rides</Text>
+                  <Text style={styles.listEmptySubtext}>
+                    You don't have any {activeTab} rides
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.listEmptyButton}
+                    onPress={() => setActiveTab('all')}
+                  >
+                    <Text style={styles.listEmptyButtonText}>Show All Rides</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
+          }
+        />
+      </View>
+
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/(passenger)/home')}>
+          <Ionicons name="home" size={24} color={COLORS.gray} />
+          <Text style={styles.navText}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/(passenger)/book-ride')}>
+          <Ionicons name="car" size={24} color={COLORS.gray} />
+          <Text style={styles.navText}>Book</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="list" size={24} color={COLORS.primary} />
+          <Text style={[styles.navText, styles.navTextActive]}>History</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/(passenger)/profile')}>
+          <Ionicons name="person" size={24} color={COLORS.gray} />
+          <Text style={styles.navText}>Profile</Text>
+        </TouchableOpacity>
+      </View>
           </SafeAreaView>
         );
       }
@@ -225,130 +272,280 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.white,
   },
+
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   backButton: {
-    fontSize: 16,
-    color: COLORS.primary,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  backButtonText: {
+    fontSize: 24,
     color: COLORS.text,
   },
-  logoutText: {
-    fontSize: 14,
-    color: COLORS.error,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text,
   },
+  headerTitleContainer: {
+    alignItems: 'center',
+  },
+  brandName: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    letterSpacing: 2,
+  },
+  headerAction: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+ 
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
+
   emptyText: {
     fontSize: 18,
     color: COLORS.textSecondary,
     marginBottom: 20,
   },
+
   bookButton: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
+
   bookButtonText: {
     color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
   },
+
   listContent: {
+    flexGrow: 1,
     padding: 16,
+    paddingBottom: 90,
   },
+
+  listEmptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 48,
+    backgroundColor: COLORS.white,
+  },
+
+  listEmptyText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginTop: 12,
+    marginBottom: 8,
+    textTransform: 'capitalize',
+  },
+
+  listEmptySubtext: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+
+  listEmptyButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+
+  listEmptyButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  tabContent: {
+    flex: 1,
+  },
+
+  tabScroll: {
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    height: 50,
+    maxHeight: 50,
+    minHeight: 50,
+    flexGrow: 0,
+  },
+
+  tabContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+  },
+
+  tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 34,
+    paddingHorizontal: 18,
+    borderRadius: 17,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginRight: 6,
+    minWidth: 60,
+  },
+
+  activeTab: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+
+  tabLabel: {
+    fontSize: 13,
+    color: COLORS.text,
+    textTransform: 'capitalize',
+    marginLeft: 4,
+  },
+
+  activeTabLabel: {
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+
+  tabBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+    paddingHorizontal: 4,
+  },
+
+  tabBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+
   rideCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
   },
+
   rideHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
+
   rideId: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
   },
+
   statusBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
   },
+
   statusText: {
     color: COLORS.white,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
   },
+
   rideDetails: {
     marginBottom: 12,
   },
+
   locationRow: {
     flexDirection: 'row',
     marginBottom: 6,
   },
+
   locationLabel: {
     fontSize: 14,
     color: COLORS.textSecondary,
     width: 70,
   },
+
   locationText: {
     fontSize: 14,
     color: COLORS.text,
     flex: 1,
   },
+
   priceText: {
     fontSize: 14,
     color: COLORS.success,
     fontWeight: '600',
   },
+
   dateText: {
     fontSize: 12,
     color: COLORS.textSecondary,
   },
+
   bottomNav: {
     flexDirection: 'row',
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     paddingVertical: 12,
     paddingHorizontal: 20,
+    backgroundColor: COLORS.white,
   },
+
   navItem: {
     flex: 1,
     alignItems: 'center',
   },
+
   navIcon: {
     fontSize: 24,
   },
+
   navText: {
     fontSize: 12,
     color: COLORS.textSecondary,
     marginTop: 4,
   },
+
   navTextActive: {
     color: COLORS.primary,
     fontWeight: '600',

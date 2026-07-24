@@ -468,17 +468,17 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     alignItems: 'center',
   },
-  brandName: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    letterSpacing: 2,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
+ brandName:{
+    fontSize:12,
+    fontWeight:"900",
+    letterSpacing:3,
+    color:COLORS.primary,
+},
+  headerTitle:{
+    fontSize:24,
+    fontWeight:"800",
+    color:"#111827",
+},
   scrollView: {
     flex: 1,
   },
@@ -607,12 +607,11 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 0,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
+  sectionTitle:{
+    fontSize:22,
+    fontWeight:"800",
+    color:"#111827",
+},
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -715,14 +714,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textTransform: 'capitalize',
   },
-  plateBadge: {
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
+  plateBadge:{
+    backgroundColor:"#EEF4FF",
+
+    borderRadius:18,
+
+    paddingHorizontal:14,
+
+    paddingVertical:8,
+
+    borderWidth:0,
+},
   plateText: {
     fontSize: 13,
     fontWeight: '700',
@@ -741,14 +743,14 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 16,
   },
-  vehicleDetailItem: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: COLORS.surface,
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
+ vehicleDetailItem:{
+    flex:1,
+    minWidth:"46%",
+    backgroundColor:"#F9FAFB",
+    borderRadius:18,
+    paddingVertical:18,
+    alignItems:"center",
+},
   vehicleDetailLabel: {
     fontSize: 11,
     color: COLORS.textSecondary,
@@ -832,18 +834,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: COLORS.text,
   },
-  menuCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
+  menuCard:{
+    backgroundColor:"#FFF",
+
+    borderRadius:24,
+
+    overflow:"hidden",
+
+    elevation:5,
+},
+  menuItem:{
+    flexDirection:"row",
+
+    alignItems:"center",
+
+    paddingVertical:20,
+
+    paddingHorizontal:20,
+
+    borderBottomWidth:1,
+
+    borderBottomColor:"#F3F4F6",
+},
   menuIcon: {
     fontSize: 20,
     marginRight: 12,
@@ -873,19 +885,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 8,
   },
-  logoutButton: {
-    margin: 16,
-    backgroundColor: COLORS.error,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+logoutButton:{
+    marginHorizontal:18,
+
+    marginVertical:24,
+
+    height:58,
+
+    borderRadius:20,
+
+    backgroundColor:"#DC2626",
+
+    justifyContent:"center",
+
+    alignItems:"center",
+
+    elevation:5,
+},
   logoutButtonText: {
     color: COLORS.white,
     fontWeight: '600',
     fontSize: 16,
   },
+  moderatorButton:{
+    marginHorizontal:18,
+
+    height:58,
+
+    borderRadius:20,
+
+    backgroundColor:COLORS.primary,
+
+    elevation:5,
+},
   versionText: {
     textAlign: 'center',
     fontSize: 12,

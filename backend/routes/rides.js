@@ -569,23 +569,23 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
     });
   });
 
-  // Start ride - driver confirms arrival at pickup location (Stage 5)
+  // Start ride - driver begins delivery immediately after acceptance
   app.post('/api/rides/:id/start', (req, res) => {
     const rideId = req.params.id;
-    db.query('UPDATE rides SET status = \'arrived_pickup\' WHERE id = $1 AND status = \'accepted\'', [rideId], (err, result) => {
+    db.query("UPDATE rides SET status = 'active' WHERE id = $1 AND status IN ($2, $3)", [rideId, 'accepted', 'driver_accepted'], (err, result) => {
       if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
-      if (result.rowCount === 0) return res.status(400).json({ error: 'Cannot mark as arrived - ride may not be accepted' });
+      if (result.rowCount === 0) return res.status(400).json({ error: 'Cannot start ride - ride may not be accepted' });
 
       db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, rides) => {
         if (err || !rides || rides.rows.length === 0) {
-          io.emit('rideUpdated', { id: rideId, status: 'arrived_pickup' });
-          return res.json({ message: 'Arrived at pickup', rideId });
+          io.emit('rideUpdated', { id: rideId, status: 'active' });
+          return res.json({ message: 'Ride started', rideId });
         }
 
         const ride = rides.rows[0];
         io.emit('rideUpdated', {
           id: ride.id,
-          status: 'arrived_pickup',
+          status: 'active',
           passenger_email: ride.passenger_email,
           pickup: ride.pickup_location,
           dropoff: ride.dropoff_location,
@@ -597,11 +597,11 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
         });
         io.emit('dispatchUpdated', {
           id: ride.id,
-          status: 'arrived_pickup',
+          status: 'active',
           passenger_email: ride.passenger_email,
           driver_email: ride.driver_email,
         });
-        res.json({ message: 'Arrived at pickup', rideId });
+        res.json({ message: 'Ride started', rideId });
       });
     });
   });
