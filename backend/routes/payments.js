@@ -99,15 +99,31 @@ function registerPaymentsRoutes(app, db, io) {
 
       const paymentRequest = { ...request, buyer, address, items: [cardInfo] };
 
+      const paymentCreator =
+        (iyzipay.payment && iyzipay.payment.form && iyzipay.payment.form.create)
+          ? iyzipay.payment.form.create
+          : (iyzipay.paymentForm && iyzipay.paymentForm.create)
+            ? iyzipay.paymentForm.create
+            : (iyzipay.payment_form && iyzipay.payment_form.create)
+              ? iyzipay.payment_form.create
+              : null;
+
+      if (!paymentCreator) {
+        return res.status(500).json({ error: 'Iyzico payment form method not found in SDK' });
+      }
+
       const result = await new Promise((resolve, reject) => {
-        iyzipay.payment.form.create(paymentRequest, (err, result) => {
+        paymentCreator(paymentRequest, (err, result) => {
           if (err) return reject(err);
           else resolve(result);
         });
       });
 
+      console.log('Iyzico payment result:', JSON.stringify(result));
+
       const record = paymentStore.get(paymentId);
-      record.status = result.status === 'success' ? 'captured' : 'failed';
+      const isSuccess = result.status === 'success' || result.status === 'success' || result.status === 'captured';
+      record.status = isSuccess ? 'captured' : 'failed';
       record.rawResponse = result;
       record.updatedAt = new Date().toISOString();
       paymentStore.set(paymentId, record);
@@ -118,7 +134,13 @@ function registerPaymentsRoutes(app, db, io) {
         return res.json({ paymentId, threeDSHtmlContent: result.threeDSHtmlContent, status: record.status });
       }
 
-      return res.status(400).json({ error: 'Could not initialize payment', status: record.status });
+      return res.status(400).json({ 
+        error: 'Could not initialize payment', 
+        status: record.status,
+        iyzicoStatus: result.status,
+        iyzicoError: result.errorMessage || result.errorCode || null,
+        details: JSON.stringify(result)
+      });
     } catch (error) {
       console.error('Payment create error:', error);
       return res.status(500).json({ error: 'Payment initialization failed', details: error.message });
