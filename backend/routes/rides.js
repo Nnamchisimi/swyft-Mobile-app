@@ -72,7 +72,7 @@ function registerRidesRoutes(app, io, db) {
   app.get('/api/rides/:id', (req, res) => {
     const rideId = req.params.id;
 
-    db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, results) => {
+    db.query('SELECT id, passenger_email, driver_email, status, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, price, ride_type, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email, created_at, updated_at, delivery_id, delivery_otp_plain, delivery_otp_expires_at FROM rides WHERE id = $1', [rideId], (err, results) => {
       if (err) return res.status(500).json({ error: 'Server error' });
       if (results.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });
       res.json(results.rows[0]);
@@ -188,21 +188,22 @@ function registerRidesRoutes(app, io, db) {
           const otpExpires = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
 
           // Update ride with delivery ID and OTP
-db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_otp_expires_at = $3 WHERE id = $4',
-               [deliveryId, otpHash, otpExpires, rideId], (errUpdate) => {
-               if (errUpdate) {
-                 console.error('Error updating delivery ID and OTP:', errUpdate.message);
-               }
-             });
+          db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_otp_expires_at = $3, delivery_otp_plain = $4 WHERE id = $5',
+                   [deliveryId, otpHash, otpExpires, otp, rideId], (errUpdate) => {
+                   if (errUpdate) {
+                     console.error('Error updating delivery ID and OTP:', errUpdate.message);
+                   }
+                 });
 
            // Send OTP to receiver (if provided) or passenger
            const otpRecipient = receiver_email || passenger_email;
            sendDeliveryOtp(otpRecipient, otp, deliveryId);
 
-           const newRide = {
-            id: rideId,
-            delivery_id: deliveryId,
-            passenger_name: passenger_name,
+            const newRide = {
+             id: rideId,
+             delivery_id: deliveryId,
+             delivery_otp_plain: otp,
+             passenger_name: passenger_name,
             passenger_email: passenger_email,
             passenger_phone: passenger_phone,
             pickup_location: pickup,
@@ -692,6 +693,41 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
         console.error('OTP verification error:', err);
         res.status(500).json({ error: 'OTP verification failed' });
       });
+    });
+  });
+
+  // Resend OTP
+  app.post('/api/rides/:id/resend-otp', (req, res) => {
+    const rideId = req.params.id;
+
+    db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, results) => {
+      if (err) return res.status(500).json({ error: 'Server error' });
+      if (results.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });
+
+      const ride = results.rows[0];
+
+      if (!ride.passenger_email) {
+        return res.status(400).json({ error: 'No passenger email associated with this ride' });
+      }
+
+      (async () => {
+        const otp = generateVerificationCode();
+        const otpHash = await hashOtp(otp);
+        const otpExpires = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+        db.query('UPDATE rides SET delivery_otp_hash = $1, delivery_otp_expires_at = $2, delivery_otp_plain = $3, delivery_otp_attempts = 0 WHERE id = $4',
+          [otpHash, otpExpires, otp, rideId], (errUpdate) => {
+            if (errUpdate) {
+              console.error('Error resending OTP:', errUpdate.message);
+              return res.status(500).json({ error: 'Failed to resend OTP' });
+            }
+
+            const otpRecipient = ride.receiver_email || ride.passenger_email;
+            sendDeliveryOtp(otpRecipient, otp, ride.delivery_id);
+
+            res.json({ message: 'OTP resent successfully', email: otpRecipient });
+          });
+      })();
     });
   });
 

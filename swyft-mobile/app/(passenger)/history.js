@@ -96,14 +96,18 @@ export default function HistoryScreen() {
   };
 
   const renderRide = ({ item }) => (
-    <View style={styles.rideCard}>
+    <TouchableOpacity
+      style={styles.rideCard}
+      onPress={() => router.push({ pathname: '/(passenger)/ride-details', params: { rideId: item.id } })}
+      activeOpacity={0.8}
+    >
       <View style={styles.rideHeader}>
-        <Text style={styles.rideId}>Delivery #{item.id}</Text>
+        <Text style={styles.rideId}>Delivery #{item.delivery_id || item.id}</Text>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
           <Text style={styles.statusText}>{item.status}</Text>
         </View>
       </View>
-      
+
       <View style={styles.rideDetails}>
         <View style={styles.locationRow}>
           <Text style={styles.locationLabel}>From:</Text>
@@ -130,11 +134,14 @@ export default function HistoryScreen() {
           </View>
         )}
       </View>
-      
-      <Text style={styles.dateText}>
-        {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}
-      </Text>
-    </View>
+
+      <View style={styles.rideFooter}>
+        <Text style={styles.dateText}>
+          {item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A'}
+        </Text>
+        <Text style={styles.viewDetailsText}>View details →</Text>
+      </View>
+    </TouchableOpacity>
   );
 
 
@@ -522,6 +529,20 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 12,
     color: COLORS.textSecondary,
+  },
+  rideFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  viewDetailsText: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: '700',
   },
 
   bottomNav: {

@@ -10,6 +10,7 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
     accepted: COLORS.primary,
     arrived_pickup: '#FF9500',
     picked_up: COLORS.success,
+    arrived_dropoff: '#FF9500',
     completed: '#8E8E93',
   };
 
@@ -17,11 +18,13 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
     accepted: 'Accepted',
     arrived_pickup: 'Arrived at Pickup',
     picked_up: 'Picked Up',
+    arrived_dropoff: 'Arrived at Dropoff',
     completed: 'Completed',
   };
 
   const isAccepted = ride.status === 'accepted' || ride.status === 'arrived_pickup';
-  const isPickedUp = ride.status === 'picked_up';
+  const isPickedUp = ride.status === 'picked_up' || ride.status === 'arrived_dropoff';
+  const hasArrived = ride.status === 'arrived_dropoff';
 
   return (
     <View style={styles.currentRideCard}>
@@ -81,15 +84,30 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
         </View>
       )}
 
+      {hasArrived && (
+        <View style={styles.arrivedPrompt}>
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
+          <Text style={styles.arrivedPromptText}>
+            You have arrived at the dropoff location. Please complete the delivery by tapping the button below.
+          </Text>
+        </View>
+      )}
+
       {isPickedUp && (
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.navigationButton} onPress={() => onOpenNavigation(ride.dropoff_lat, ride.dropoff_lng, ride.dropoff_location || ride.dropoff)}>
             <Ionicons name="navigate" size={18} color={COLORS.white} />
             <Text style={styles.navigationButtonText}>Navigate</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.arrivedButton} onPress={onArrived}>
-            <Ionicons name="flag" size={18} color={COLORS.white} />
-            <Text style={styles.arrivedButtonText}>Arrived</Text>
+          <TouchableOpacity 
+            style={[styles.arrivedButton, hasArrived && styles.arrivedButtonDisabled]} 
+            onPress={onArrived}
+            disabled={hasArrived}
+          >
+            <Ionicons name="flag" size={18} color={hasArrived ? COLORS.textSecondary : COLORS.white} />
+            <Text style={[styles.arrivedButtonText, hasArrived && styles.arrivedButtonTextDisabled]}>
+              {hasArrived ? 'Arrived' : 'Arrived'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.completeButton} onPress={onCompleteRide}>
             <Text style={styles.completeButtonText}>Complete Delivery</Text>
@@ -243,6 +261,30 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: '600',
     fontSize: 15,
+  },
+  arrivedButtonDisabled: {
+    backgroundColor: COLORS.surface,
+  },
+  arrivedButtonTextDisabled: {
+    color: COLORS.textSecondary,
+  },
+  arrivedPrompt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#E8F5E9',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.success,
+  },
+  arrivedPromptText: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.text,
+    lineHeight: 20,
+    fontWeight: '600',
   },
   cancelRideButton: {
     backgroundColor: COLORS.surface,

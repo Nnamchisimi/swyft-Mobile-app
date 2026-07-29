@@ -62,6 +62,7 @@ export const ridesAPI = {
   updateDriverLocation: (rideId, location) => api.post(`/api/rides/${rideId}/driver-location`, location),
   verifyOtp: (rideId, otp) => api.post(`/api/rides/${rideId}/verify-otp`, { otp }),
   passengerConfirmRide: (rideId) => api.post(`/api/rides/${rideId}/passenger-confirm`),
+  resendOtp: (rideId) => api.post(`/api/rides/${rideId}/resend-otp`),
 };
 
 export const driverAPI = {

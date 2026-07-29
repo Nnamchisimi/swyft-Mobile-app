@@ -8,6 +8,7 @@ export default function PassengerLayout() {
       <Stack.Screen name="track-ride" />
       <Stack.Screen name="rate-ride" />
       <Stack.Screen name="history" />
+      <Stack.Screen name="ride-details" />
       <Stack.Screen name="profile" />
     </Stack>
   );
