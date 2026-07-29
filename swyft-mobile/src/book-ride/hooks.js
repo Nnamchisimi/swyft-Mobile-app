@@ -76,8 +76,6 @@ export function useBookRideState() {
     setSpecialInstructions('');
   };
 
-  const navigateToDriverArrived = (params) => router.push({ pathname: '/(passenger)/driver-arrived', params });
-
   const actions = useBookRideActions({
     interCityMode, interCityRoute, selectedRideType, selectedVehicleType,
     pickupAddress, dropoffLocation, dropoffAddress, receiverName, receiverEmail, receiverPhone,
@@ -163,7 +161,6 @@ export function useBookRideState() {
     pickupDebounceRef,
     dropoffDebounceRef,
     resetForm,
-    navigateToDriverArrived,
     set,
     actions,
   };
@@ -174,7 +171,7 @@ export function useBookRideEffects(state) {
     userEmail, setUserEmail, userName, setUserName, userPhone, setUserPhone,
     userDataLoading, setUserDataLoading, pickupLockedForRide, setPickupLockedForRide,
     setCurrentLocation, setLocationLoading, setPickupAddress, setPickupManuallySelected,
-    setRouteCoordinates, setCurrentRide, setRideBooked, setPickupLocation, setPickupAddr,
+    setRouteCoordinates, setCurrentRide, setRideBooked, setPickupLocation,
     setDropoffAddress, setSelectedRideType, setSelectedVehicleType, setPackageType,
     setPackageSize, setPackageDetails, setSpecialInstructions, setUserDataLoading: setUserDataLoading2,
     selectedRideType, selectedVehicleType, interCityMode, interCityRoute,
@@ -255,7 +252,7 @@ export function useBookRideEffects(state) {
     try {
       const response = await ridesAPI.getRides({ passenger_email: email });
       if (response.data?.length) {
-        const activeRide = response.data.find(r => ['driver_accepted', 'accepted', 'arrived_pickup', 'active', 'arriving', 'pending'].includes(r.status));
+        const activeRide = response.data.find(r => ['accepted', 'arrived_pickup', 'active', 'arriving', 'pending'].includes(r.status));
         if (activeRide) {
           setCurrentRide(activeRide); setRideBooked(true);
           setPickupAddr(activeRide.pickup || activeRide.pickup_location || '');
@@ -270,10 +267,9 @@ export function useBookRideEffects(state) {
           setPickupLockedForRide(true);
           if (activeRide.pickup_lat && activeRide.pickup_lng) setPickupLocation({ latitude: parseFloat(activeRide.pickup_lat), longitude: parseFloat(activeRide.pickup_lng) });
           if (['arrived_pickup', 'active', 'arriving'].includes(activeRide.status)) {
-            state.navigateToDriverArrived({
-              rideId: activeRide.id, driverName: activeRide.driver_name, driverPhone: activeRide.driver_phone,
-              driverVehicle: activeRide.driver_vehicle, pickupAddress: activeRide.pickup || activeRide.pickup_location || '',
-              dropoffAddress: activeRide.dropoff || activeRide.dropoff_location || '', pickupLat: activeRide.pickup_lat, pickupLng: activeRide.pickup_lng
+            router.replace({
+              pathname: '/(passenger)/track-ride',
+              params: { rideId: activeRide.id },
             });
           }
           setUserDataLoading(false); return;
@@ -339,7 +335,7 @@ export function useBookRideEffects(state) {
       );
       return { ...base, ...safeRide };
     });
-    if (ride.status === 'driver_accepted' || ride.status === 'accepted') {
+    if (ride.status === 'accepted') {
       if (ride.dropoff_location || ride.dropoff) {
         setDropoffAddress(ride.dropoff_location || ride.dropoff);
       }
@@ -360,7 +356,7 @@ export function useBookRideEffects(state) {
       } else if (ride.pickup_lat && ride.pickup_lng) setDriverLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
     }
     setRideBooked(true);
-    if (ride.status === 'cancelled' || ride.status === 'canceled') {
+    if (ride.status === 'cancelled') {
       Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
       setRideBooked(false);
       state.resetForm?.();
@@ -403,12 +399,9 @@ export function useBookRideEffects(state) {
 }
 
 export function useBookRideActions(state) {
-  const {
-    setCurrentRide, setRideBooked, setPickupLockedForRide, setLoading,
-    resetForm
-  } = state;
+  const { setCurrentRide, setRideBooked, setPickupLockedForRide, setLoading, resetForm } = state;
 
-  async function handleBookRide() {
+  const handleBookRide = async () => {
     const {
       interCityMode, interCityRoute, selectedRideType, selectedVehicleType, pickupAddress, dropoffAddress,
       receiverName, receiverEmail, receiverPhone, userName, userEmail, userPhone, estimatedPrice,
@@ -426,86 +419,46 @@ export function useBookRideActions(state) {
     if (!receiverPhone || !receiverPhone.trim()) { Alert.alert('Error', 'Please enter receiver phone number'); return; }
     if (!userName || !userName.trim()) { Alert.alert('Error', 'User data not loaded yet.'); return; }
 
-    Alert.alert('Confirm Receiver Details', `Name: ${receiverName}\nEmail: ${receiverEmail}\nPhone: ${receiverPhone}`, [
-      { text: 'Edit', style: 'cancel' },
-      { text: 'Confirm & Book', onPress: async () => {
-        setLoading(true);
-        try {
-          const rideData = {
-            passenger_email: userEmail, passenger_name: userName, passenger_phone: userPhone,
-            pickup: pickupAddress, dropoff: dropoffAddress,
-            pickup_lat: pickupLocation?.latitude || currentLocation?.latitude,
-            pickup_lng: pickupLocation?.longitude || currentLocation?.longitude,
-            dropoff_lat: state.dropoffLocation?.latitude,
-            dropoff_lng: state.dropoffLocation?.longitude,
-            ride_type: interCityMode ? interCityRoute : selectedRideType,
-            vehicle_type: selectedVehicleType, package_type: packageType, package_size: packageSize,
-            package_details: packageDetails, special_instructions: specialInstructions,
-            price: estimatedPrice, status: 'pending', inter_city: interCityMode,
-            receiver_name: receiverName || null, receiver_email: receiverEmail || null, receiver_phone: receiverPhone || null,
-          };
-          const response = await ridesAPI.createRide(rideData);
-          const ride = response.data;
-          setCurrentRide({ id: ride.rideId, ...rideData, status: 'pending' });
-          setRideBooked(true);
-          setPickupLockedForRide(true);
-          Alert.alert('Courier Requested!', 'Looking for nearby couriers...');
-        } catch (error) {
-          console.error('Booking error:', error);
-          Alert.alert('Error', 'Failed to book dispatch.');
-        } finally {
-          setLoading(false);
-        }
-      }},
-    ]);
-  }
+    setLoading(true);
+    try {
+      const rideData = {
+        passenger_email: userEmail, passenger_name: userName, passenger_phone: userPhone,
+        pickup: pickupAddress, dropoff: dropoffAddress,
+        pickup_lat: pickupLocation?.latitude || currentLocation?.latitude,
+        pickup_lng: pickupLocation?.longitude || currentLocation?.longitude,
+        dropoff_lat: state.dropoffLocation?.latitude,
+        dropoff_lng: state.dropoffLocation?.longitude,
+        ride_type: interCityMode ? interCityRoute : selectedRideType,
+        vehicle_type: selectedVehicleType, package_type: packageType, package_size: packageSize,
+        package_details: packageDetails, special_instructions: specialInstructions,
+        price: estimatedPrice, status: 'pending', inter_city: interCityMode,
+        receiver_name: receiverName || null, receiver_email: receiverEmail || null, receiver_phone: receiverPhone || null,
+      };
+      const response = await ridesAPI.createRide(rideData);
+      const ride = response.data;
+      setCurrentRide({ id: ride.rideId, ...rideData, status: 'pending' });
+      setRideBooked(true);
+      setPickupLockedForRide(true);
+    } catch (error) {
+      console.error('Booking error:', error);
+      Alert.alert('Error', 'Failed to book dispatch.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  function handleCancelRide() {
+  const handleCancelRide = async () => {
     const { currentRide } = state;
     if (!currentRide) return;
-    Alert.alert('Cancel Dispatch', 'Are you sure you want to cancel this dispatch?', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Yes, Cancel', style: 'destructive', onPress: async () => {
-        try {
-          await ridesAPI.cancelRide(currentRide.id || currentRide.rideId);
-          resetForm();
-          Alert.alert('Cancelled', 'Your ride has been cancelled.');
-        } catch (error) {
-          Alert.alert('Error', 'Failed to cancel ride');
-        }
-      }},
-    ]);
-  }
-
-  async function handleConfirmPickup() {
-    const { currentRide, setCurrentRide } = state;
-    if (!currentRide) return;
     try {
-      await ridesAPI.confirmPickup(currentRide.id);
-      setCurrentRide({ ...currentRide, status: 'in_progress' });
-      Alert.alert('Pickup Confirmed', 'Your ride has started!');
+      const email = await authService.getUserEmail();
+      await ridesAPI.cancelRide(currentRide.id || currentRide.rideId, email);
+      resetForm();
+      Alert.alert('Cancelled', 'Your delivery has been cancelled.');
     } catch (error) {
-      Alert.alert('Error', 'Failed to confirm pickup');
+      Alert.alert('Error', 'Failed to cancel ride');
     }
-  }
+  };
 
-  async function handleConfirmComplete() {
-    const { currentRide, setCurrentRide, setRideBooked } = state;
-    if (!currentRide) return;
-    Alert.alert('Confirm Delivery Complete', 'Has your delivery been completed successfully?', [
-      { text: 'Not Yet', style: 'cancel' },
-      { text: 'Yes, Complete', onPress: async () => {
-        try {
-          await ridesAPI.confirmComplete(currentRide.id);
-          setCurrentRide({ ...currentRide, status: 'confirmed' });
-          setRideBooked(false);
-          Alert.alert('Delivery Confirmed', 'Payment has been released to the courier. Thank you!');
-        } catch (error) {
-          Alert.alert('Error', 'Failed to confirm delivery');
-        }
-      }},
-    ]);
-  }
-
-  return { handleBookRide, handleCancelRide, handleConfirmPickup, handleConfirmComplete };
+  return { handleBookRide, handleCancelRide };
 }

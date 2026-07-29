@@ -11,11 +11,10 @@ import { socketService } from '../services/socket';
 import geoService from '../services/geo';
 import { useBookRideState, useBookRideEffects, useBookRideActions } from './hooks';
 import { setupSocketListeners, useDriverLocationListener } from './socket';
-import { handleBookRide, handleCancelRide, handleConfirmPickup, handleConfirmComplete, handleCallDriver } from './actions';
+import { handleBookRide, handleCancelRide } from './actions';
 import { calculateFare } from './pricing';
 import { parseGoogleMapsUrl, reverseGeocode, getPlaceDetails, getRouteCoordinates } from './location';
 import { interCityRoutesData, defaultVehicleTypes } from './constants';
-import { RideStatus } from './components/ride-status';
 import { BookingForm } from './components/booking-form';
 import styles from './styles';
 
@@ -24,12 +23,21 @@ const { width } = Dimensions.get('window');
 export default function BookRideScreen() {
   const router = useRouter();
   const mapRef = useRef(null);
-  
+
   const state = useBookRideState();
-  const { handleBookRide: bookRide, handleCancelRide: cancelRide, handleConfirmPickup: confirmPickup, handleConfirmComplete: confirmComplete } = state.actions;
-  
+  const { handleBookRide: bookRide, handleCancelRide: cancelRide } = state.actions;
+
   useBookRideEffects(state);
   useDriverLocationListener(state);
+
+  useEffect(() => {
+    if (state.rideBooked && state.currentRide) {
+      router.replace({
+        pathname: '/(passenger)/track-ride',
+        params: { rideId: state.currentRide.id },
+      });
+    }
+  }, [state.rideBooked, state.currentRide]);
 
   const handlePickupChange = (address) => {
     state.set('pickupAddress', address);
@@ -181,21 +189,8 @@ export default function BookRideScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        {state.rideBooked ? (
-          <ScrollView 
-            style={styles.scrollView} 
-            contentContainerStyle={styles.scrollContent} 
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-          >
-            <RideStatus 
-              state={state} 
-              styles={styles} 
-              onConfirmPickup={confirmPickup}
-              onConfirmComplete={confirmComplete}
-              onCancelRide={cancelRide}
-            />
-          </ScrollView>
+        {state.rideBooked && state.currentRide ? (
+          <View style={{ flex: 1 }} />
         ) : (
           <BookingForm 
             state={state} 

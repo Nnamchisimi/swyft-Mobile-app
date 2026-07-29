@@ -62,7 +62,10 @@ export default function HistoryScreen() {
   const getFilteredRides = () => {
     if (activeTab === 'all') return rides;
     if (activeTab === 'cancelled') {
-      return rides.filter(ride => ride.status === 'cancelled' || ride.status === 'canceled');
+      return rides.filter(ride => ride.status === 'cancelled');
+    }
+    if (activeTab === 'active') {
+      return rides.filter(ride => ['accepted', 'picked_up', 'active', 'arrived_pickup'].includes(ride.status));
     }
     return rides.filter(ride => ride.status === activeTab);
   };
@@ -70,10 +73,10 @@ export default function HistoryScreen() {
   const getRideCounts = () => {
     return {
       all: rides.length,
-      accepted: rides.filter(r => r.status === 'accepted').length,
-      active: rides.filter(r => r.status === 'active').length,
-      completed: rides.filter(r => r.status === 'completed').length,
-      cancelled: rides.filter(r => r.status === 'cancelled' || r.status === 'canceled').length,
+      accepted: rides.filter(r => r.status === 'accepted' || r.status === 'picked_up').length,
+      active: rides.filter(r => ['accepted', 'picked_up', 'active', 'arrived_pickup'].includes(r.status)).length,
+      completed: rides.filter(r => r.status === 'completed' || r.status === 'confirmed').length,
+      cancelled: rides.filter(r => r.status === 'cancelled').length,
     };
   };
 
@@ -82,7 +85,6 @@ export default function HistoryScreen() {
       case 'completed':
         return COLORS.success;
       case 'cancelled':
-      case 'canceled':
         return COLORS.error;
       case 'active':
         return COLORS.primary;

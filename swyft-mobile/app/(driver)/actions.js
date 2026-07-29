@@ -55,35 +55,21 @@ export async function toggleOnline(isOnline, setIsOnline, isOnlineRef, driverInf
 }
 
 export async function handleAcceptRide(ride, driverInfo, authService, ridesAPI, setCurrentRide, setPendingRides) {
-  Alert.alert(
-    'Accept Ride',
-    `Accept ride from ${ride.passenger_name || ride.passenger_email}?\n\nPickup: ${ride.pickup_location || ride.pickup}\nFare: ₺${ride.price || '0.00'}`,
-    [
-      { text: 'Cancel', style: 'cancel', onPress: () => handleDeclineRide(ride, setPendingRides) },
-      {
-        text: 'Accept',
-        onPress: async () => {
-          try {
-            const driverData = {
-              name: `${driverInfo?.firstName || ''} ${driverInfo?.lastName || ''}`.trim() || 'Driver',
-              email: driverInfo?.email || await authService.getUserEmail(),
-              phone: driverInfo?.phone || 'N/A',
-              vehicle: driverInfo?.vehicle || `${driverInfo?.vehicleYear || ''} ${driverInfo?.vehicleMake || ''} ${driverInfo?.vehicleModel || ''}`.trim(),
-            };
+  try {
+    const driverData = {
+      name: `${driverInfo?.firstName || ''} ${driverInfo?.lastName || ''}`.trim() || 'Driver',
+      email: driverInfo?.email || await authService.getUserEmail(),
+      phone: driverInfo?.phone || 'N/A',
+      vehicle: driverInfo?.vehicle || `${driverInfo?.vehicleYear || ''} ${driverInfo?.vehicleMake || ''} ${driverInfo?.vehicleModel || ''}`.trim(),
+    };
 
-            await ridesAPI.acceptRide(ride.id, driverData);
+    await ridesAPI.acceptRide(ride.id, driverData);
 
-            setCurrentRide({ ...ride, ...driverData, status: 'driver_accepted' });
-            setPendingRides((prev) => prev.filter((r) => r.id !== ride.id));
-
-            Alert.alert('Success', 'Ride accepted! Waiting for passenger to confirm...');
-          } catch (error) {
-            Alert.alert('Error', error.response?.data?.error || 'Failed to accept ride');
-          }
-        },
-      },
-    ]
-  );
+    setCurrentRide({ ...ride, ...driverData, status: 'accepted' });
+    setPendingRides((prev) => prev.filter((r) => r.id !== ride.id));
+  } catch (error) {
+    Alert.alert('Error', error.response?.data?.error || 'Failed to accept ride');
+  }
 }
 
 export function handleDeclineRide(ride, setPendingRides) {
@@ -95,88 +81,33 @@ export async function handleStartRide(currentRide, ridesAPI, setCurrentRide) {
 
   try {
     await ridesAPI.startRide(currentRide.id);
-    setCurrentRide({ ...currentRide, status: 'active' });
-    Alert.alert('Ride Started', 'The passenger has been notified you are on the way.');
+    setCurrentRide({ ...currentRide, status: 'picked_up' });
   } catch (error) {
-    const message = error?.response?.data?.error || error?.message || 'Failed to start ride';
+    const message = error?.response?.data?.error || error?.message || 'Failed to start delivery';
     Alert.alert('Error', message);
   }
 }
 
-export async function handleCompleteRide(currentRide, ridesAPI, setCurrentRide, setLoading) {
+export async function handleCompleteRide(currentRide, ridesAPI, setCurrentRide, setLoading, router) {
   if (!currentRide) return;
 
-  const price = currentRide.price || 0;
-
-  const enterOtp = () => {
-    let otpValue = '';
-    Alert.alert(
-      'Complete Delivery',
-      'Enter the 6-digit OTP provided by the customer to confirm delivery.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          onPress: async () => {
-            if (!otpValue || otpValue.length !== 6) {
-              Alert.alert('Error', 'Please enter a valid 6-digit OTP');
-              return;
-            }
-            try {
-              setLoading(true);
-              const response = await ridesAPI.verifyOtp(currentRide.id, otpValue);
-              if (response.success) {
-                setCurrentRide({ ...currentRide, status: 'completed' });
-                Alert.alert('Delivery Completed', 'Payment has been released to you. Thank you for your service!');
-              } else {
-                Alert.alert('Error', response.error || 'Invalid OTP. Please try again.');
-              }
-            } catch (error) {
-              Alert.alert('Error', error.message || 'Failed to verify OTP');
-            } finally {
-              setLoading(false);
-            }
-          }
-        }
-      ],
-      {
-        textInput: {
-          placeholder: 'Enter 6-digit OTP',
-          keyboardType: 'numeric',
-          maxLength: 6,
-          onChangeText: (text) => { otpValue = text; }
-        }
-      }
-    );
-  };
-
-  enterOtp();
+  router.push({
+    pathname: '/(driver)/driver-otp',
+    params: { rideId: currentRide.id },
+  });
 }
 
 export async function handleCancelCurrentRide(currentRide, ridesAPI, setCurrentRide, fetchPendingRides) {
   if (!currentRide) return;
 
-  Alert.alert(
-    'Cancel Ride',
-    'Are you sure you want to cancel this ride? This may affect your rating.',
-    [
-      { text: 'No', style: 'cancel' },
-      {
-        text: 'Yes, Cancel',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            const email = await authService.getUserEmail();
-            await ridesAPI.cancelRide(currentRide.id, email);
-            setCurrentRide(null);
-            fetchPendingRides();
-          } catch (error) {
-            Alert.alert('Error', 'Failed to cancel dispatch');
-          }
-        },
-      },
-    ]
-  );
+  try {
+    const email = await authService.getUserEmail();
+    await ridesAPI.cancelRide(currentRide.id, email);
+    setCurrentRide(null);
+    fetchPendingRides();
+  } catch (error) {
+    Alert.alert('Error', 'Failed to cancel dispatch');
+  }
 }
 
 export async function handleLogout(isOnline, authService, socketService, router) {

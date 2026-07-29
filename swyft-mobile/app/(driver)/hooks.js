@@ -142,7 +142,7 @@ export function useDriverDashboardEffects(state, refs) {
     try {
       const response = await ridesAPI.getRides({
         driver_email: email,
-        status: 'driver_accepted,accepted,arrived,active'
+        status: 'accepted,arrived_pickup,picked_up,active,arriving'
       });
 
       if (response.data && response.data.length > 0) {
@@ -244,12 +244,12 @@ export function useDriverDashboardEffects(state, refs) {
           const currentLat = loc.coords.latitude;
           const currentLng = loc.coords.longitude;
 
-          if ((ride.status === 'driver_accepted' || ride.status === 'accepted' || ride.status === 'arrived_pickup') && ride.pickup_lat && ride.pickup_lng) {
+          if ((ride.status === 'accepted' || ride.status === 'picked_up') && ride.pickup_lat && ride.pickup_lng) {
             const distanceToPickup = calculateDistance(currentLat, currentLng, parseFloat(ride.pickup_lat), parseFloat(ride.pickup_lng));
             setEta(calculateETA(distanceToPickup));
           }
 
-          if (ride.status === 'active' && ride.dropoff_lat && ride.dropoff_lng) {
+          if (ride.status === 'picked_up' && ride.dropoff_lat && ride.dropoff_lng) {
             const distanceToDropoff = calculateDistance(currentLat, currentLng, parseFloat(ride.dropoff_lat), parseFloat(ride.dropoff_lng));
             setEtaDropoff(calculateETA(distanceToDropoff));
           }
@@ -271,8 +271,8 @@ export function useDriverDashboardEffects(state, refs) {
         return [...prev, ride];
       });
       Alert.alert(
-        'New Ride Request!',
-        `Passenger: ${ride.passenger_name || 'Customer'}\nPickup: ${ride.pickup_location || ride.pickup || 'Nearby'}\nFare: ₺${ride.price || '0.00'}`,
+        'New Order',
+        `Customer: ${ride.passenger_name || ride.passenger_email}\nPickup: ${ride.pickup_location || ride.pickup || 'Nearby'}\nEarnings: ₺${ride.price || '0.00'}`,
         [{ text: 'OK' }]
       );
     }
@@ -285,14 +285,6 @@ export function useDriverDashboardEffects(state, refs) {
           console.log('Adding new ride to list:', ride.id);
           return [...prev, ride];
         });
-
-        if (isOnlineRef.current) {
-          Alert.alert(
-            'New Dispatch service Request!',
-            `Passenger: ${ride.passenger_name || 'Customer'}\nPickup: ${ride.pickup_location || ride.pickup || 'Nearby'}\nFare: ₺${ride.price || '0.00'}`,
-            [{ text: 'OK' }]
-          );
-        }
       }
     });
 
@@ -302,35 +294,26 @@ export function useDriverDashboardEffects(state, refs) {
       const isForThisDriver = ride.driver_email === state.driverInfo?.email || ride.id === currentRideRef.current?.id;
 
       if (isForThisDriver) {
-        if (ride.status === 'driver_accepted') {
+        if (ride.status === 'accepted' || ride.status === 'arrived_pickup') {
           setCurrentRide(ride);
-          Alert.alert('Waiting for Confirmation', 'The passenger is reviewing your acceptance. Please wait for them to confirm.');
-        } else if (ride.status === 'accepted' || ride.status === 'active') {
+        } else if (ride.status === 'picked_up') {
           setCurrentRide(ride);
-
-          if (ride.pickup_lat && ride.pickup_lng) {
-            setPassengerLocation({
-              latitude: parseFloat(ride.pickup_lat),
-              longitude: parseFloat(ride.pickup_lng),
-            });
-          }
         } else if (ride.status === 'completed' || ride.status === 'confirmed') {
-          console.log('Ride completed/confirmed, reloading earnings');
+          console.log('Ride completed/received, reloading earnings');
           loadEarnings(state.driverInfo?.email);
           setCurrentRide(null);
-          setPassengerLocation(null);
           fetchPendingRides();
-        } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
-          Alert.alert('Ride Cancelled', 'The ride has been cancelled.');
+          Alert.alert('OTP Verified', 'Delivery completed. Payment has been released.');
+        } else if (ride.status === 'cancelled') {
+          Alert.alert('Ride Cancelled', 'Customer cancelled the delivery.');
           setCurrentRide(null);
-          setPassengerLocation(null);
           fetchPendingRides();
         }
       }
 
       if (ride.id) {
-        const acceptedByOther = ride.status === 'driver_accepted' && ride.driver_email !== state.driverInfo?.email;
-        const isCancelled = ride.status === 'cancelled' || ride.status === 'canceled';
+        const acceptedByOther = ride.status === 'accepted' && ride.driver_email !== state.driverInfo?.email;
+        const isCancelled = ride.status === 'cancelled';
 
         if (acceptedByOther || isCancelled) {
           setPendingRides((prev) => {
@@ -388,19 +371,12 @@ export function useDriverDashboardEffects(state, refs) {
     socketService.on('dispatchUpdated', (dispatch) => {
       console.log('Dispatch updated received:', dispatch);
       if (dispatch.driver_email === state.driverInfo?.email) {
-        if (dispatch.status === 'accepted' || dispatch.status === 'arrived_pickup' || dispatch.status === 'active' || dispatch.status === 'arriving') {
+        if (dispatch.status === 'accepted' || dispatch.status === 'picked_up') {
           setCurrentRide(dispatch);
-          if (dispatch.pickup_lat && dispatch.pickup_lng) {
-            setPassengerLocation({
-              latitude: parseFloat(dispatch.pickup_lat),
-              longitude: parseFloat(dispatch.pickup_lng),
-            });
-          }
         } else if (dispatch.status === 'completed') {
           console.log('Dispatch completed, reloading earnings');
           loadEarnings(state.driverInfo?.email);
           setCurrentRide(null);
-          setPassengerLocation(null);
           fetchPendingRides();
         }
       }

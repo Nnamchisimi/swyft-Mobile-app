@@ -74,7 +74,7 @@ Create these collections in MongoDB Atlas and their fields:
   dropoff_lat: Number,
   dropoff_lng: Number,
   price: Number (default: 0),
-  status: String (enum: "requested" | "accepted" | "arrived" | "in_progress" | "active" | "completed" | "confirmed" | "cancelled" | "canceled", default: "requested"),
+  status: String (enum: ["requested", "accepted", "arrived", "in_progress", "active", "completed", "confirmed", "cancelled"], default: "requested"),
   ride_type: String (enum: "economy" | "standard" | "luxury", default: "economy"),
   driver_lat: Number,
   driver_lng: Number,

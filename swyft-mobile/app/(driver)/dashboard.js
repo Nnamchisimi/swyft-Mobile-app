@@ -12,7 +12,8 @@ import { useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useDriverDashboardState } from './hooks';
 import { useDriverDashboardEffects } from './hooks';
-import { toggleOnline, handleAcceptRide, handleDeclineRide, handleStartRide, handleCompleteRide, handleCancelCurrentRide, handleLogout, openNavigation } from './actions';
+import { toggleOnline, handleAcceptRide, handleDeclineRide, handleStartRide, handleCompleteRide, handleCancelCurrentRide, handleLogout } from './actions';
+import { openNavigation } from './utils';
 import { socketService } from '../../src/services/socket';
 import { authService } from '../../src/services/auth';
 import { ridesAPI } from '../../src/services/api';
@@ -67,7 +68,7 @@ export default function DriverDashboard() {
   };
 
   const onCompleteRide = async () => {
-    await handleCompleteRide(state.currentRide, ridesAPI, state.setCurrentRide, state.setLoading);
+    await handleCompleteRide(state.currentRide, ridesAPI, state.setCurrentRide, state.setLoading, router);
   };
 
   const onStartRide = async () => {
@@ -197,7 +198,7 @@ export default function DriverDashboard() {
                 />
               )}
 
-              {state.currentRide && (state.currentRide.status === 'accepted' || state.currentRide.status === 'arrived_pickup' || state.currentRide.status === 'active' || state.currentRide.status === 'arriving') && state.location && state.currentRide?.pickup_lat && state.currentRide?.pickup_lng && (
+              {(state.currentRide?.status === 'accepted' || state.currentRide?.status === 'picked_up') && state.location && state.currentRide?.pickup_lat && state.currentRide?.pickup_lng && (
                 <Polyline
                   coordinates={[
                     { latitude: state.location.latitude, longitude: state.location.longitude },

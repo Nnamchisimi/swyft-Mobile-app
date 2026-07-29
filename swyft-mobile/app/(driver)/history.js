@@ -60,7 +60,7 @@ export default function DriverHistoryScreen() {
   const getFilteredRides = () => {
     if (activeTab === 'all') return rides;
     if (activeTab === 'cancelled') {
-      return rides.filter(ride => ride.status === 'cancelled' || ride.status === 'canceled');
+      return rides.filter(ride => ride.status === 'cancelled');
     }
     return rides.filter(ride => ride.status === activeTab);
   };
@@ -71,7 +71,7 @@ export default function DriverHistoryScreen() {
       accepted: rides.filter(r => r.status === 'accepted').length,
       active: rides.filter(r => r.status === 'active').length,
       completed: rides.filter(r => r.status === 'completed' || r.status === 'confirmed').length,
-      cancelled: rides.filter(r => r.status === 'cancelled' || r.status === 'canceled').length,
+      cancelled: rides.filter(r => r.status === 'cancelled').length,
     };
   };
 
@@ -81,7 +81,6 @@ export default function DriverHistoryScreen() {
       case 'confirmed':
         return COLORS.success;
       case 'cancelled':
-      case 'canceled':
         return COLORS.error;
       case 'active':
         return COLORS.primary;

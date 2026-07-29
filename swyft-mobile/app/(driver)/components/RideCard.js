@@ -1,18 +1,30 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/constants/config';
-import { calculateDistance, calculateETA } from '../utils';
+import { calculateDistance } from '../utils';
 import styles from '../styles';
 
 export default function RideCard({ ride, onAccept, onDecline, location }) {
+  let pickupDistance = null;
+  let dropoffDistance = null;
+
+  if (location && ride.pickup_lat && ride.pickup_lng) {
+    const d = calculateDistance(location.latitude, location.longitude, parseFloat(ride.pickup_lat), parseFloat(ride.pickup_lng));
+    if (d < 1000) {
+      pickupDistance = `${Math.round(d)} m`;
+    } else {
+      pickupDistance = `${(d / 1000).toFixed(1)} km`;
+    }
+  }
+
   return (
     <View style={styles.rideCard}>
       <View style={styles.rideHeader}>
         <View style={styles.rideIdBadge}>
           <Text style={styles.rideIdText}>#{ride.id}</Text>
         </View>
-        <Text style={styles.ridePrice}>₺{ride.price || '15.00'}</Text>
+        <Text style={styles.ridePrice}>₺{ride.price || '0.00'}</Text>
       </View>
 
       <View style={styles.rideLocations}>
@@ -23,6 +35,9 @@ export default function RideCard({ ride, onAccept, onDecline, location }) {
             <Text style={styles.locationText} numberOfLines={2}>
               {ride.pickup_location || ride.pickup || 'Location not specified'}
             </Text>
+            {pickupDistance && (
+              <Text style={styles.distanceText}>{pickupDistance} away</Text>
+            )}
           </View>
         </View>
 
@@ -39,53 +54,33 @@ export default function RideCard({ ride, onAccept, onDecline, location }) {
         </View>
       </View>
 
-      <View style={styles.ridePassenger}>
-        <View style={styles.passengerAvatar}>
-          <Text style={styles.passengerAvatarText}>
-            {(ride.passenger_name || ride.passenger_email || 'P').charAt(0).toUpperCase()}
-          </Text>
-        </View>
-        <View style={styles.passengerInfo}>
-          <Text style={styles.passengerName}>{ride.passenger_name || 'Passenger'}</Text>
-          <Text style={styles.passengerPhone}>{ride.passenger_phone || 'No phone'}</Text>
-        </View>
-        <View style={styles.rideTypeBadge}>
-          <Text style={styles.rideTypeText}>{ride.vehicle_type || ride.ride_type || 'Standard'}</Text>
-        </View>
-      </View>
-
-      {(ride.package_type || ride.package_size || ride.package_details || ride.special_instructions) && (
+      {(ride.package_size || ride.package_type || ride.package_details) && (
         <View style={styles.packageInfo}>
           <View style={styles.packageHeader}>
             <Ionicons name="cube-outline" size={16} color={COLORS.primary} />
-            <Text style={styles.packageHeaderText}>Package Details</Text>
-          </View>
-          <View style={styles.packageDetails}>
-            {ride.package_type && (
-              <View style={styles.packageItem}>
-                <Text style={styles.packageLabel}>Type:</Text>
-                <Text style={styles.packageValue}>{ride.package_type}</Text>
-              </View>
-            )}
+            <Text style={styles.packageHeaderText}>Package</Text>
             {ride.package_size && (
-              <View style={styles.packageItem}>
-                <Text style={styles.packageLabel}>Size:</Text>
-                <Text style={styles.packageValue}>{ride.package_size}</Text>
-              </View>
-            )}
-            {ride.package_details && (
-              <View style={styles.packageItem}>
-                <Text style={styles.packageLabel}>Details:</Text>
-                <Text style={styles.packageValue}>{ride.package_details}</Text>
-              </View>
-            )}
-            {ride.special_instructions && (
-              <View style={styles.packageItem}>
-                <Text style={styles.packageLabel}>Note:</Text>
-                <Text style={[styles.packageValue, styles.packageSpecial]}>{ride.special_instructions}</Text>
+              <View style={styles.packageBadge}>
+                <Text style={styles.packageBadgeText}>{ride.package_size}</Text>
               </View>
             )}
           </View>
+          {(ride.package_type || ride.package_details) && (
+            <View style={styles.packageDetails}>
+              {ride.package_type && (
+                <View style={styles.packageItem}>
+                  <Text style={styles.packageLabel}>Type:</Text>
+                  <Text style={styles.packageValue}>{ride.package_type}</Text>
+                </View>
+              )}
+              {ride.package_details && (
+                <View style={styles.packageItem}>
+                  <Text style={styles.packageLabel}>Details:</Text>
+                  <Text style={styles.packageValue} numberOfLines={2}>{ride.package_details}</Text>
+                </View>
+              )}
+            </View>
+          )}
         </View>
       )}
 

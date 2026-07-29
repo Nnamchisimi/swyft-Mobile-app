@@ -80,7 +80,7 @@ export default function PassengerHomeScreen() {
     try {
       const response = await ridesAPI.getRides({ 
         passenger_email: email,
-        status: 'driver_accepted,accepted,arrived,active,pending' 
+        status: 'accepted,picked_up,pending' 
       });
       
       if (response.data && response.data.length > 0) {
@@ -101,68 +101,34 @@ export default function PassengerHomeScreen() {
       socketService.joinRoom(email);
       
       
-     socketService.on('rideUpdated', (ride) => {
-       console.log('rideUpdated received in home:', ride);
-       if (ride.passenger_email === email || ride.id === currentRideRef.current?.id) {
-         setCurrentRide((prev) => {
-           const safeRide = Object.fromEntries(
-             Object.entries(ride).filter(([_, v]) => v !== undefined)
-           );
-           return { ...(prev || {}), ...safeRide };
-         });
-         currentRideRef.current = { ...(currentRideRef.current || {}), ...ride };
-          if (ride.status === 'driver_accepted') {
-            router.replace({
-              pathname: '/(passenger)/awaiting-driver',
-              params: { rideId: ride.id },
-            });
-          } else if (ride.status === 'accepted') {
-            router.replace({
-              pathname: '/(passenger)/awaiting-driver',
-              params: { rideId: ride.id },
-            });
-          } else if (ride.status === 'completed') {
-            Alert.alert(
-              '🎉 Arrived at Destination!', 
-              `You have arrived at your destination!
-
-Dropoff: ${ride.dropoff || 'Your destination'}
-Fare: ₺${ride.price || '0.00'}`,
-              [{ 
-                text: 'Confirm & Rate Driver',
-                onPress: async () => {
-                  try {
-                    // Call confirm API - this notifies driver of earnings
-                    await ridesAPI.confirmRide(ride.id);
-                  } catch (error) {
-                    console.log('Confirm error (may already be confirmed):', error.message);
-                  }
-                  // Navigate to rate screen
-                  router.push({
-                    pathname: '/(passenger)/rate-ride',
-                    params: { 
-                      rideId: ride.id,
-                      driverName: ride.driver_name,
-                      driverVehicle: ride.driver_vehicle,
-                    },
-                  });
-                }
-              }]
+       socketService.on('rideUpdated', (ride) => {
+        console.log('rideUpdated received in home:', ride);
+        if (ride.passenger_email === email || ride.id === currentRideRef.current?.id) {
+          setCurrentRide((prev) => {
+            const safeRide = Object.fromEntries(
+              Object.entries(ride).filter(([_, v]) => v !== undefined)
             );
-            setCurrentRide(null);
-          } else if (ride.status === 'confirmed') {
-            // Already confirmed - go directly to rating
-            router.push({
+            return { ...(prev || {}), ...safeRide };
+          });
+          currentRideRef.current = { ...(currentRideRef.current || {}), ...ride };
+
+          if (ride.status === 'completed' || ride.status === 'confirmed') {
+            router.replace({
               pathname: '/(passenger)/rate-ride',
-              params: { 
+              params: {
                 rideId: ride.id,
                 driverName: ride.driver_name,
                 driverVehicle: ride.driver_vehicle,
               },
             });
             setCurrentRide(null);
-          } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
+          } else if (ride.status === 'cancelled') {
             setCurrentRide(null);
+          } else if (['accepted', 'picked_up', 'pending'].includes(ride.status)) {
+            router.replace({
+              pathname: '/(passenger)/track-ride',
+              params: { rideId: ride.id },
+            });
           }
         }
       });

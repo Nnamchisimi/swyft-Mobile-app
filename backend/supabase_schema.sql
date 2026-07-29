@@ -16,7 +16,7 @@ DROP TYPE IF EXISTS ride_type CASCADE;
 
 -- Create custom ENUM types
 CREATE TYPE user_role AS ENUM ('passenger', 'driver');
-CREATE TYPE ride_status AS ENUM ('requested', 'accepted', 'arrived_pickup', 'active', 'arriving', 'completed', 'confirmed', 'cancelled', 'canceled');
+CREATE TYPE ride_status AS ENUM ('requested', 'pending', 'accepted', 'arrived_pickup', 'picked_up', 'active', 'arriving', 'completed', 'confirmed', 'cancelled');
 CREATE TYPE ride_type AS ENUM ('lefkosa', 'girne', 'magusa', 'iskele');
 
 -- Create users table

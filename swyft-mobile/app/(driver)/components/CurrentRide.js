@@ -1,114 +1,103 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/constants/config';
 
-export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onCompleteRide, onCancelCurrentRide, onOpenNavigation }) {
+export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onCompleteRide, onCancelCurrentRide, onOpenNavigation, driverLocation }) {
   if (!ride) return null;
 
   const statusColors = {
-    'driver_accepted': '#FF9500',
-    'accepted': COLORS.primary,
-    'completed': '#8E8E93',
-    'confirmed': '#34C759',
+    accepted: COLORS.primary,
+    arrived_pickup: '#FF9500',
+    picked_up: COLORS.success,
+    completed: '#8E8E93',
   };
 
   const statusLabels = {
-    'driver_accepted': 'Awaiting Passenger',
-    'accepted': 'Accepted',
-    'completed': 'Completed',
-    'confirmed': 'Confirmed',
+    accepted: 'Accepted',
+    arrived_pickup: 'Arrived at Pickup',
+    picked_up: 'Picked Up',
+    completed: 'Completed',
   };
 
-  const isWaitingConfirmation = ride.status === 'driver_accepted';
+  const isAccepted = ride.status === 'accepted' || ride.status === 'arrived_pickup';
+  const isPickedUp = ride.status === 'picked_up';
 
   return (
     <View style={styles.currentRideCard}>
       <View style={styles.currentRideHeader}>
         <View style={styles.headerLeft}>
-          <Text style={styles.currentRideTitle}>Current Ride</Text>
+          <Text style={styles.currentRideTitle}>Current Delivery</Text>
         </View>
-        <View style={[
-          styles.statusBadge,
-          { backgroundColor: statusColors[ride.status] || COLORS.primary }
-        ]}>
+        <View style={[styles.statusBadge, { backgroundColor: statusColors[ride.status] || COLORS.primary }]}>
           <Text style={styles.statusText}>{statusLabels[ride.status] || ride.status}</Text>
         </View>
       </View>
 
-      <View style={styles.rideLocations}>
-        <View style={styles.locationRow}>
-          <View style={[styles.locationDot, { backgroundColor: COLORS.success }]} />
-          <View style={styles.locationTextContainer}>
-            <Text style={styles.locationLabel}>PICKUP</Text>
-            <Text style={styles.locationText} numberOfLines={2}>
-              {ride.pickup_location || ride.pickup || 'N/A'}
-            </Text>
+      {isAccepted && (
+        <View style={styles.passengerBlock}>
+          <View style={styles.passengerLine}>
+            <Ionicons name="person" size={18} color={COLORS.textSecondary} />
+            <Text style={styles.passengerText}>{ride.passenger_name || ride.passenger_email || 'Customer'}</Text>
           </View>
-        </View>
-
-        <View style={styles.locationConnector} />
-
-        <View style={styles.locationRow}>
-          <View style={[styles.locationDot, { backgroundColor: COLORS.error }]} />
-          <View style={styles.locationTextContainer}>
-            <Text style={styles.locationLabel}>DROPOFF</Text>
-            <Text style={styles.locationText} numberOfLines={2}>
-              {ride.dropoff_location || ride.dropoff || 'N/A'}
-            </Text>
+          <View style={styles.passengerLine}>
+            <Ionicons name="call" size={18} color={COLORS.textSecondary} />
+            <Text style={styles.passengerText}>{ride.passenger_phone || ride.passenger_email || 'No phone'}</Text>
           </View>
-        </View>
-      </View>
-
-      <View style={styles.passengerContact}>
-        <View style={styles.passengerAvatar}>
-          <Text style={styles.passengerAvatarText}>
-            {(ride.passenger_name || 'P').charAt(0).toUpperCase()}
-          </Text>
-        </View>
-        <View style={styles.passengerInfo}>
-          <Text style={styles.passengerName}>{ride.passenger_name || 'Passenger'}</Text>
-          <Text style={styles.passengerPhone}>{ride.passenger_phone || ride.passenger_email}</Text>
-          {ride.vehicle_type && (
-            <Text style={styles.vehicleTypeBadge}>Vehicle: {ride.vehicle_type}</Text>
+          {(ride.package_size || ride.package_type) && (
+            <View style={styles.packageRow}>
+              <Ionicons name="cube" size={16} color={COLORS.primary} />
+              <Text style={styles.packageText}>
+                {[ride.package_size, ride.package_type].filter(Boolean).join(' · ')}
+              </Text>
+            </View>
           )}
         </View>
-        <Text style={styles.ridePriceLarge}>₺{ride.price || '15.00'}</Text>
-      </View>
+      )}
 
-      <View style={styles.currentRideActions}>
-        {isWaitingConfirmation ? (
-          <View style={styles.waitingContainer}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
-            <Text style={styles.waitingText}>Waiting for passenger to confirm your acceptance...</Text>
-          </View>
-        ) : (
-          <>
-            {ride.status === 'accepted' && (
-              <TouchableOpacity style={styles.startButton} onPress={onStartRide}>
-                <Text style={styles.startButtonText}>Start Ride</Text>
-              </TouchableOpacity>
-            )}
-            {ride.status === 'completed' && (
-              <View style={styles.waitingContainer}>
-                <ActivityIndicator size="small" color={COLORS.success} />
-                <Text style={styles.waitingText}>Waiting for receiver to confirm delivery...</Text>
-              </View>
-            )}
-            {ride.status === 'confirmed' && (
-              <View style={styles.waitingContainer}>
-                <Ionicons name="checkmark-circle" size={24} color={COLORS.success} />
-                <Text style={[styles.waitingText, { color: COLORS.success }]}>Delivery confirmed! Payment received.</Text>
-              </View>
-            )}
-          </>
-        )}
-        {ride.status !== 'confirmed' && ride.status !== 'completed' && (
-          <TouchableOpacity style={styles.cancelRideButton} onPress={onCancelCurrentRide}>
-            <Text style={styles.cancelRideButtonText}>Cancel Ride</Text>
+      {isAccepted && (
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.navigationButton} onPress={() => onOpenNavigation(ride.pickup_lat, ride.pickup_lng, ride.pickup_location || ride.pickup)}>
+            <Ionicons name="navigate" size={18} color={COLORS.white} />
+            <Text style={styles.navigationButtonText}>Navigate to Pickup</Text>
           </TouchableOpacity>
-        )}
-      </View>
+          <TouchableOpacity style={styles.startButton} onPress={onStartRide}>
+            <Text style={styles.startButtonText}>Package Collected</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {isPickedUp && (
+        <View style={styles.passengerBlock}>
+          <View style={styles.passengerLine}>
+            <Ionicons name="location" size={18} color={COLORS.textSecondary} />
+            <Text style={styles.passengerText}>
+              {ride.dropoff_location || ride.dropoff || 'Destination'}
+            </Text>
+          </View>
+          {etaDropoff && (
+            <Text style={styles.etaText}>ETA: {etaDropoff} min</Text>
+          )}
+        </View>
+      )}
+
+      {isPickedUp && (
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={styles.navigationButton} onPress={() => onOpenNavigation(ride.dropoff_lat, ride.dropoff_lng, ride.dropoff_location || ride.dropoff)}>
+            <Ionicons name="navigate" size={18} color={COLORS.white} />
+            <Text style={styles.navigationButtonText}>Navigate</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.completeButton} onPress={onCompleteRide}>
+            <Text style={styles.completeButtonText}>Complete Delivery</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {ride.status !== 'completed' && (
+        <TouchableOpacity style={styles.cancelRideButton} onPress={onCancelCurrentRide}>
+          <Text style={styles.cancelRideButtonText}>Cancel Ride</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -116,158 +105,137 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
 const styles = StyleSheet.create({
   currentRideCard: {
     backgroundColor: COLORS.white,
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
-    margin: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   currentRideHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
   },
   headerLeft: {
     flex: 1,
   },
   currentRideTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 4,
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 15,
   },
   statusText: {
     color: COLORS.white,
     fontSize: 12,
     fontWeight: '600',
   },
-  rideLocations: {
-    marginBottom: 20,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  locationDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginTop: 4,
-    marginRight: 12,
-  },
-  locationTextContainer: {
-    flex: 1,
-  },
-  locationLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.textLight,
-    marginBottom: 2,
-  },
-  locationText: {
-    fontSize: 14,
-    color: COLORS.text,
-    lineHeight: 18,
-  },
-  locationConnector: {
-    width: 2,
-    height: 24,
-    backgroundColor: COLORS.border,
-    marginLeft: 5,
-    marginVertical: 4,
-  },
-  passengerContact: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
+  passengerBlock: {
+    gap: 8,
+    marginBottom: 14,
+    paddingVertical: 10,
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 16,
   },
-  passengerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
+  passengerLine: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
-  },
-  passengerAvatarText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  passengerInfo: {
-    flex: 1,
-  },
-  passengerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  passengerPhone: {
-    fontSize: 13,
-    color: COLORS.textLight,
-  },
-  vehicleTypeBadge: {
-    fontSize: 11,
-    color: COLORS.primary,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  ridePriceLarge: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.success,
-  },
-  currentRideActions: {
     gap: 10,
   },
-  waitingContainer: {
+  passengerText: {
+    fontSize: 14,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  packageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  packageText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  etaText: {
+    fontSize: 13,
+    color: COLORS.success,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  navigationButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    gap: 10,
+    gap: 8,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    elevation: 5,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
   },
-  waitingText: {
-    fontSize: 14,
-    color: COLORS.textLight,
-    flex: 1,
+  navigationButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
+    fontSize: 15,
   },
   startButton: {
+    flex: 1,
     backgroundColor: COLORS.success,
-    paddingVertical: 14,
-    borderRadius: 10,
+    height: 56,
+    borderRadius: 18,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   startButtonText: {
     color: COLORS.white,
-    fontSize: 15,
     fontWeight: '600',
+    fontSize: 15,
+  },
+  completeButton: {
+    flex: 1,
+    backgroundColor: COLORS.success,
+    height: 56,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completeButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
+    fontSize: 15,
   },
   cancelRideButton: {
+    backgroundColor: COLORS.surface,
     paddingVertical: 12,
+    borderRadius: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.error,
-    borderRadius: 10,
   },
   cancelRideButtonText: {
     color: COLORS.error,
+    fontWeight: '500',
     fontSize: 14,
-    fontWeight: '600',
   },
 });

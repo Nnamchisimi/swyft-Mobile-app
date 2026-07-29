@@ -100,7 +100,7 @@ export default function BookRideScreen() {
       if (ride.passenger_email === userEmail) {
         console.log('Ride update matches passenger!');
         setCurrentRide(prev => ({ ...prev, ...ride }));
-        if (ride.status === 'driver_accepted') {
+        if (ride.status === 'accepted') {
           setRideBooked(true);
           Alert.alert(
             'Driver Found!',
@@ -125,7 +125,7 @@ export default function BookRideScreen() {
         } else if (ride.status === 'accepted' || ride.status === 'driver_arrived') {
           setRideBooked(true);
           Alert.alert('Driver Found!', `Your driver ${ride.driver_name} has accepted the ride!`);
-        } else if (ride.status === 'cancelled' || ride.status === 'canceled') {
+        } else if (ride.status === 'cancelled') {
           setRideBooked(false);
           setCurrentRide(null);
           Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');

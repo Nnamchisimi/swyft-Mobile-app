@@ -51,7 +51,7 @@ function registerRidesRoutes(app, io, db) {
     db.query(query, params, (err, results) => {
       if (err) {
         console.error('Error fetching rides:', err);
-        return res.status(500).json({ error: 'Failed to fetch rides' });
+        return res.status(500).json({ error: 'Failed to fetch rides', details: err.message });
       }
       res.json(results.rows);
     });
@@ -62,7 +62,7 @@ function registerRidesRoutes(app, io, db) {
     const { driver_email } = req.query;
     if (!driver_email) return res.status(400).json({ error: 'driver_email is required' });
 
-    db.query('SELECT * FROM rides WHERE driver_email = $1 AND status IN ($2, $3, $4) ORDER BY created_at DESC', [driver_email, 'accepted', 'active', 'driver_accepted'], (err, results) => {
+    db.query('SELECT * FROM rides WHERE driver_email = $1 AND status IN ($2, $3, $4) ORDER BY created_at DESC', [driver_email, 'accepted', 'active', 'accepted'], (err, results) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch active rides' });
       res.json(results.rows);
     });
@@ -355,7 +355,7 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
 
              // Update rides with driver_id, vehicle, name and location
              db.query('UPDATE rides SET driver_id=$1, driver_name=$2, driver_email=$3, driver_phone=$4, driver_vehicle=$5, driver_lat=$6, driver_lng=$7, status=$8, driver_assigned=true WHERE id=$9',
-               [driverUserId, driverName, email, driverPhone, vehicleDetails, driverLat, driverLng, 'driver_accepted', rideId], (err2) => {
+               [driverUserId, driverName, email, driverPhone, vehicleDetails, driverLat, driverLng, 'accepted', rideId], (err2) => {
               if (err2) {
                 console.error('UPDATE rides error:', err2);
                 return res.status(500).json({ error: 'Failed to accept ride', details: err2.message });
@@ -365,7 +365,7 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
               const passengerRidePayload = {
                 ...ride,
                 id: rideId,
-                status: 'driver_accepted',
+                status: 'accepted',
                 driver_name: driverName,
                 driver_email: email,
                 driver_phone: driverPhone,
@@ -381,7 +381,7 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
               const driverRidePayload = {
                 ...ride,
                 id: rideId,
-                status: 'driver_accepted',
+                status: 'accepted',
                 driver_name: driverName,
                 driver_email: email,
                 driver_phone: driverPhone,
@@ -391,7 +391,7 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
                 driver_lng: driverLng,
                 driver_rating: driverRating
               };
-              io.to('onlineDrivers').emit('rideUpdated', { id: rideId, status: 'driver_accepted', driver_email: email, driver_name: driverName });
+              io.to('onlineDrivers').emit('rideUpdated', { id: rideId, status: 'accepted', driver_email: email, driver_name: driverName });
               if (email) io.to(email).emit('rideUpdated', driverRidePayload);
 
               res.json({ message: 'Ride accepted successfully', rideId });
@@ -400,7 +400,7 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
         } else {
           // No user found, use basic info
           db.query('UPDATE rides SET driver_name=$1, driver_email=$2, driver_phone=$3, driver_vehicle=$4, status=$5, driver_assigned=true WHERE id=$6',
-            [driverName, email, driverPhone, vehicleDetails, 'driver_accepted', rideId], (err2) => {
+            [driverName, email, driverPhone, vehicleDetails, 'accepted', rideId], (err2) => {
             if (err2) {
               console.error('UPDATE rides error (no user):', err2);
               return res.status(500).json({ error: 'Failed to accept ride', details: err2.message });
@@ -409,7 +409,7 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
             const passengerRidePayloadNoUser = {
               ...ride,
               id: rideId,
-              status: 'driver_accepted',
+              status: 'accepted',
               driver_name: driverName,
               driver_email: email,
               driver_phone: driverPhone,
@@ -417,7 +417,7 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
             };
             io.to(ride.passenger_email).emit('rideUpdated', passengerRidePayloadNoUser);
 
-            io.to('onlineDrivers').emit('rideUpdated', { id: rideId, status: 'driver_accepted', driver_email: email, driver_name: driverName });
+            io.to('onlineDrivers').emit('rideUpdated', { id: rideId, status: 'accepted', driver_email: email, driver_name: driverName });
 
             res.json({ message: 'Ride accepted successfully', rideId });
           });
@@ -426,104 +426,80 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
     });
   });
 
-   // Passenger confirms driver acceptance - ride officially accepted
-   app.post('/api/rides/:rideId/passenger-confirm', (req, res) => {
-     const rideId = req.params.rideId;
-     db.query('UPDATE rides SET status=$1 WHERE id=$2 AND status = $3', ['accepted', rideId, 'driver_accepted'], (err, result) => {
-       if (err) {
-         console.error('Error confirming ride:', err.message);
-         return res.status(500).json({ error: "Server error" });
-       }
-       if (result.rowCount === 0) return res.status(400).json({ error: "Cannot confirm ride - may already be confirmed or cancelled" });
+    // Passenger confirms driver acceptance - ride officially accepted
+    // Kept as no-op for backward compatibility; acceptance is immediate
+    app.post('/api/rides/:rideId/passenger-confirm', (req, res) => {
+      const rideId = req.params.rideId;
+      db.query('SELECT id, status FROM rides WHERE id = $1', [rideId], (err, results) => {
+        if (err) return res.status(500).json({ error: "Server error" });
+        if (results.rows.length === 0) return res.status(404).json({ error: "Ride not found" });
 
-        db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err2, rides) => {
-          if (err2) {
-            console.error('Error getting ride details:', err2.message);
-            return res.status(500).json({ error: "Server error" });
-          }
-          const ride = rides.rows[0];
+        const ride = results.rows[0];
+        if (ride.status === 'accepted' || ride.status === 'picked_up' || ride.status === 'completed') {
+          return res.json({ message: "Ride already accepted", rideId });
+        }
 
-          io.to(ride.passenger_email).emit('rideUpdated', {
-            id: rideId,
-            status: "accepted",
-            passenger_confirmed: true,
-            driver_name: ride.driver_name,
-            driver_email: ride.driver_email,
-            driver_phone: ride.driver_phone,
-            driver_vehicle: ride.driver_vehicle,
-            driver_lat: ride.driver_lat,
-            driver_lng: ride.driver_lng,
-            pickup_lat: ride.pickup_lat,
-            pickup_lng: ride.pickup_lng,
-            dropoff_lat: ride.dropoff_lat,
-            dropoff_lng: ride.dropoff_lng,
-            dropoff_location: ride.dropoff_location,
-            pickup_location: ride.pickup_location
-          });
+        db.query('UPDATE rides SET status=$1 WHERE id=$2', ['accepted', rideId], (err2) => {
+          if (err2) return res.status(500).json({ error: "Server error" });
 
-          if (ride.driver_email) {
-            io.to(ride.driver_email).emit('rideUpdated', {
+          db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err3, rides) => {
+            if (err3) return res.status(500).json({ error: "Server error" });
+            const updatedRide = rides.rows[0];
+
+            io.to(updatedRide.passenger_email).emit('rideUpdated', {
               id: rideId,
               status: "accepted",
               passenger_confirmed: true,
-              passenger_email: ride.passenger_email,
-              pickup_lat: ride.pickup_lat,
-              pickup_lng: ride.pickup_lng,
-              pickup_location: ride.pickup_location,
-              dropoff_lat: ride.dropoff_lat,
-              dropoff_lng: ride.dropoff_lng,
-              dropoff_location: ride.dropoff_location
+              driver_name: updatedRide.driver_name,
+              driver_email: updatedRide.driver_email,
+              driver_phone: updatedRide.driver_phone,
+              driver_vehicle: updatedRide.driver_vehicle,
+              driver_lat: updatedRide.driver_lat,
+              driver_lng: updatedRide.driver_lng,
+              pickup_lat: updatedRide.pickup_lat,
+              pickup_lng: updatedRide.pickup_lng,
+              dropoff_lat: updatedRide.dropoff_lat,
+              dropoff_lng: updatedRide.dropoff_lng,
+              dropoff_location: updatedRide.dropoff_location,
+              pickup_location: updatedRide.pickup_location
             });
-          }
 
-          res.json({ message: "Ride confirmed successfully", rideId });
-        });
-     });
-   });
-
-   // Passenger confirms pickup - ride officially starts
-   app.post('/api/rides/:id/confirm-pickup', (req, res) => {
-    const rideId = req.params.id;
-    db.query('UPDATE rides SET status=$1, confirmed_at = NOW() WHERE id=$2 AND status = $3', ['confirmed', rideId, 'completed'], (err, result) => {
-      if (err) {
-        console.error('Error confirming ride:', err.message);
-        return res.status(500).json({ error: "Server error" });
-      }
-      if (result.rowCount === 0) return res.status(400).json({ error: "Cannot confirm ride - may already be confirmed" });
-
-      db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err2, rides) => {
-        if (err2) {
-          console.error('Error getting ride details:', err2.message);
-          return res.status(500).json({ error: "Server error" });
-        }
-        const ride = rides.rows[0];
-
-        io.emit('rideUpdated', {
-          id: rideId,
-          status: "confirmed",
-          passenger_confirmed_complete: true
-        });
-
-        if (ride.driver_email) {
-          db.query('SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN ($2, $3) AND DATE(created_at) = CURRENT_DATE',
-            [ride.driver_email, 'confirmed', 'completed'], (err3, earningsResult) => {
-            const todayEarnings = earningsResult?.rows[0]?.today || 0;
-            db.query('SELECT COUNT(*) as count FROM rides WHERE driver_email = $1 AND status IN ($2, $3)',
-              [ride.driver_email, 'confirmed', 'completed'], (err4, countResult) => {
-              const totalTrips = countResult?.rows[0]?.count || 0;
-              io.to(ride.driver_email).emit('earningsUpdated', {
-                driver_email: ride.driver_email,
-                today_earnings: todayEarnings,
-                total_trips: totalTrips
+            if (updatedRide.driver_email) {
+              io.to(updatedRide.driver_email).emit('rideUpdated', {
+                id: rideId,
+                status: "accepted",
+                passenger_confirmed: true,
+                passenger_email: updatedRide.passenger_email,
+                pickup_lat: updatedRide.pickup_lat,
+                pickup_lng: updatedRide.pickup_lng,
+                pickup_location: updatedRide.pickup_location,
+                dropoff_lat: updatedRide.dropoff_lat,
+                dropoff_lng: updatedRide.dropoff_lng,
+                dropoff_location: updatedRide.dropoff_location
               });
-            });
-          });
-        }
+            }
 
-        res.json({ message: "Ride confirmed! Driver has been paid.", rideId });
+            res.json({ message: "Ride confirmed successfully", rideId });
+          });
+        });
       });
     });
-  });
+
+   // Confirm ride completion - kept as no-op for backward compatibility
+   app.post('/api/rides/:id/confirm-pickup', (req, res) => {
+     const rideId = req.params.id;
+     db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, rides) => {
+       if (err) return res.status(500).json({ error: "Server error" });
+       if (!rides || rides.rows.length === 0) return res.status(404).json({ error: "Ride not found" });
+
+       const ride = rides.rows[0];
+       if (ride.status === 'completed') {
+         return res.json({ message: "Ride already completed", rideId });
+       }
+
+       res.status(400).json({ error: "Ride must be completed first" });
+     });
+   });
 
 // Cancel ride
   app.post('/api/rides/:id/cancel', (req, res) => {
@@ -561,7 +537,7 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
     const { lat, lng } = req.body;
     if (lat == null || lng == null) return res.status(400).json({ error: "Latitude and longitude required" });
 
-    db.query('UPDATE rides SET driver_lat=$1, driver_lng=$2 WHERE id=$3 AND driver_assigned=true AND status IN ($4,$5,$6)', [lat, lng, rideId, 'accepted', 'active', 'driver_accepted'], (err, result) => {
+     db.query('UPDATE rides SET driver_lat=$1, driver_lng=$2 WHERE id=$3 AND driver_assigned=true AND status IN ($4,$5)', [lat, lng, rideId, 'accepted', 'picked_up'], (err, result) => {
       if (err) return res.status(500).json({ error: "Server error" });
       if (result.rowCount === 0) return res.status(400).json({ error: "Cannot update location" });
       io.emit('driverLocationUpdated', { rideId, lat, lng });
@@ -572,20 +548,20 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
   // Start ride - driver begins delivery immediately after acceptance
   app.post('/api/rides/:id/start', (req, res) => {
     const rideId = req.params.id;
-    db.query("UPDATE rides SET status = 'active' WHERE id = $1 AND status IN ($2, $3)", [rideId, 'accepted', 'driver_accepted'], (err, result) => {
+    db.query("UPDATE rides SET status = 'picked_up' WHERE id = $1 AND status IN ($2, $3)", [rideId, 'accepted', 'arrived_pickup'], (err, result) => {
       if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
       if (result.rowCount === 0) return res.status(400).json({ error: 'Cannot start ride - ride may not be accepted' });
 
       db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, rides) => {
         if (err || !rides || rides.rows.length === 0) {
-          io.emit('rideUpdated', { id: rideId, status: 'active' });
+          io.emit('rideUpdated', { id: rideId, status: 'picked_up' });
           return res.json({ message: 'Ride started', rideId });
         }
 
         const ride = rides.rows[0];
         io.emit('rideUpdated', {
           id: ride.id,
-          status: 'active',
+          status: 'picked_up',
           passenger_email: ride.passenger_email,
           pickup: ride.pickup_location,
           dropoff: ride.dropoff_location,
@@ -597,88 +573,14 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
         });
         io.emit('dispatchUpdated', {
           id: ride.id,
-          status: 'active',
+          status: 'picked_up',
           passenger_email: ride.passenger_email,
           driver_email: ride.driver_email,
         });
-        res.json({ message: 'Ride started', rideId });
-      });
-    });
-  });
-
-  // Confirm pickup - package picked up, ride begins (Stage 6)
-  app.post('/api/rides/:id/confirm-pickup', (req, res) => {
-    const rideId = req.params.id;
-    db.query('UPDATE rides SET status = \'active\' WHERE id = $1 AND status = \'arrived_pickup\'', [rideId], (err, result) => {
-      if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
-      if (result.rowCount === 0) return res.status(400).json({ error: 'Cannot start ride - driver has not arrived at pickup' });
-
-      db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, rides) => {
-        if (err || !rides || rides.rows.length === 0) {
-          io.emit('rideUpdated', { id: rideId, status: 'active' });
-          return res.json({ message: 'Ride started', rideId });
-        }
-
-        const ride = rides.rows[0];
-        io.emit('rideUpdated', {
-          id: ride.id,
-          status: 'active',
-          passenger_email: ride.passenger_email,
-          pickup: ride.pickup_location,
-          dropoff: ride.dropoff_location,
-          driver_email: ride.driver_email,
-          driver_name: ride.driver_name,
-          driver_phone: ride.driver_phone,
-          driver_vehicle: ride.driver_vehicle,
-          price: ride.price,
-        });
-        io.emit('dispatchUpdated', {
-          id: ride.id,
-          status: 'active',
-          passenger_email: ride.passenger_email,
-          driver_email: ride.driver_email,
-        });
-        res.json({ message: 'Package picked up, ride started', rideId });
-      });
-    });
-  });
-
-  // Driver arriving at destination (Stage 8)
-  app.post('/api/rides/:id/arrive', (req, res) => {
-    const rideId = req.params.id;
-    db.query('UPDATE rides SET status = \'arriving\' WHERE id = $1 AND status = \'active\'', [rideId], (err, result) => {
-      if (err) return res.status(500).json({ error: 'Server error: ' + err.message });
-      if (result.rowCount === 0) return res.status(400).json({ error: 'Cannot mark as arriving - ride is not active' });
-
-      db.query('SELECT * FROM rides WHERE id = $1', [rideId], (err, rides) => {
-        if (err || !rides || rides.rows.length === 0) {
-          io.emit('rideUpdated', { id: rideId, status: 'arriving' });
-          return res.json({ message: 'Arriving at destination', rideId });
-        }
-
-        const ride = rides.rows[0];
-        io.emit('rideUpdated', {
-          id: ride.id,
-          status: 'arriving',
-          passenger_email: ride.passenger_email,
-          pickup: ride.pickup_location,
-          dropoff: ride.dropoff_location,
-          driver_email: ride.driver_email,
-          driver_name: ride.driver_name,
-          driver_phone: ride.driver_phone,
-          driver_vehicle: ride.driver_vehicle,
-          price: ride.price,
-        });
-        io.emit('dispatchUpdated', {
-          id: ride.id,
-          status: 'arriving',
-          passenger_email: ride.passenger_email,
-          driver_email: ride.driver_email,
-        });
-        res.json({ message: 'Arriving at destination', rideId });
-      });
-    });
-  });
+         res.json({ message: 'Ride started', rideId });
+       });
+     });
+   });
 
   // Verify OTP and complete delivery
   app.post('/api/rides/:id/verify-otp', (req, res) => {
@@ -695,8 +597,8 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
 
       const ride = results.rows[0];
 
-      if (ride.status !== 'active' && ride.status !== 'arriving') {
-        return res.status(400).json({ error: 'Ride must be in active or arriving status to complete' });
+      if (ride.status !== 'accepted' && ride.status !== 'picked_up') {
+        return res.status(400).json({ error: 'Ride must be accepted or picked up to complete' });
       }
 
       if (!ride.delivery_otp_hash) {
@@ -727,7 +629,7 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
 
         db.query(
           'UPDATE rides SET status = $1, price = COALESCE($2, price), completed_at = NOW(), delivery_completed_at = NOW(), delivery_completed_lat = $3, delivery_completed_lng = $4 WHERE id = $5 AND status IN ($6, $7)',
-          ['completed', ride.price, completionLocation.lat || null, completionLocation.lng || null, rideId, 'active', 'arriving'],
+          ['completed', ride.price, completionLocation.lat || null, completionLocation.lng || null, rideId, 'accepted', 'picked_up'],
           (err2, result2) => {
             if (err2) return res.status(500).json({ error: 'Server error' });
             if (result2.rowCount === 0) return res.status(400).json({ error: 'Cannot complete ride' });
@@ -742,6 +644,20 @@ db.query('UPDATE rides SET delivery_id = $1, delivery_otp_hash = $2, delivery_ot
             // Emit to driver
             if (ride.driver_email) {
               io.to(ride.driver_email).emit('rideCompleted', { id: rideId, status: 'completed' });
+
+              db.query('SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN ($2, $3) AND DATE(created_at) = CURRENT_DATE',
+                [ride.driver_email, 'completed', 'picked_up'], (err3, earningsResult) => {
+                const todayEarnings = earningsResult?.rows[0]?.today || 0;
+                db.query('SELECT COUNT(*) as count FROM rides WHERE driver_email = $1 AND status IN ($2, $3)',
+                  [ride.driver_email, 'completed', 'picked_up'], (err4, countResult) => {
+                  const totalTrips = countResult?.rows[0]?.count || 0;
+                  io.to(ride.driver_email).emit('earningsUpdated', {
+                    driver_email: ride.driver_email,
+                    today_earnings: todayEarnings,
+                    total_trips: totalTrips
+                  });
+                });
+              });
             }
 
             res.json({ message: 'Delivery completed successfully', rideId });

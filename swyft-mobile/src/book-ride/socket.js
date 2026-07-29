@@ -32,7 +32,7 @@ export function setupSocketListeners(state) {
 
   socketService.on('rideUpdated', (ride) => {
     if (ride.id === currentRide?.id || ride.passenger_email === userEmail || ride.passengerEmail === userEmail) {
-      if (ride.status === 'driver_accepted' || ride.status === 'accepted') {
+      if (ride.status === 'accepted') {
         if (ride.dropoff_location || ride.dropoff) {
           setDropoffAddress(ride.dropoff_location || ride.dropoff);
         }
@@ -48,7 +48,7 @@ export function setupSocketListeners(state) {
       }
       setCurrentRide((prev) => ({ ...(prev || {}), ...ride }));
       setRideBooked(true);
-      if (ride.status === 'cancelled' || ride.status === 'canceled') {
+      if (ride.status === 'cancelled') {
         setRideBooked(false);
         resetForm();
       }

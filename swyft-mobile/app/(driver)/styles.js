@@ -669,6 +669,18 @@ emptyText:{
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  packageBadge: {
+    marginLeft: 'auto',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  packageBadgeText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   packageDetails: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -690,6 +702,12 @@ emptyText:{
   },
   packageSpecial: {
     color: COLORS.error,
+  },
+  distanceText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    fontWeight: '500',
   },
   packageInfoCurrent: {
     backgroundColor: COLORS.surface,
