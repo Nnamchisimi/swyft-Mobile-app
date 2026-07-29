@@ -208,12 +208,26 @@ export default function TrackRideScreen() {
           subtitle: 'Your courier is heading to pickup.',
           color: COLORS.primary,
         };
+      case 'arrived_pickup':
+        return {
+          emoji: '📍',
+          title: 'Courier at Pickup',
+          subtitle: 'Your courier has arrived at the pickup location.',
+          color: '#FF9500',
+        };
       case 'picked_up':
         return {
           emoji: '📦',
           title: 'Package in Transit',
           subtitle: nearDestination ? 'Courier arriving' : 'Delivering package',
           color: COLORS.success,
+        };
+      case 'arrived_dropoff':
+        return {
+          emoji: '🏠',
+          title: 'Courier Arrived',
+          subtitle: 'Your courier has arrived at the delivery location.',
+          color: '#FF9500',
         };
       case 'completed':
         return {
@@ -276,9 +290,9 @@ export default function TrackRideScreen() {
   }
 
   const status = getStatusConfig(ride.status);
-  const showDriverCard = ride.status === 'accepted';
-  const showTripCard = ride.status === 'accepted' || ride.status === 'picked_up';
-  const showTransitCard = ride.status === 'picked_up';
+  const showDriverCard = ride.status === 'accepted' || ride.status === 'picked_up' || ride.status === 'arrived_dropoff';
+  const showTripCard = ride.status === 'accepted' || ride.status === 'picked_up' || ride.status === 'arrived_dropoff';
+  const showTransitCard = ride.status === 'picked_up' || ride.status === 'arrived_dropoff';
   const showMap = showTransitCard && driverLocation && ride.dropoff_lat && ride.dropoff_lng;
   const isActiveRide = ride.status === 'accepted' || ride.status === 'picked_up';
 
@@ -298,6 +312,20 @@ export default function TrackRideScreen() {
           <Text style={styles.statusTitle}>{status.title}</Text>
           <Text style={styles.statusSubtitle}>{status.subtitle}</Text>
         </View>
+
+        {ride.status === 'picked_up' && (
+          <View style={styles.pickedUpBanner}>
+            <View style={styles.pickedUpIconContainer}>
+              <Ionicons name="cube" size={28} color={COLORS.white} />
+            </View>
+            <View style={styles.pickedUpTextContainer}>
+              <Text style={styles.pickedUpTitle}>Package Picked Up</Text>
+              <Text style={styles.pickedUpSubtitle}>
+                Your package has been picked up by the courier and will be delivered shortly.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {showDriverCard && (
           <View style={styles.driverCard}>
@@ -737,5 +765,42 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     fontSize: 15,
     fontWeight: '600',
+  },
+  pickedUpBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: COLORS.success,
+    borderRadius: 18,
+    padding: 18,
+    marginHorizontal: 2,
+    elevation: 4,
+    shadowColor: COLORS.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  pickedUpIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickedUpTextContainer: {
+    flex: 1,
+  },
+  pickedUpTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.white,
+    marginBottom: 4,
+  },
+  pickedUpSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 18,
+    fontWeight: '500',
   },
 });

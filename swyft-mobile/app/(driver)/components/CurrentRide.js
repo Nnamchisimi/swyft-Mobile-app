@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } fr
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/constants/config';
 
-export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onCompleteRide, onCancelCurrentRide, onOpenNavigation, driverLocation }) {
+export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onCompleteRide, onCancelCurrentRide, onOpenNavigation, driverLocation, onArrived }) {
   if (!ride) return null;
 
   const statusColors = {
@@ -86,6 +86,10 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
           <TouchableOpacity style={styles.navigationButton} onPress={() => onOpenNavigation(ride.dropoff_lat, ride.dropoff_lng, ride.dropoff_location || ride.dropoff)}>
             <Ionicons name="navigate" size={18} color={COLORS.white} />
             <Text style={styles.navigationButtonText}>Navigate</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.arrivedButton} onPress={onArrived}>
+            <Ionicons name="flag" size={18} color={COLORS.white} />
+            <Text style={styles.arrivedButtonText}>Arrived</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.completeButton} onPress={onCompleteRide}>
             <Text style={styles.completeButtonText}>Complete Delivery</Text>
@@ -223,6 +227,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   completeButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  arrivedButton: {
+    flex: 1,
+    backgroundColor: '#FF9500',
+    height: 56,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  arrivedButtonText: {
     color: COLORS.white,
     fontWeight: '600',
     fontSize: 15,

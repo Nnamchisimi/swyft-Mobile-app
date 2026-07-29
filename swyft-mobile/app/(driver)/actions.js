@@ -88,6 +88,18 @@ export async function handleStartRide(currentRide, ridesAPI, setCurrentRide) {
   }
 }
 
+export async function handleArrived(currentRide, ridesAPI, setCurrentRide) {
+  if (!currentRide) return;
+
+  try {
+    await ridesAPI.arriveRide(currentRide.id);
+    setCurrentRide({ ...currentRide, status: 'arrived_dropoff' });
+  } catch (error) {
+    const message = error?.response?.data?.error || error?.message || 'Failed to mark as arrived';
+    Alert.alert('Error', message);
+  }
+}
+
 export async function handleCompleteRide(currentRide, ridesAPI, setCurrentRide, setLoading, router) {
   if (!currentRide) return;
 

@@ -252,7 +252,7 @@ export function useBookRideEffects(state) {
     try {
       const response = await ridesAPI.getRides({ passenger_email: email });
       if (response.data?.length) {
-        const activeRide = response.data.find(r => ['accepted', 'arrived_pickup', 'active', 'arriving', 'pending'].includes(r.status));
+        const activeRide = response.data.find(r => ['accepted', 'arrived_pickup', 'picked_up', 'arrived_dropoff', 'active', 'arriving', 'pending'].includes(r.status));
         if (activeRide) {
           setCurrentRide(activeRide); setRideBooked(true);
           setPickupAddr(activeRide.pickup || activeRide.pickup_location || '');
@@ -266,7 +266,7 @@ export function useBookRideEffects(state) {
           if (activeRide.special_instructions) setSpecialInstructions(activeRide.special_instructions);
           setPickupLockedForRide(true);
           if (activeRide.pickup_lat && activeRide.pickup_lng) setPickupLocation({ latitude: parseFloat(activeRide.pickup_lat), longitude: parseFloat(activeRide.pickup_lng) });
-          if (['arrived_pickup', 'active', 'arriving'].includes(activeRide.status)) {
+          if (['arrived_pickup', 'picked_up', 'arrived_dropoff', 'active', 'arriving'].includes(activeRide.status)) {
             router.replace({
               pathname: '/(passenger)/track-ride',
               params: { rideId: activeRide.id },
@@ -349,7 +349,7 @@ export function useBookRideEffects(state) {
         setDropoffLocation({ latitude: parseFloat(ride.dropoff_lat), longitude: parseFloat(ride.dropoff_lng) });
       }
     }
-    if (['accepted', 'arrived_pickup', 'active', 'arriving'].includes(ride.status)) {
+    if (['accepted', 'arrived_pickup', 'picked_up', 'arrived_dropoff', 'active', 'arriving'].includes(ride.status)) {
       if (ride.driver_lat && ride.driver_lng) {
         setDriverLocation({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) });
         if (pickupLocation) geoService.getETA({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) }, pickupLocation).then(result => { if (result?.duration) setDriverDistance(Math.round(result.duration / 60)); });

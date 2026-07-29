@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useDriverDashboardState } from './hooks';
 import { useDriverDashboardEffects } from './hooks';
-import { toggleOnline, handleAcceptRide, handleDeclineRide, handleStartRide, handleCompleteRide, handleCancelCurrentRide, handleLogout } from './actions';
+import { toggleOnline, handleAcceptRide, handleDeclineRide, handleStartRide, handleArrived, handleCompleteRide, handleCancelCurrentRide, handleLogout } from './actions';
 import { openNavigation } from './utils';
 import { socketService } from '../../src/services/socket';
 import { authService } from '../../src/services/auth';
@@ -73,6 +73,10 @@ export default function DriverDashboard() {
 
   const onStartRide = async () => {
     await handleStartRide(state.currentRide, ridesAPI, state.setCurrentRide);
+  };
+
+  const onArrived = async () => {
+    await handleArrived(state.currentRide, ridesAPI, state.setCurrentRide);
   };
 
   const onCancelCurrentRide = async () => {
@@ -248,6 +252,7 @@ export default function DriverDashboard() {
             eta={state.eta}
             etaDropoff={state.etaDropoff}
             onStartRide={onStartRide}
+            onArrived={onArrived}
             onCompleteRide={onCompleteRide}
             onCancelCurrentRide={onCancelCurrentRide}
             onOpenNavigation={onOpenNavigation}

@@ -9,7 +9,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE ride_status AS ENUM ('requested', 'pending', 'accepted', 'arrived_pickup', 'picked_up', 'active', 'arriving', 'completed', 'confirmed', 'cancelled');
+    CREATE TYPE ride_status AS ENUM ('requested', 'pending', 'accepted', 'arrived_pickup', 'picked_up', 'arrived_dropoff', 'active', 'arriving', 'completed', 'confirmed', 'cancelled');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;

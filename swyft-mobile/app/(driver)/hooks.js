@@ -142,7 +142,7 @@ export function useDriverDashboardEffects(state, refs) {
     try {
       const response = await ridesAPI.getRides({
         driver_email: email,
-        status: 'accepted,arrived_pickup,picked_up,active,arriving'
+        status: 'accepted,arrived_pickup,picked_up,arrived_dropoff,active,arriving'
       });
 
       if (response.data && response.data.length > 0) {
@@ -293,11 +293,11 @@ export function useDriverDashboardEffects(state, refs) {
 
       const isForThisDriver = ride.driver_email === state.driverInfo?.email || ride.id === currentRideRef.current?.id;
 
-      if (isForThisDriver) {
-        if (ride.status === 'accepted' || ride.status === 'arrived_pickup') {
-          setCurrentRide(ride);
-        } else if (ride.status === 'picked_up') {
-          setCurrentRide(ride);
+        if (isForThisDriver) {
+          if (ride.status === 'accepted' || ride.status === 'arrived_pickup' || ride.status === 'arrived_dropoff') {
+            setCurrentRide(ride);
+          } else if (ride.status === 'picked_up') {
+            setCurrentRide(ride);
         } else if (ride.status === 'completed' || ride.status === 'confirmed') {
           console.log('Ride completed/received, reloading earnings');
           loadEarnings(state.driverInfo?.email);
@@ -371,7 +371,7 @@ export function useDriverDashboardEffects(state, refs) {
     socketService.on('dispatchUpdated', (dispatch) => {
       console.log('Dispatch updated received:', dispatch);
       if (dispatch.driver_email === state.driverInfo?.email) {
-        if (dispatch.status === 'accepted' || dispatch.status === 'picked_up') {
+        if (dispatch.status === 'accepted' || dispatch.status === 'picked_up' || dispatch.status === 'arrived_dropoff') {
           setCurrentRide(dispatch);
         } else if (dispatch.status === 'completed') {
           console.log('Dispatch completed, reloading earnings');

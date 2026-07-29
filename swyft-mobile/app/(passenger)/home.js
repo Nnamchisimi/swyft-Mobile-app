@@ -80,7 +80,7 @@ export default function PassengerHomeScreen() {
     try {
       const response = await ridesAPI.getRides({ 
         passenger_email: email,
-        status: 'accepted,picked_up,pending' 
+        status: 'accepted,picked_up,arrived_dropoff,pending' 
       });
       
       if (response.data && response.data.length > 0) {
@@ -285,7 +285,74 @@ export default function PassengerHomeScreen() {
           </View>
         </TouchableOpacity>
 
-        {}
+        {currentRide && (
+          <TouchableOpacity
+            style={styles.activeRideCard}
+            onPress={() => router.push({ pathname: '/(passenger)/track-ride', params: { rideId: currentRide.id } })}
+            activeOpacity={0.8}
+          >
+            <View style={styles.activeRideHeader}>
+              <View style={styles.activeRideIconContainer}>
+                <Ionicons
+                  name={
+                    currentRide.status === 'picked_up'
+                      ? 'cube'
+                      : currentRide.status === 'arrived_dropoff'
+                      ? 'flag'
+                      : currentRide.status === 'accepted'
+                      ? 'person'
+                      : 'time'
+                  }
+                  size={22}
+                  color={COLORS.white}
+                />
+              </View>
+              <View style={styles.activeRideHeaderText}>
+                <Text style={styles.activeRideTitle}>
+                  {currentRide.status === 'picked_up'
+                    ? 'Package in Transit'
+                    : currentRide.status === 'arrived_dropoff'
+                    ? 'Courier Arrived'
+                    : currentRide.status === 'accepted'
+                    ? 'Courier Assigned'
+                    : 'Delivery in Progress'}
+                </Text>
+                <Text style={styles.activeRideSubtitle}>
+                  {currentRide.status === 'picked_up'
+                    ? 'Your package is on the way'
+                    : currentRide.status === 'arrived_dropoff'
+                    ? 'Your courier has arrived at the delivery location'
+                    : currentRide.status === 'accepted'
+                    ? 'Your courier is heading to pickup'
+                    : 'Waiting for courier assignment'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.white} />
+            </View>
+
+            <View style={styles.activeRideBody}>
+              <View style={styles.activeRideLocationRow}>
+                <View style={[styles.activeRideDot, { backgroundColor: COLORS.success }]} />
+                <Text style={styles.activeRideLocationText} numberOfLines={1}>
+                  {currentRide.pickup_location || currentRide.pickup || 'Pickup'}
+                </Text>
+              </View>
+              <View style={styles.activeRideConnector} />
+              <View style={styles.activeRideLocationRow}>
+                <View style={[styles.activeRideDot, { backgroundColor: COLORS.error }]} />
+                <Text style={styles.activeRideLocationText} numberOfLines={1}>
+                  {currentRide.dropoff_location || currentRide.dropoff || 'Dropoff'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.activeRideFooter}>
+              <Text style={styles.activeRideIdText}>#{currentRide.id}</Text>
+              <Text style={styles.activeRideTapText}>Tap to track →</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
@@ -747,4 +814,92 @@ const styles = StyleSheet.create({
       color: COLORS.primary,
       fontWeight: '600',
     },
-});
+    activeRideCard: {
+      backgroundColor: COLORS.primary,
+      borderRadius: 20,
+      marginBottom: 20,
+      overflow: 'hidden',
+      elevation: 5,
+      shadowColor: COLORS.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+    },
+    activeRideHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      padding: 18,
+    },
+    activeRideIconContainer: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    activeRideHeaderText: {
+      flex: 1,
+    },
+    activeRideTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: COLORS.white,
+      marginBottom: 2,
+    },
+    activeRideSubtitle: {
+      fontSize: 13,
+      color: 'rgba(255, 255, 255, 0.85)',
+      fontWeight: '500',
+    },
+    activeRideBody: {
+      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+      paddingHorizontal: 18,
+      paddingVertical: 14,
+      gap: 0,
+    },
+    activeRideLocationRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    activeRideDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    activeRideLocationText: {
+      flex: 1,
+      fontSize: 14,
+      color: COLORS.white,
+      fontWeight: '600',
+    },
+    activeRideConnector: {
+      width: 2,
+      height: 16,
+      backgroundColor: 'rgba(255, 255, 255, 0.4)',
+      marginLeft: 4,
+      marginVertical: 6,
+    },
+    activeRideFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 18,
+      paddingVertical: 12,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    activeRideIdText: {
+      fontSize: 13,
+      color: 'rgba(255, 255, 255, 0.8)',
+      fontWeight: '600',
+      letterSpacing: 0.5,
+    },
+    activeRideTapText: {
+      fontSize: 13,
+      color: COLORS.white,
+      fontWeight: '700',
+    },
+  });
