@@ -8,8 +8,6 @@ import { authService } from '../../src/services/auth';
 import { COLORS } from '../../src/constants/config';
 import { setPaymentInProgress } from '../../src/book-ride/hooks';
 
-WebBrowser.mayCompleteAuthSession();
-
 export default function PaymentWebViewScreen() {
   const router = useRouter();
   const { rideId, amount } = useLocalSearchParams();
