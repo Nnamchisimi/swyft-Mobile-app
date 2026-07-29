@@ -68,24 +68,26 @@ export default function DriverOtpScreen() {
           <Text style={styles.otpHintText}>Ask the receiver for the 6-digit code or check the receiver’s email/SMS.</Text>
         </View>
 
-        <View style={styles.inputRow}>
-          {[0, 1, 2, 3, 4, 5].map((index) => (
-            <View key={index} style={styles.box}>
-              <Text style={styles.boxText}>{otp[index] || ''}</Text>
-            </View>
-          ))}
-        </View>
+        <View style={styles.otpInputContainer}>
+          <View style={styles.inputRow}>
+            {[0, 1, 2, 3, 4, 5].map((index) => (
+              <View key={index} style={styles.box}>
+                <Text style={styles.boxText}>{otp[index] || ''}</Text>
+              </View>
+            ))}
+          </View>
 
-        <TextInput
-          style={styles.hiddenInput}
-          value={otp}
-          onChangeText={setOtp}
-          maxLength={6}
-          keyboardType="number-pad"
-          textContentType="oneTimeCode"
-          autoFocus
-          selectTextOnFocus
-        />
+          <TextInput
+            style={styles.hiddenInput}
+            value={otp}
+            onChangeText={setOtp}
+            maxLength={6}
+            keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            autoFocus
+            selectTextOnFocus
+          />
+        </View>
 
         <TouchableOpacity
           style={[styles.verifyButton, (loading || otp.length !== 6) && styles.verifyButtonDisabled]}
@@ -157,6 +159,11 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 10,
   },
+  otpInputContainer: {
+    width: '100%',
+    alignSelf: 'center',
+    position: 'relative',
+  },
   box: {
     flex: 1,
     aspectRatio: 1,
@@ -174,7 +181,9 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   hiddenInput: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
     opacity: 0,
   },
   verifyButton: {

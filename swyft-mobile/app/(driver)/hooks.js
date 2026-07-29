@@ -249,7 +249,7 @@ export function useDriverDashboardEffects(state, refs) {
             setEta(calculateETA(distanceToPickup));
           }
 
-          if (ride.status === 'picked_up' && ride.dropoff_lat && ride.dropoff_lng) {
+          if (ride.status === 'picked_up' || ride.status === 'arrived_dropoff') {
             const distanceToDropoff = calculateDistance(currentLat, currentLng, parseFloat(ride.dropoff_lat), parseFloat(ride.dropoff_lng));
             setEtaDropoff(calculateETA(distanceToDropoff));
           }

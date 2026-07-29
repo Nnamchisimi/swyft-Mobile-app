@@ -623,8 +623,8 @@ function registerRidesRoutes(app, io, db) {
 
       const ride = results.rows[0];
 
-      if (ride.status !== 'accepted' && ride.status !== 'picked_up') {
-        return res.status(400).json({ error: 'Ride must be accepted or picked up to complete' });
+      if (ride.status !== 'accepted' && ride.status !== 'picked_up' && ride.status !== 'arrived_dropoff') {
+        return res.status(400).json({ error: 'Ride must be accepted, picked up, or arrived at dropoff to complete' });
       }
 
       if (!ride.delivery_otp_hash) {
@@ -654,8 +654,8 @@ function registerRidesRoutes(app, io, db) {
         const completedAt = new Date();
 
         db.query(
-          'UPDATE rides SET status = $1, price = COALESCE($2, price), completed_at = NOW(), delivery_completed_at = NOW(), delivery_completed_lat = $3, delivery_completed_lng = $4 WHERE id = $5 AND status IN ($6, $7)',
-          ['completed', ride.price, completionLocation.lat || null, completionLocation.lng || null, rideId, 'accepted', 'picked_up'],
+          'UPDATE rides SET status = $1, price = COALESCE($2, price), completed_at = NOW(), delivery_completed_at = NOW(), delivery_completed_lat = $3, delivery_completed_lng = $4 WHERE id = $5 AND status IN ($6, $7, $8)',
+          ['completed', ride.price, completionLocation.lat || null, completionLocation.lng || null, rideId, 'accepted', 'picked_up', 'arrived_dropoff'],
           (err2, result2) => {
             if (err2) return res.status(500).json({ error: 'Server error' });
             if (result2.rowCount === 0) return res.status(400).json({ error: 'Cannot complete ride' });
