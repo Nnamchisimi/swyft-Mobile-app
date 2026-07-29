@@ -70,12 +70,13 @@ function registerPaymentsRoutes(app, db, io) {
         callbackUrl: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/payments/callback`,
       };
 
-      const cardInfo = new Iyzipay.BasketItem();
-      cardInfo.id = ride_id.toString();
-      cardInfo.name = 'SWYFT Courier Delivery';
-      cardInfo.category1 = 'Delivery';
-      cardInfo.itemType = 'VIRTUAL';
-      cardInfo.price = parseFloat(amount).toFixed(2);
+      const cardInfo = {
+        id: ride_id.toString(),
+        name: 'SWYFT Courier Delivery',
+        category1: 'Delivery',
+        itemType: 'VIRTUAL',
+        price: parseFloat(amount).toFixed(2),
+      };
 
       const buyer = {
         id: `BY${Date.now()}`,
