@@ -300,7 +300,12 @@ export function useDriverDashboardEffects(state, refs) {
             setCurrentRide(ride);
         } else if (ride.status === 'completed' || ride.status === 'confirmed') {
           console.log('Ride completed/received, reloading earnings');
-          loadEarnings(state.driverInfo?.email);
+          const driverEmail = state.driverInfo?.email;
+          if (driverEmail) {
+            loadEarnings(driverEmail);
+          } else {
+            console.warn('Skipped earnings reload: driver email not available yet');
+          }
           setCurrentRide(null);
           fetchPendingRides();
           Alert.alert('OTP Verified', 'Delivery completed. Payment has been released.');
@@ -375,7 +380,12 @@ export function useDriverDashboardEffects(state, refs) {
           setCurrentRide(dispatch);
         } else if (dispatch.status === 'completed') {
           console.log('Dispatch completed, reloading earnings');
-          loadEarnings(state.driverInfo?.email);
+          const dispatchDriverEmail = state.driverInfo?.email;
+          if (dispatchDriverEmail) {
+            loadEarnings(dispatchDriverEmail);
+          } else {
+            console.warn('Skipped earnings reload: driver email not available yet');
+          }
           setCurrentRide(null);
           fetchPendingRides();
         }
