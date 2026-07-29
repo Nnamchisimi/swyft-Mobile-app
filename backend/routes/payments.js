@@ -1,14 +1,24 @@
 const Iyzipay = require('iyzipay');
 
-const iyzipay = new Iyzipay({
-  apiKey: process.env.IYZICO_API_KEY,
-  secretKey: process.env.IYZICO_SECRET_KEY,
-  uri: process.env.IYZICO_BASE_URL || 'https://sandbox-api.iyzipay.com',
-});
+const apiKey = process.env.IYZICO_API_KEY;
+const secretKey = process.env.IYZICO_SECRET_KEY;
+const baseUrl = process.env.IYZICO_BASE_URL || 'https://sandbox-api.iyzipay.com';
+
+const iyzipay = apiKey && secretKey ? new Iyzipay({
+  apiKey,
+  secretKey,
+  uri: baseUrl,
+}) : null;
 
 const paymentStore = new Map();
 
 function registerPaymentsRoutes(app, db, io) {
+  if (!iyzipay) {
+    app.use('/api/payments', (req, res) => {
+      res.status(503).json({ error: 'Payment service is not configured' });
+    });
+    return;
+  }
   const dbQuery = (sql, params) =>
     new Promise((resolve, reject) => {
       db.query(sql, params, (err, results) => {
