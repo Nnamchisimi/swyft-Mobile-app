@@ -1,5 +1,5 @@
 import { Alert, Linking } from 'react-native';
-import { ridesAPI, authService } from '../services/api';
+import { ridesAPI, authService, paymentAPI } from '../services/api';
 
 export async function handleBookRide(state) {
   const {
@@ -8,7 +8,7 @@ export async function handleBookRide(state) {
     receiverPhone, userName, userEmail, userPhone, estimatedPrice,
     packageType, packageSize, packageDetails, specialInstructions,
     pickupLocation, currentLocation, setCurrentRide, setRideBooked,
-    setPickupLockedForRide, setLoading
+    setPickupLockedForRide, setLoading, paymentMethod, setPendingRideData, router
   } = state;
 
   const vehicleType = selectedVehicleType || (packageSize === 'Small' ? 'motorcycle' : packageSize === 'Medium' ? 'sedan' : packageSize === 'Large' ? 'truck' : null);
@@ -58,12 +58,16 @@ export async function handleBookRide(state) {
       receiver_phone: receiverPhone || null,
     };
 
-    const response = await ridesAPI.createRide(rideData);
-    const ride = response.data;
-
-    setCurrentRide({ id: ride.rideId, ...rideData, status: 'pending' });
-    setRideBooked(true);
-    setPickupLockedForRide(true);
+    if (paymentMethod === 'cash') {
+      const response = await ridesAPI.createRide(rideData);
+      const ride = response.data;
+      setCurrentRide({ id: ride.rideId, ...rideData, status: 'pending' });
+      setRideBooked(true);
+      setPickupLockedForRide(true);
+    } else {
+      setPendingRideData({ ...rideData, paymentMethod });
+      router.push('/(passenger)/payment-webview');
+    }
   } catch (error) {
     const message = error?.response?.data?.message || error?.message || 'Failed to book dispatch. Please try again.';
     console.error('[BOOK_RIDE_ERROR]', JSON.stringify({ message, data: error?.response?.data, stack: error?.stack }));

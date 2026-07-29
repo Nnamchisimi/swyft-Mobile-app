@@ -21,7 +21,7 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
     rideTypes, vehicleTypes, packageType, packageSize, packageDetails, specialInstructions,
     selectedQuickNote, receiverName, receiverEmail, receiverPhone,
     pricingLoaded, estimatedPrice, priceBreakdownExpanded,
-    locationLoading, loading
+    locationLoading, loading, paymentMethod, setPaymentMethod
   } = state;
 
   const assignedVehicleId = packageSize ? SIZE_TO_VEHICLE[packageSize] : null;
@@ -410,6 +410,28 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
           </View>
         )}
         <Text style={styles.priceNote}>Final price may vary based on actual route and conditions</Text>
+      </View>
+
+      {/* Payment Method */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Payment Method</Text>
+        <Text style={styles.cardSubtitle}>Choose how you'd like to pay</Text>
+        <View style={styles.paymentRow}>
+          <TouchableOpacity
+            style={[styles.paymentOption, paymentMethod === 'cash' && styles.paymentOptionActive]}
+            onPress={() => setPaymentMethod('cash')}
+          >
+            <Ionicons name="cash" size={22} color={paymentMethod === 'cash' ? COLORS.white : COLORS.textSecondary} />
+            <Text style={[styles.paymentOptionText, paymentMethod === 'cash' && styles.paymentOptionTextActive]}>Cash</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.paymentOption, paymentMethod === 'card' && styles.paymentOptionActive]}
+            onPress={() => setPaymentMethod('card')}
+          >
+            <Ionicons name="card" size={22} color={paymentMethod === 'card' ? COLORS.white : COLORS.textSecondary} />
+            <Text style={[styles.paymentOptionText, paymentMethod === 'card' && styles.paymentOptionTextActive]}>Card</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Book Button */}

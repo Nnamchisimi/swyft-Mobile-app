@@ -12,6 +12,7 @@ const { registerAuthRoutes } = require('./routes/auth');
 const { registerRidesRoutes } = require('./routes/rides');
 const { registerDriversRoutes } = require('./routes/drivers');
 const { registerVerificationRoutes } = require('./routes/verification');
+const { registerPaymentsRoutes } = require('./routes/payments');
 
 const app = express();
 
@@ -43,6 +44,7 @@ registerAuthRoutes(app, db);
 registerRidesRoutes(app, io, db);
 registerDriversRoutes(app, db);
 registerVerificationRoutes(app, db);
+registerPaymentsRoutes(app, db, io);
 
 io.on('connection', (socket) => {
   console.log('Client connected');

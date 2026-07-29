@@ -28,6 +28,7 @@ export default function DriverEarningsScreen() {
     withdrawn: 0,
   });
   const [recentRides, setRecentRides] = useState([]);
+  const [ridesExpanded, setRidesExpanded] = useState(false);
 
   useEffect(() => {
     loadEarningsData();
@@ -74,6 +75,9 @@ export default function DriverEarningsScreen() {
     if (!dateStr) return 'N/A';
     return new Date(dateStr).toLocaleDateString();
   };
+
+  const displayedRides = ridesExpanded ? recentRides : recentRides.slice(0, 8);
+  const hasMoreRides = recentRides.length > 8;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -154,25 +158,33 @@ export default function DriverEarningsScreen() {
           {}
           <View style={styles.ridesSection}>
             <Text style={styles.sectionTitle}>Recent Completed Deliveries</Text>
-            {recentRides.length > 0 ? (
-              <View style={styles.ridesList}>
-                {recentRides.map((ride, index) => (
-                  <View key={ride.id || index} style={styles.rideItem}>
-                    <View style={styles.rideInfo}>
-                      <Text style={styles.rideLocation}>
-                        {ride.pickup_location ? `${ride.pickup_location.substring(0, 30)}...` : 'N/A'}
-                      </Text>
-                      <Text style={styles.rideDate}>{formatDate(ride.created_at)}</Text>
-                    </View>
-                    <Text style={styles.ridePrice}>₺{Number(ride.price || 0).toFixed(2)}</Text>
+          {recentRides.length > 0 ? (
+            <View style={styles.ridesList}>
+              {displayedRides.map((ride, index) => (
+                <View key={ride.id || index} style={styles.rideItem}>
+                  <View style={styles.rideInfo}>
+                    <Text style={styles.rideLocation}>
+                      {ride.pickup_location ? `${ride.pickup_location.substring(0, 30)}...` : 'N/A'}
+                    </Text>
+                    <Text style={styles.rideDate}>{formatDate(ride.created_at)}</Text>
                   </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyRides}>
-                <Text style={styles.emptyText}>No completed rides yet</Text>
-              </View>
-            )}
+                  <Text style={styles.ridePrice}>₺{Number(ride.price || 0).toFixed(2)}</Text>
+                </View>
+              ))}
+              {hasMoreRides && (
+                <TouchableOpacity style={styles.toggleButton} onPress={() => setRidesExpanded(!ridesExpanded)}>
+                  <Text style={styles.toggleText}>
+                    {ridesExpanded ? 'Show Less' : `Show All (${recentRides.length})`}
+                  </Text>
+                  <Ionicons name={ridesExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <View style={styles.emptyRides}>
+              <Text style={styles.emptyText}>No completed rides yet</Text>
+            </View>
+          )}
           </View>
         </ScrollView>
       )}
@@ -341,5 +353,19 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: COLORS.textSecondary,
+  },
+  toggleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  toggleText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
 });

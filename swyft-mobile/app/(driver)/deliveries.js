@@ -142,7 +142,7 @@ export default function DriverDeliveriesScreen() {
   const renderRide = ({ item }) => (
     <TouchableOpacity 
       style={styles.rideCard}
-      onPress={() => router.push({ pathname: '/(driver)/dashboard' })}
+      onPress={() => router.push({ pathname: '/(driver)/delivery-details', params: { rideId: item.id } })}
       activeOpacity={0.8}
     >
       <View style={styles.rideHeader}>

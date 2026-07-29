@@ -205,4 +205,9 @@ export default StyleSheet.create({
   navIcon: { fontSize: 24 },
   navText: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4 },
   navTextActive: { color: COLORS.primary, fontWeight: '600' },
+  paymentRow: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  paymentOption: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
+  paymentOptionActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  paymentOptionText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  paymentOptionTextActive: { color: COLORS.white, fontWeight: '700' },
 });

@@ -10,6 +10,7 @@ export default function PassengerLayout() {
       <Stack.Screen name="history" />
       <Stack.Screen name="ride-details" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="payment-webview" />
     </Stack>
   );
 }

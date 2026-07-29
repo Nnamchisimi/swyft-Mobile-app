@@ -8,6 +8,10 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { interCityRoutesData, defaultRideTypes, defaultVehicleTypes, mountainKeywords } from './constants';
 
+let paymentInProgress = false;
+export function setPaymentInProgress(value) { paymentInProgress = value; }
+export function isPaymentInProgress() { return paymentInProgress; }
+
 export function useBookRideState() {
   const router = useRouter();
   
@@ -55,6 +59,8 @@ export function useBookRideState() {
   const [receiverPhone, setReceiverPhone] = useState('');
   const [rideTypes, setRideTypes] = useState(defaultRideTypes);
   const [vehicleTypes, setVehicleTypes] = useState(defaultVehicleTypes);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [pendingRideData, setPendingRideData] = useState(null);
   
   const pickupDebounceRef = useRef(null);
   const dropoffDebounceRef = useRef(null);
@@ -74,6 +80,8 @@ export function useBookRideState() {
     setPackageSize('');
     setPackageDetails('');
     setSpecialInstructions('');
+    setPaymentMethod('cash');
+    setPendingRideData(null);
   };
 
   const actions = useBookRideActions({
@@ -83,6 +91,9 @@ export function useBookRideState() {
     packageDetails, specialInstructions, pickupLocation, currentLocation, currentRide,
     setCurrentRide, setRideBooked, setPickupLockedForRide, setLoading, resetForm,
     setPickupManuallySelected,
+    paymentMethod, setPaymentMethod,
+    pendingRideData, setPendingRideData,
+    router,
   });
 
   const set = (key, value) => {
@@ -107,6 +118,7 @@ export function useBookRideState() {
       dropoffMapsUrl: setDropoffMapsUrl, receiverName: setReceiverName,
       receiverEmail: setReceiverEmail, receiverPhone: setReceiverPhone,
       rideTypes: setRideTypes, vehicleTypes: setVehicleTypes,
+      paymentMethod: setPaymentMethod, pendingRideData: setPendingRideData,
     };
     if (key === 'pickupDebounceRef') { pickupDebounceRef.current = value; }
     else if (key === 'dropoffDebounceRef') { dropoffDebounceRef.current = value; }
@@ -158,6 +170,8 @@ export function useBookRideState() {
     receiverPhone, setReceiverPhone,
     rideTypes, setRideTypes,
     vehicleTypes, setVehicleTypes,
+    paymentMethod, setPaymentMethod,
+    pendingRideData, setPendingRideData,
     pickupDebounceRef,
     dropoffDebounceRef,
     resetForm,
@@ -255,7 +269,7 @@ export function useBookRideEffects(state) {
         const activeRide = response.data.find(r => ['accepted', 'arrived_pickup', 'picked_up', 'arrived_dropoff', 'active', 'arriving', 'pending'].includes(r.status));
         if (activeRide) {
           setCurrentRide(activeRide); setRideBooked(true);
-          setPickupAddr(activeRide.pickup || activeRide.pickup_location || '');
+          setPickupAddress(activeRide.pickup || activeRide.pickup_location || '');
           setDropoffAddress(activeRide.dropoff || activeRide.dropoff_location || '');
           if (activeRide.price) setEstimatedPrice(parseFloat(activeRide.price));
           if (activeRide.ride_type) setSelectedRideType(activeRide.ride_type);
@@ -319,7 +333,7 @@ export function useBookRideEffects(state) {
     if (userEmail) socketService.joinRoom(userEmail);
 
     socketService.on('rideCreated', (ride) => {
-      if (ride.passenger_email === userEmail) {
+      if (ride.passenger_email === userEmail && !paymentInProgress()) {
         setCurrentRide({ id: ride.id, ...ride, status: 'requested' }); setRideBooked(true); setPickupLockedForRide(true);
         if (ride.pickup_lat && ride.pickup_lng) setPickupLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
         if (ride.pickup || ride.pickup_location) setPickupAddress(ride.pickup || ride.pickup_location);
@@ -355,7 +369,9 @@ export function useBookRideEffects(state) {
         if (pickupLocation) geoService.getETA({ latitude: parseFloat(ride.driver_lat), longitude: parseFloat(ride.driver_lng) }, pickupLocation).then(result => { if (result?.duration) setDriverDistance(Math.round(result.duration / 60)); });
       } else if (ride.pickup_lat && ride.pickup_lng) setDriverLocation({ latitude: parseFloat(ride.pickup_lat), longitude: parseFloat(ride.pickup_lng) });
     }
-    setRideBooked(true);
+    if (!paymentInProgress()) {
+      setRideBooked(true);
+    }
     if (ride.status === 'cancelled') {
       Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
       setRideBooked(false);
@@ -399,7 +415,7 @@ export function useBookRideEffects(state) {
 }
 
 export function useBookRideActions(state) {
-  const { setCurrentRide, setRideBooked, setPickupLockedForRide, setLoading, resetForm } = state;
+  const { setCurrentRide, setRideBooked, setPickupLockedForRide, setLoading, resetForm, setPendingRideData, paymentMethod, router, paymentAPI } = state;
 
   const handleBookRide = async () => {
     const {
@@ -419,21 +435,44 @@ export function useBookRideActions(state) {
     if (!receiverPhone || !receiverPhone.trim()) { Alert.alert('Error', 'Please enter receiver phone number'); return; }
     if (!userName || !userName.trim()) { Alert.alert('Error', 'User data not loaded yet.'); return; }
 
+    const rideData = {
+      passenger_email: userEmail, passenger_name: userName, passenger_phone: userPhone,
+      pickup: pickupAddress, dropoff: dropoffAddress,
+      pickup_lat: pickupLocation?.latitude || currentLocation?.latitude,
+      pickup_lng: pickupLocation?.longitude || currentLocation?.longitude,
+      dropoff_lat: state.dropoffLocation?.latitude,
+      dropoff_lng: state.dropoffLocation?.longitude,
+      ride_type: interCityMode ? interCityRoute : selectedRideType,
+      vehicle_type: selectedVehicleType, package_type: packageType, package_size: packageSize,
+      package_details: packageDetails, special_instructions: specialInstructions,
+      price: estimatedPrice, status: 'pending', inter_city: interCityMode,
+      receiver_name: receiverName || null, receiver_email: receiverEmail || null, receiver_phone: receiverPhone || null,
+    };
+
+    if (paymentMethod === 'card') {
+      setLoading(true);
+      try {
+        setPaymentInProgress(true);
+        const response = await ridesAPI.createRide(rideData);
+        const ride = response.data;
+        const createdRide = { id: ride.rideId, ...rideData, status: 'pending' };
+        setCurrentRide(createdRide);
+        router.push({
+          pathname: '/(passenger)/payment-webview',
+          params: { rideId: ride.rideId, amount: String(estimatedPrice) },
+        });
+      } catch (error) {
+        console.error('Ride creation error:', error);
+        Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to create dispatch. Please try again.');
+        setPaymentInProgress(false);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     setLoading(true);
     try {
-      const rideData = {
-        passenger_email: userEmail, passenger_name: userName, passenger_phone: userPhone,
-        pickup: pickupAddress, dropoff: dropoffAddress,
-        pickup_lat: pickupLocation?.latitude || currentLocation?.latitude,
-        pickup_lng: pickupLocation?.longitude || currentLocation?.longitude,
-        dropoff_lat: state.dropoffLocation?.latitude,
-        dropoff_lng: state.dropoffLocation?.longitude,
-        ride_type: interCityMode ? interCityRoute : selectedRideType,
-        vehicle_type: selectedVehicleType, package_type: packageType, package_size: packageSize,
-        package_details: packageDetails, special_instructions: specialInstructions,
-        price: estimatedPrice, status: 'pending', inter_city: interCityMode,
-        receiver_name: receiverName || null, receiver_email: receiverEmail || null, receiver_phone: receiverPhone || null,
-      };
       const response = await ridesAPI.createRide(rideData);
       const ride = response.data;
       setCurrentRide({ id: ride.rideId, ...rideData, status: 'pending' });

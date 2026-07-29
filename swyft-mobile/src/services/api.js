@@ -127,6 +127,8 @@ export const paymentAPI = {
   getPaymentMethods: (params) => api.get('/api/payment-methods', { params }),
   addPaymentMethod: (data) => api.post('/api/payment-methods', data),
   deletePaymentMethod: (id) => api.delete(`/api/payment-methods/${id}`),
+  createPayment: (data) => api.post('/api/payments/create', data),
+  getPaymentStatus: (paymentId) => api.get(`/api/payments/status/${paymentId}`),
 };
 
 export default api;

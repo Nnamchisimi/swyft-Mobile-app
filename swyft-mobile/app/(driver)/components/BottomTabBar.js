@@ -42,8 +42,9 @@ export default function DriverBottomTabBar() {
         return (
           <TouchableOpacity
             key={tab.name}
-            style={styles.tab}
+            disabled={isActive}
             onPress={() => router.push(`/(driver)/${tab.name}`)}
+            style={[styles.tab, isActive && styles.tabActive]}
           >
             <Ionicons
               name={isActive ? tab.icon : tab.iconOutline}
@@ -76,6 +77,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     paddingVertical: 4,
+    borderRadius: 12,
+  },
+  tabActive: {
+    backgroundColor: '#EAF4FF',
   },
   label: {
     fontSize: 12,
