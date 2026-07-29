@@ -18,6 +18,7 @@ import { socketService } from '../../src/services/socket';
 import { authService } from '../../src/services/auth';
 import { ridesAPI } from '../../src/services/api';
 import RideCard from './components/RideCard';
+import DriverBottomTabBar from './components/BottomTabBar';
 import CurrentRide from './components/CurrentRide';
 import { COLORS } from '../../src/constants/config';
 import styles from './styles';
@@ -101,7 +102,7 @@ export default function DriverDashboard() {
         </View>
         <TouchableOpacity
           style={styles.profileButton}
-          onPress={() => router.push('/(driver)/profile')}
+          onPress={() => router.push('/(driver)/account')}
         >
           <View style={styles.profileAvatar}>
             <Text style={styles.profileAvatarText}>
@@ -331,6 +332,8 @@ export default function DriverDashboard() {
           </View>
         </View>
       </ScrollView>
+
+      <DriverBottomTabBar />
     </SafeAreaView>
   );
 }

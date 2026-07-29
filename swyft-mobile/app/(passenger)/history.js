@@ -404,50 +404,49 @@ const styles = StyleSheet.create({
   },
 
   tabScroll: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
-    height: 50,
-    maxHeight: 50,
-    minHeight: 50,
     flexGrow: 0,
   },
 
   tabContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 10,
   },
 
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 34,
-    paddingHorizontal: 18,
-    borderRadius: 17,
-    backgroundColor: COLORS.white,
+    height: 38,
+    paddingHorizontal: 16,
+    borderRadius: 19,
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginRight: 6,
-    minWidth: 60,
+    minWidth: 70,
+    marginRight: 10,
   },
 
   activeTab: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#EAF4FF',
     borderColor: COLORS.primary,
   },
 
   tabLabel: {
     fontSize: 13,
-    color: COLORS.text,
+    color: COLORS.textSecondary,
     textTransform: 'capitalize',
+    fontWeight: '600',
     marginLeft: 4,
   },
 
   activeTabLabel: {
-    color: COLORS.white,
+    color: COLORS.primary,
     fontWeight: '700',
   },
 

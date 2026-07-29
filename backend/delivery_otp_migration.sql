@@ -16,4 +16,4 @@ CREATE INDEX idx_rides_delivery_id ON rides(delivery_id);
 CREATE INDEX idx_rides_delivery_otp_hash ON rides(delivery_otp_hash);
 
 -- Generate unique delivery_id for existing rides
-UPDATE rides SET delivery_id = CONCAT('DEL', id, '_', FLOOR(RANDOM() * 10000)) WHERE delivery_id IS NULL;
+UPDATE rides SET delivery_id = CONCAT('SWY-', SUBSTRING(MD5(id::text || RANDOM()::text), 1, 7)) WHERE delivery_id IS NULL;

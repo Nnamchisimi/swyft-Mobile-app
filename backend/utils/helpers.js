@@ -13,7 +13,12 @@ function generateVerificationCode() {
 
 // Generate unique delivery ID
 function generateDeliveryId() {
-  return 'DEL' + Date.now() + Math.floor(1000 + Math.random() * 9000);
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 7; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `SWY-${code}`;
 }
 
 // Hash OTP for secure storage

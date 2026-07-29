@@ -14,6 +14,7 @@ import { authService } from '../../src/services/auth';
 import { driverAPI, ridesAPI } from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
+import DriverBottomTabBar from './components/BottomTabBar';
 
 export default function DriverEarningsScreen() {
   const router = useRouter();
@@ -77,11 +78,9 @@ export default function DriverEarningsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Earnings Report</Text>
-        <View style={{ width: 60 }} />
+        <View style={{ width: 50 }} />
+        <Text style={styles.title}>Earnings</Text>
+        <View style={{ width: 50 }} />
       </View>
 
       {loading ? (
@@ -177,6 +176,8 @@ export default function DriverEarningsScreen() {
           </View>
         </ScrollView>
       )}
+
+      <DriverBottomTabBar />
     </SafeAreaView>
   );
 }
