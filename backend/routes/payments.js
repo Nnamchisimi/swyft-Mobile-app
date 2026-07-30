@@ -178,11 +178,18 @@ function registerPaymentsRoutes(app, db, io) {
           [status, JSON.stringify(callbackParams), conversationId]
         );
 
-        if (io && isSuccess) {
-          const paymentResult = await dbQuery('SELECT ride_id FROM payments WHERE payment_id = $1', [conversationId]);
-          const rideId = paymentResult.rows[0]?.ride_id;
-          if (rideId) {
-            io.emit('paymentSucceeded', { paymentId: conversationId, rideId });
+        const paymentResult = await dbQuery('SELECT passenger_email, ride_id FROM payments WHERE payment_id = $1', [conversationId]);
+        const payment = paymentResult.rows[0];
+        if (payment) {
+          if (io && payment.passenger_email) {
+            io.to(payment.passenger_email).emit('paymentStatusUpdated', {
+              paymentId: conversationId,
+              status,
+              ride_id: payment.ride_id,
+            });
+          }
+          if (io && isSuccess && payment.ride_id) {
+            io.emit('paymentSucceeded', { paymentId: conversationId, rideId: payment.ride_id });
           }
         }
       }
@@ -211,11 +218,18 @@ function registerPaymentsRoutes(app, db, io) {
         [status, JSON.stringify(notification), conversationId]
       );
 
-      if (io && isSuccess) {
-        const paymentResult = await dbQuery('SELECT ride_id FROM payments WHERE payment_id = $1', [conversationId]);
-        const rideId = paymentResult.rows[0]?.ride_id;
-        if (rideId) {
-          io.emit('paymentSucceeded', { paymentId: conversationId, rideId });
+      const paymentResult = await dbQuery('SELECT passenger_email, ride_id FROM payments WHERE payment_id = $1', [conversationId]);
+      const payment = paymentResult.rows[0];
+      if (payment) {
+        if (io && payment.passenger_email) {
+          io.to(payment.passenger_email).emit('paymentStatusUpdated', {
+            paymentId: conversationId,
+            status,
+            ride_id: payment.ride_id,
+          });
+        }
+        if (io && isSuccess && payment.ride_id) {
+          io.emit('paymentSucceeded', { paymentId: conversationId, rideId: payment.ride_id });
         }
       }
 

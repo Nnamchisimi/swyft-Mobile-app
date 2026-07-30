@@ -7,6 +7,7 @@ import { paymentAPI } from '../../src/services/api';
 import { authService } from '../../src/services/auth';
 import { COLORS } from '../../src/constants/config';
 import { setPaymentInProgress } from '../../src/book-ride/hooks';
+import { socketService } from '../../src/services/socket';
 
 export default function PaymentWebViewScreen() {
   const router = useRouter();
@@ -23,23 +24,74 @@ export default function PaymentWebViewScreen() {
   }, []);
 
   useEffect(() => {
-    if (!paymentId || !browserVisible) return;
+    let mounted = true;
+    let email;
+    let socketCleanup;
 
-    const interval = setInterval(async () => {
-      try {
-        const response = await paymentAPI.getPaymentStatus(paymentId);
-        if (response.data && ['succeeded', 'failed', 'captured'].includes(response.data.status)) {
-          clearInterval(interval);
-          setBrowserVisible(false);
-          handlePaymentResult(response.data.status);
+    const setupSocket = async () => {
+      email = await authService.getUserEmail();
+      if (!mounted || !email) return;
+      socketService.connect();
+      socketService.joinRoom(email);
+      socketCleanup = socketService.on('connect', () => {
+        socketService.joinRoom(email);
+      });
+    };
+
+    setupSocket();
+
+    return () => {
+      mounted = false;
+      if (socketCleanup) socketCleanup();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!paymentId) return;
+
+    let interval;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 20;
+
+    const startPolling = () => {
+      interval = setInterval(async () => {
+        try {
+          const response = await paymentAPI.getPaymentStatus(paymentId, { timeout: 10000 });
+          attempts = 0;
+          if (response.data && ['succeeded', 'failed', 'captured'].includes(response.data.status)) {
+            clearInterval(interval);
+            setBrowserVisible(false);
+            handlePaymentResult(response.data.status);
+          }
+        } catch (error) {
+          attempts += 1;
+          console.error('Payment status check error:', error);
+          if (attempts >= MAX_ATTEMPTS) {
+            clearInterval(interval);
+            setBrowserVisible(false);
+            Alert.alert('Error', 'Unable to verify payment status. Please check your connection and try again.', [
+              { text: 'OK', onPress: () => router.back() },
+            ]);
+          }
         }
-      } catch (error) {
-        console.error('Payment status check error:', error);
-      }
-    }, 2000);
+      }, 2000);
+    };
 
-    return () => clearInterval(interval);
-  }, [paymentId, browserVisible]);
+    const handleSocketStatus = (data) => {
+      if (data?.paymentId !== paymentId) return;
+      if (interval) clearInterval(interval);
+      setBrowserVisible(false);
+      handlePaymentResult(data.status);
+    };
+
+    socketService.on('paymentStatusUpdated', handleSocketStatus);
+    startPolling();
+
+    return () => {
+      if (interval) clearInterval(interval);
+      socketService.off('paymentStatusUpdated', handleSocketStatus);
+    };
+  }, [paymentId]);
 
   const initializePayment = async () => {
     try {

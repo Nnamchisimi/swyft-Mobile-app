@@ -54,7 +54,7 @@ export default function FavoritesScreen() {
       <View style={styles.favoriteInfo}>
         <Text style={styles.favoriteName}>{item.dropoff_location || 'Unknown location'}</Text>
         <Text style={styles.favoriteAddress}>
-          Visited {item.visit_count} {item.visit_count === 1 ? 'time' : 'times'}
+          Sent packages to this location {item.visit_count} {item.visit_count === 1 ? 'time' : 'times'}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
