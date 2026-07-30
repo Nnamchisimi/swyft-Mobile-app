@@ -218,7 +218,9 @@ export default function DriverProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View style={{ width: 50 }} />
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.backButton}>← Back</Text>
+        </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.brandName}>SWYFTinc</Text>
           <Text style={styles.headerTitle}>Account</Text>

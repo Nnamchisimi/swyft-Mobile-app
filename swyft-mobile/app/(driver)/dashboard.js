@@ -309,7 +309,7 @@ export default function DriverDashboard() {
             <Text style={styles.offlineIcon}>☁️</Text>
             <Text style={styles.offlineTitle}>You're Offline</Text>
             <Text style={styles.offlineText}>
-              Go online to start receiving ride requests from passengers nearby.
+              Go online to start receiving ride requests from customers nearby.
             </Text>
             
           </View>

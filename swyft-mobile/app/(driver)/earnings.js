@@ -82,7 +82,9 @@ export default function DriverEarningsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View style={{ width: 50 }} />
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.backButton}>← Back</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>Earnings</Text>
         <View style={{ width: 50 }} />
       </View>

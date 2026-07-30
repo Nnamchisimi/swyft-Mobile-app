@@ -27,7 +27,8 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
   const assignedVehicleId = packageSize ? SIZE_TO_VEHICLE[packageSize] : null;
   const assignedVehicle = assignedVehicleId ? defaultVehicleTypes.find(v => v.id === assignedVehicleId) : null;
 
-  const canBook = selectedRideType && assignedVehicleId && pickupAddress && dropoffLocation && receiverName?.trim() && receiverEmail?.trim() && receiverPhone?.trim() && !loading;
+  const hasRoute = interCityMode ? interCityRoute : selectedRideType;
+  const canBook = hasRoute && assignedVehicleId && pickupAddress && dropoffLocation && receiverName?.trim() && receiverEmail?.trim() && receiverPhone?.trim() && !loading;
 
   return (
     <ScrollView 
@@ -86,7 +87,7 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
             <Ionicons name="location" size={20} color={COLORS.primary} />
           </View>
           <View>
-            <Text style={styles.cardTitle}>Pickup & Dropoff</Text>
+            <Text style={styles.cardTitle}>Package Pickup & Dropoff</Text>
             <Text style={styles.cardSubtitle}>Where should we pick up and deliver?</Text>
           </View>
         </View>

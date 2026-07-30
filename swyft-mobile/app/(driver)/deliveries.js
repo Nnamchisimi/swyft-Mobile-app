@@ -185,7 +185,11 @@ export default function DriverDeliveriesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={styles.backButton}>← Back</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>My Deliveries</Text>
+        <View style={{ width: 50 }} />
       </View>
 
       {loading ? (
@@ -260,13 +264,21 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
+  backButton: {
+    fontSize: 16,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.text,
   },

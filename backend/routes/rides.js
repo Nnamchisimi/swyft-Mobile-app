@@ -94,7 +94,7 @@ function registerRidesRoutes(app, io, db) {
   app.post('/api/rides', (req, res) => {
     console.log('Ride request received:', req.body);
 
-    const { passenger_email, passenger_name, passenger_phone, pickup, dropoff, pickup_location, dropoff_location, ride_type, price, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, inter_city, receiver_name, receiver_phone, receiver_email } = req.body;
+    const { passenger_email, passenger_name, passenger_phone, pickup, dropoff, pickup_location, dropoff_location, ride_type, price, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email } = req.body;
 
     // Support both field names (pickup/dropoff OR pickup_location/dropoff_location)
     const pickupLoc = pickup || pickup_location;
