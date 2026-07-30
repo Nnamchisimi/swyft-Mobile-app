@@ -186,7 +186,7 @@ function registerPaymentsRoutes(app, db, io) {
       }
 
       let status = 'failed';
-      if (token && iyzipay.checkoutFormInquiry) {
+      if (token && iyzipay.checkoutForm && iyzipay.checkoutForm.retrieve) {
         try {
           const inquiryRequest = {
             locale: 'tr',
@@ -195,12 +195,7 @@ function registerPaymentsRoutes(app, db, io) {
           };
 
           const inquiryResult = await new Promise((resolve, reject) => {
-            const creator =
-              iyzipay.checkoutFormInquiry?.create ||
-              iyzipay.checkoutFormInquiry?.request ||
-              iyzipay.checkoutFormInquiry?.inquiry;
-            if (!creator) return reject(new Error('Iyzico checkout form inquiry method not found'));
-            creator(inquiryRequest, (err, response) => {
+            iyzipay.checkoutForm.retrieve(inquiryRequest, (err, response) => {
               if (err) return reject(err);
               resolve(response);
             });
@@ -270,14 +265,10 @@ function registerPaymentsRoutes(app, db, io) {
         };
 
         const inquiryResult = await new Promise((resolve, reject) => {
-          const creator =
-            iyzipay.checkoutFormInquiry?.create ||
-            iyzipay.checkoutFormInquiry?.request ||
-            iyzipay.checkoutFormInquiry?.inquiry;
-          if (!creator) {
-            return reject(new Error('Iyzico checkout form inquiry method not found'));
+          if (!iyzipay.checkoutForm || !iyzipay.checkoutForm.retrieve) {
+            return reject(new Error('Iyzico checkout form retrieve method not found'));
           }
-          creator(inquiryRequest, (err, response) => {
+          iyzipay.checkoutForm.retrieve(inquiryRequest, (err, response) => {
             if (err) return reject(err);
             resolve(response);
           });
@@ -378,14 +369,10 @@ function registerPaymentsRoutes(app, db, io) {
         };
 
         const inquiryResult = await new Promise((resolve, reject) => {
-          const creator =
-            iyzipay.checkoutFormInquiry?.create ||
-            iyzipay.checkoutFormInquiry?.request ||
-            iyzipay.checkoutFormInquiry?.inquiry;
-          if (!creator) {
-            return reject(new Error('Iyzico checkout form inquiry method not found'));
+          if (!iyzipay.checkoutForm || !iyzipay.checkoutForm.retrieve) {
+            return reject(new Error('Iyzico checkout form retrieve method not found'));
           }
-          creator(inquiryRequest, (err, response) => {
+          iyzipay.checkoutForm.retrieve(inquiryRequest, (err, response) => {
             if (err) return reject(err);
             resolve(response);
           });
