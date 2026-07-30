@@ -111,7 +111,7 @@ function registerPaymentsRoutes(app, db, io) {
         buyer: {
           id: `BY${Date.now()}`,
           name: ride.passenger_name || 'Passenger',
-          surname: '',
+          surname: (ride.passenger_name || 'Passenger').split(' ').slice(1).join(' ') || 'Passenger',
           gsmNumber: ride.passenger_phone || '+905555555555',
           email: passenger_email,
           identityNumber: '11111111111',
