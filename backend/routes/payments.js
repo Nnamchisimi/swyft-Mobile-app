@@ -1,5 +1,4 @@
 const Iyzipay = require('iyzipay');
-const https = require('https');
 
 const apiKey = process.env.IYZICO_API_KEY;
 const secretKey = process.env.IYZICO_SECRET_KEY;
@@ -181,7 +180,7 @@ function registerPaymentsRoutes(app, db, io) {
 
         if (io && isSuccess) {
           const paymentResult = await dbQuery('SELECT ride_id FROM payments WHERE payment_id = $1', [conversationId]);
-          const rideId = paymentResult.rows[0]?.rideId;
+          const rideId = paymentResult.rows[0]?.ride_id;
           if (rideId) {
             io.emit('paymentSucceeded', { paymentId: conversationId, rideId });
           }
@@ -214,7 +213,7 @@ function registerPaymentsRoutes(app, db, io) {
 
       if (io && isSuccess) {
         const paymentResult = await dbQuery('SELECT ride_id FROM payments WHERE payment_id = $1', [conversationId]);
-        const rideId = paymentResult.rows[0]?.rideId;
+        const rideId = paymentResult.rows[0]?.ride_id;
         if (rideId) {
           io.emit('paymentSucceeded', { paymentId: conversationId, rideId });
         }
