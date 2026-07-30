@@ -52,7 +52,6 @@ export async function handleBookRide(state) {
       special_instructions: specialInstructions,
       price: estimatedPrice,
       status: 'pending',
-      inter_city: interCityMode,
       receiver_name: receiverName || null,
       receiver_email: receiverEmail || null,
       receiver_phone: receiverPhone || null,

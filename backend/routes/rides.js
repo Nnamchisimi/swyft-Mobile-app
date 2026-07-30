@@ -218,10 +218,9 @@ function registerRidesRoutes(app, io, db) {
             package_type: package_type || null,
             package_size: package_size || null,
             package_details: package_details || null,
-            special_instructions: special_instructions || null,
-            vehicle_type: vehicle_type || null,
-            inter_city: inter_city || null,
-            receiver_name: receiver_name || null,
+             special_instructions: special_instructions || null,
+             vehicle_type: vehicle_type || null,
+             receiver_name: receiver_name || null,
             receiver_phone: receiver_phone || null,
             receiver_email: receiver_email || null,
             created_at: new Date().toISOString()

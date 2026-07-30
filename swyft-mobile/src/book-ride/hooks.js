@@ -445,7 +445,7 @@ export function useBookRideActions(state) {
       ride_type: interCityMode ? interCityRoute : selectedRideType,
       vehicle_type: selectedVehicleType, package_type: packageType, package_size: packageSize,
       package_details: packageDetails, special_instructions: specialInstructions,
-      price: estimatedPrice, status: 'pending', inter_city: interCityMode,
+       price: estimatedPrice, status: 'pending',
       receiver_name: receiverName || null, receiver_email: receiverEmail || null, receiver_phone: receiverPhone || null,
     };
 
