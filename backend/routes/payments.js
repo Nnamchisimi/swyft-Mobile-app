@@ -168,9 +168,14 @@ function registerPaymentsRoutes(app, db, io) {
     }
   });
 
+  app.get('/api/payments/callback', (req, res) => {
+    console.log('Iyzico callback GET received, likely a redirect');
+    res.status(200).send('OK');
+  });
+
   app.post('/api/payments/callback', async (req, res) => {
     try {
-      const callbackParams = req.body;
+      const callbackParams = { ...req.body, ...req.query };
       const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
 
       if (!conversationId) {
