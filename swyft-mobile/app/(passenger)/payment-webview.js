@@ -52,7 +52,7 @@ export default function PaymentWebViewScreen() {
 
     let interval;
     let attempts = 0;
-    const MAX_ATTEMPTS = 10;
+    const MAX_ATTEMPTS = 60;
 
     const startPolling = () => {
       interval = setInterval(async () => {

@@ -238,6 +238,7 @@ CREATE TABLE IF NOT EXISTS payments (
   amount NUMERIC(10, 2) NOT NULL,
   currency VARCHAR(10) NOT NULL DEFAULT 'TRY',
   status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  token VARCHAR(255),
   verified BOOLEAN DEFAULT FALSE,
   raw_response JSONB,
   callback_params JSONB,
