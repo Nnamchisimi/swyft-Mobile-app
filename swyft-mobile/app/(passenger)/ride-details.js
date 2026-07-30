@@ -139,14 +139,14 @@ export default function RideDetailsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Delivery Details</Text>
+        <View style={{ width: 40 }} />
+      </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Delivery Details</Text>
-          <View style={{ width: 40 }} />
-        </View>
 
         <View style={styles.statusCard}>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(ride.status) }]}>
@@ -233,6 +233,18 @@ export default function RideDetailsScreen() {
               <Text style={styles.detailValue}>{ride.dropoff_location || ride.dropoff || 'N/A'}</Text>
             </View>
           </View>
+
+          {(ride.receiver_name || ride.receiver_email || ride.receiver_phone) && (
+            <View style={styles.detailRow}>
+              <Ionicons name="person" size={18} color={COLORS.primary} />
+              <View style={styles.detailContent}>
+                <Text style={styles.detailLabel}>Receiver</Text>
+                {ride.receiver_name && <Text style={styles.detailValue}>{ride.receiver_name}</Text>}
+                {ride.receiver_email && <Text style={styles.detailValue}>{ride.receiver_email}</Text>}
+                {ride.receiver_phone && <Text style={styles.detailValue}>{ride.receiver_phone}</Text>}
+              </View>
+            </View>
+          )}
 
           {ride.driver_name && (
             <View style={styles.detailRow}>

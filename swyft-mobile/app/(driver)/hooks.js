@@ -308,7 +308,6 @@ export function useDriverDashboardEffects(state, refs) {
           }
           setCurrentRide(null);
           fetchPendingRides();
-          Alert.alert('OTP Verified', 'Delivery completed. Payment has been released.');
         } else if (ride.status === 'cancelled') {
           Alert.alert('Ride Cancelled', 'Customer cancelled the delivery.');
           setCurrentRide(null);

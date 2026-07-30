@@ -51,7 +51,15 @@ export default function TrackRideScreen() {
     if (!rideId) return;
     try {
       const response = await ridesAPI.getRideById(rideId);
-      setRide(response.data);
+      const rideData = response.data;
+      setRide(rideData);
+
+      if (rideData.driver_lat && rideData.driver_lng) {
+        setDriverLocation({
+          latitude: parseFloat(rideData.driver_lat),
+          longitude: parseFloat(rideData.driver_lng),
+        });
+      }
     } catch (error) {
       console.error('Error loading ride:', error);
     } finally {
@@ -87,7 +95,8 @@ export default function TrackRideScreen() {
     }
 
     const handleRideUpdated = (updatedRide) => {
-      if (updatedRide.id === rideId || updatedRide.id === ride?.id) {
+      const matchesRide = updatedRide.id === rideId || updatedRide.id === ride?.id || String(updatedRide.id) === String(rideId);
+      if (matchesRide) {
         setRide(updatedRide);
         currentRideRef.current = updatedRide;
 
@@ -108,7 +117,8 @@ export default function TrackRideScreen() {
     };
 
     const handleDriverLocation = (data) => {
-      if (data.rideId === rideId || data.rideId === ride?.id) {
+      const matchesRide = data.rideId === rideId || data.rideId === ride?.id || String(data.rideId) === String(rideId);
+      if (matchesRide) {
         const loc = { latitude: data.lat, longitude: data.lng };
         setDriverLocation(loc);
 
@@ -187,9 +197,38 @@ export default function TrackRideScreen() {
   };
 
   const handleTrackRoute = () => {
-    if (!driverLocation || !ride?.pickup_lat || !ride?.dropoff_lat) return;
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${driverLocation.latitude},${driverLocation.longitude}&destination=${ride.dropoff_lat},${ride.dropoff_lng}`;
-    Linking.openURL(url).catch(() => Alert.alert('Error', 'Unable to open maps'));
+    if (!driverLocation || !ride?.dropoff_lat || !ride?.dropoff_lng) return;
+
+    const origin = `${driverLocation.latitude},${driverLocation.longitude}`;
+    const destination = `${parseFloat(ride.dropoff_lat)},${parseFloat(ride.dropoff_lng)}`;
+
+    const googleUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+    const appleUrl = `http://maps.apple.com/?saddr=${origin}&daddr=${destination}`;
+    const wazeUrl = `https://waze.com/ul?ll=${destination}&navigate=yes`;
+
+    Alert.alert(
+      'Open Navigation',
+      'Choose your maps app',
+      [
+        {
+          text: 'Google Maps',
+          onPress: () => Linking.openURL(googleUrl).catch(() => Alert.alert('Error', 'Unable to open Google Maps')),
+        },
+        {
+          text: 'Apple Maps',
+          onPress: () => Linking.openURL(appleUrl).catch(() => Alert.alert('Error', 'Unable to open Apple Maps')),
+        },
+        {
+          text: 'Waze',
+          onPress: () => Linking.openURL(wazeUrl).catch(() => Alert.alert('Error', 'Unable to open Waze')),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const getStatusConfig = (status) => {
