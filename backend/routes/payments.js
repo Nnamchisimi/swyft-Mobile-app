@@ -1,4 +1,5 @@
 const Iyzipay = require('iyzipay');
+const https = require('https');
 
 const apiKey = process.env.IYZICO_API_KEY;
 const secretKey = process.env.IYZICO_SECRET_KEY;
@@ -10,7 +11,29 @@ const iyzipay = apiKey && secretKey ? new Iyzipay({
   uri: baseUrl,
 }) : null;
 
-const paymentStore = new Map();
+function ensurePaymentsTable(db) {
+  return new Promise((resolve, reject) => {
+    db.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        payment_id VARCHAR(255) UNIQUE NOT NULL,
+        ride_id INTEGER NOT NULL,
+        passenger_email VARCHAR(255) NOT NULL,
+        amount NUMERIC(10, 2) NOT NULL,
+        currency VARCHAR(10) NOT NULL DEFAULT 'TRY',
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        raw_response JSONB,
+        callback_params JSONB,
+        webhook_payload JSONB,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `, (err) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
 
 function registerPaymentsRoutes(app, db, io) {
   if (!iyzipay) {
@@ -19,6 +42,11 @@ function registerPaymentsRoutes(app, db, io) {
     });
     return;
   }
+
+  ensurePaymentsTable(db).catch((err) => {
+    console.error('Failed to ensure payments table exists:', err);
+  });
+
   const dbQuery = (sql, params) =>
     new Promise((resolve, reject) => {
       db.query(sql, params, (err, results) => {
@@ -48,14 +76,10 @@ function registerPaymentsRoutes(app, db, io) {
 
       const paymentId = `PAY_${Date.now()}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
-      paymentStore.set(paymentId, {
-        ride_id,
-        passenger_email,
-        amount,
-        currency,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-      });
+      await dbQuery(
+        `INSERT INTO payments (payment_id, ride_id, passenger_email, amount, currency, status) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [paymentId, ride_id, passenger_email, amount, currency, 'pending']
+      );
 
       const request = {
         locale: 'tr',
@@ -81,7 +105,7 @@ function registerPaymentsRoutes(app, db, io) {
       const buyer = {
         id: `BY${Date.now()}`,
         name: ride.passenger_name || 'Passenger',
-        surname: '',
+        surname: (ride.passenger_name || 'Passenger').split(' ').slice(1).join(' ') || 'Passenger',
         gsmNumber: ride.passenger_phone || '+905555555555',
         email: passenger_email,
         identityNumber: '11111111111',
@@ -90,35 +114,9 @@ function registerPaymentsRoutes(app, db, io) {
         country: 'Turkey',
       };
 
-      const address = {
-        contactName: ride.passenger_name || 'Passenger',
-        city: 'Istanbul',
-        country: 'Turkey',
-        address: 'Istanbul, Turkey',
-      };
-
       const paymentRequest = {
-        locale: 'tr',
-        conversationId: paymentId,
-        price: parseFloat(amount).toFixed(2),
-        paidPrice: parseFloat(amount).toFixed(2),
-        currency,
-        installment: '1',
-        basketId: ride_id,
-        paymentChannel: 'WEB',
-        paymentGroup: 'PRODUCT',
-        callbackUrl: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/payments/callback`,
-        buyer: {
-          id: `BY${Date.now()}`,
-          name: ride.passenger_name || 'Passenger',
-          surname: (ride.passenger_name || 'Passenger').split(' ').slice(1).join(' ') || 'Passenger',
-          gsmNumber: ride.passenger_phone || '+905555555555',
-          email: passenger_email,
-          identityNumber: '11111111111',
-          registrationAddress: 'Turkey',
-          city: 'Istanbul',
-          country: 'Turkey',
-        },
+        ...request,
+        buyer,
         shippingAddress: {
           contactName: ride.passenger_name || 'Passenger',
           city: 'Istanbul',
@@ -131,15 +129,7 @@ function registerPaymentsRoutes(app, db, io) {
           country: 'Turkey',
           address: 'Istanbul, Turkey',
         },
-        basketItems: [
-          {
-            id: ride_id.toString(),
-            name: 'SWYFT Courier Delivery',
-            category1: 'Delivery',
-            itemType: 'VIRTUAL',
-            price: parseFloat(amount).toFixed(2),
-          },
-        ],
+        basketItems: [cardInfo],
       };
 
       const result = await new Promise((resolve, reject) => {
@@ -151,21 +141,20 @@ function registerPaymentsRoutes(app, db, io) {
 
       console.log('Iyzico checkout form init result:', JSON.stringify(result));
 
-      const record = paymentStore.get(paymentId);
-      record.status = 'pending';
-      record.rawResponse = result;
-      record.updatedAt = new Date().toISOString();
-      paymentStore.set(paymentId, record);
+      await dbQuery(
+        `UPDATE payments SET raw_response = $1, updated_at = NOW() WHERE payment_id = $2`,
+        [JSON.stringify(result), paymentId]
+      );
 
       if (result.paymentPageUrl) {
-        return res.json({ paymentId, paymentPageUrl: result.paymentPageUrl, status: record.status });
+        return res.json({ paymentId, paymentPageUrl: result.paymentPageUrl, status: 'pending' });
       } else if (result.threeDSHtmlContent) {
-        return res.json({ paymentId, threeDSHtmlContent: result.threeDSHtmlContent, status: record.status });
+        return res.json({ paymentId, threeDSHtmlContent: result.threeDSHtmlContent, status: 'pending' });
       }
 
       return res.status(400).json({
         error: 'Could not initialize payment',
-        status: record.status,
+        status: 'pending',
         iyzicoStatus: result.status,
         iyzicoError: result.errorMessage || result.errorCode || null,
         details: JSON.stringify(result)
@@ -181,13 +170,22 @@ function registerPaymentsRoutes(app, db, io) {
       const callbackParams = req.body;
       const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
 
-      if (conversationId && paymentStore.has(conversationId)) {
-        const record = paymentStore.get(conversationId);
+      if (conversationId) {
         const isSuccess = callbackParams.status === 'success' || String(callbackParams.paymentStatus || '').toLowerCase() === 'success';
-        record.status = isSuccess ? 'succeeded' : 'failed';
-        record.callbackParams = callbackParams;
-        record.updatedAt = new Date().toISOString();
-        paymentStore.set(conversationId, record);
+        const status = isSuccess ? 'succeeded' : 'failed';
+
+        await dbQuery(
+          `UPDATE payments SET status = $1, callback_params = $2, updated_at = NOW() WHERE payment_id = $3`,
+          [status, JSON.stringify(callbackParams), conversationId]
+        );
+
+        if (io && isSuccess) {
+          const paymentResult = await dbQuery('SELECT ride_id FROM payments WHERE payment_id = $1', [conversationId]);
+          const rideId = paymentResult.rows[0]?.rideId;
+          if (rideId) {
+            io.emit('paymentSucceeded', { paymentId: conversationId, rideId });
+          }
+        }
       }
 
       res.status(200).json({ received: true });
@@ -206,17 +204,19 @@ function registerPaymentsRoutes(app, db, io) {
       }
 
       const conversationId = notification.conversationId;
+      const isSuccess = notification.status === 'success' || String(notification.paymentStatus || '').toLowerCase() === 'success';
+      const status = isSuccess ? 'succeeded' : 'failed';
 
-      if (paymentStore.has(conversationId)) {
-        const record = paymentStore.get(conversationId);
-        const isSuccess = notification.status === 'success' || String(notification.paymentStatus || '').toLowerCase() === 'success';
-        record.status = isSuccess ? 'succeeded' : 'failed';
-        record.webhookPayload = notification;
-        record.updatedAt = new Date().toISOString();
-        paymentStore.set(conversationId, record);
+      await dbQuery(
+        `UPDATE payments SET status = $1, webhook_payload = $2, updated_at = NOW() WHERE payment_id = $3`,
+        [status, JSON.stringify(notification), conversationId]
+      );
 
-        if (io && isSuccess) {
-          io.emit('paymentSucceeded', { paymentId: conversationId, rideId: record.ride_id });
+      if (io && isSuccess) {
+        const paymentResult = await dbQuery('SELECT ride_id FROM payments WHERE payment_id = $1', [conversationId]);
+        const rideId = paymentResult.rows[0]?.rideId;
+        if (rideId) {
+          io.emit('paymentSucceeded', { paymentId: conversationId, rideId });
         }
       }
 
@@ -227,22 +227,31 @@ function registerPaymentsRoutes(app, db, io) {
     }
   });
 
-  app.get('/api/payments/status/:paymentId', (req, res) => {
+  app.get('/api/payments/status/:paymentId', async (req, res) => {
     const { paymentId } = req.params;
-    const record = paymentStore.get(paymentId);
 
-    if (!record) return res.status(404).json({ error: 'Payment not found' });
+    try {
+      const result = await dbQuery('SELECT * FROM payments WHERE payment_id = $1', [paymentId]);
 
-    res.json({
-      id: paymentId,
-      ride_id: record.ride_id,
-      passenger_email: record.passenger_email,
-      amount: record.amount,
-      currency: record.currency,
-      status: record.status,
-      created_at: record.createdAt,
-      updated_at: record.updatedAt,
-    });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Payment not found' });
+      }
+
+      const payment = result.rows[0];
+      res.json({
+        id: payment.payment_id,
+        ride_id: payment.ride_id,
+        passenger_email: payment.passenger_email,
+        amount: parseFloat(payment.amount),
+        currency: payment.currency,
+        status: payment.status,
+        created_at: payment.created_at,
+        updated_at: payment.updated_at,
+      });
+    } catch (error) {
+      console.error('Payment status DB error:', error);
+      res.status(500).json({ error: 'Failed to fetch payment status' });
+    }
   });
 }
 
