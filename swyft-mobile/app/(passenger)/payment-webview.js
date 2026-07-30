@@ -101,7 +101,7 @@ export default function PaymentWebViewScreen() {
     }
   };
 
-  const handlePaymentResult = (status) => {
+  const handlePaymentResult = async (status) => {
     setPaymentInProgress(false);
     if (status === 'succeeded' || status === 'captured' || status === 'success') {
       Alert.alert('Payment Successful', 'Your payment has been processed.', [
@@ -114,6 +114,12 @@ export default function PaymentWebViewScreen() {
         },
       ]);
     } else {
+      try {
+        const email = await authService.getUserEmail();
+        await ridesAPI.cancelRide(rideId, email);
+      } catch (error) {
+        console.error('Failed to cancel pending ride after failed payment:', error);
+      }
       Alert.alert('Payment Failed', 'Your payment could not be processed. Please try again.', [
         {
           text: 'OK',

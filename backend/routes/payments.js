@@ -1,4 +1,5 @@
 const Iyzipay = require('iyzipay');
+const https = require('https');
 
 const apiKey = process.env.IYZICO_API_KEY;
 const secretKey = process.env.IYZICO_SECRET_KEY;
@@ -97,32 +98,47 @@ function registerPaymentsRoutes(app, db, io) {
         address: 'Istanbul, Turkey',
       };
 
-      const paymentRequest = { ...request, buyer, address, items: [cardInfo] };
+      const paymentRequest = { ...request, buyer, address, basketItems: [cardInfo] };
 
-      const paymentCreator =
-        (iyzipay.payment && iyzipay.payment.form && iyzipay.payment.form.create)
-          ? iyzipay.payment.form.create
-          : (iyzipay.paymentForm && iyzipay.paymentForm.create)
-            ? iyzipay.paymentForm.create
-            : (iyzipay.payment_form && iyzipay.payment_form.create)
-              ? iyzipay.payment_form.create
-              : null;
-
-      if (!paymentCreator) {
-        return res.status(500).json({ error: 'Iyzico payment form method not found in SDK' });
-      }
+      const authHeader = Buffer.from(`${apiKey}:${secretKey}`).toString('base64');
+      const host = baseUrl.replace(/^https?:\/\//, '');
 
       const result = await new Promise((resolve, reject) => {
-        paymentCreator(paymentRequest, (err, result) => {
-          if (err) return reject(err);
-          else resolve(result);
+        const postData = JSON.stringify(paymentRequest);
+
+        const options = {
+          hostname: host,
+          port: 443,
+          path: '/v2/payment',
+          method: 'POST',
+          headers: {
+            'Authorization': `Basic ${authHeader}`,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData),
+          },
+        };
+
+        const req = https.request(options, (res) => {
+          let data = '';
+          res.on('data', (chunk) => { data += chunk; });
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch (e) {
+              reject(new Error('Invalid JSON from Iyzico: ' + data));
+            }
+          });
         });
+
+        req.on('error', reject);
+        req.write(postData);
+        req.end();
       });
 
       console.log('Iyzico payment result:', JSON.stringify(result));
 
       const record = paymentStore.get(paymentId);
-      const isSuccess = result.status === 'success' || result.status === 'success' || result.status === 'captured';
+      const isSuccess = result.status === 'success' || result.status === 'captured';
       record.status = isSuccess ? 'captured' : 'failed';
       record.rawResponse = result;
       record.updatedAt = new Date().toISOString();
@@ -134,8 +150,8 @@ function registerPaymentsRoutes(app, db, io) {
         return res.json({ paymentId, threeDSHtmlContent: result.threeDSHtmlContent, status: record.status });
       }
 
-      return res.status(400).json({ 
-        error: 'Could not initialize payment', 
+      return res.status(400).json({
+        error: 'Could not initialize payment',
         status: record.status,
         iyzicoStatus: result.status,
         iyzicoError: result.errorMessage || result.errorCode || null,
