@@ -149,11 +149,10 @@ function registerPaymentsRoutes(app, db, io) {
         });
       });
 
-      console.log('Iyzico payment result:', JSON.stringify(result));
+      console.log('Iyzico checkout form init result:', JSON.stringify(result));
 
       const record = paymentStore.get(paymentId);
-      const isSuccess = result.status === 'success' || result.status === 'captured';
-      record.status = isSuccess ? 'captured' : 'failed';
+      record.status = 'pending';
       record.rawResponse = result;
       record.updatedAt = new Date().toISOString();
       paymentStore.set(paymentId, record);
