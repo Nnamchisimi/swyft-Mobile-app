@@ -34,33 +34,10 @@ export default function FavoritesScreen() {
     }
   };
 
-  const handleDeleteFavorite = (id) => {
-    Alert.alert(
-      'Delete Favorite',
-      'Are you sure you want to remove this favorite?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await favoritesAPI.deleteFavorite(id);
-              loadFavorites();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete favorite');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleSelectFavorite = (favorite) => {
     router.push({
       pathname: '/(passenger)/book-ride',
       params: {
-        pickup: favorite.pickup_location || '',
         dropoff: favorite.dropoff_location || '',
       },
     });
@@ -72,20 +49,15 @@ export default function FavoritesScreen() {
       onPress={() => handleSelectFavorite(item)}
     >
       <View style={styles.favoriteIcon}>
-        <Ionicons name="star" size={20} color={COLORS.primary} />
+        <Ionicons name="navigate" size={20} color={COLORS.primary} />
       </View>
       <View style={styles.favoriteInfo}>
-        <Text style={styles.favoriteName}>{item.name || 'Favorite'}</Text>
-        <Text style={styles.favoriteAddress} numberOfLines={1}>
-          {item.dropoff_location || item.dropoff || 'No address'}
+        <Text style={styles.favoriteName}>{item.dropoff_location || 'Unknown location'}</Text>
+        <Text style={styles.favoriteAddress}>
+          Visited {item.visit_count} {item.visit_count === 1 ? 'time' : 'times'}
         </Text>
       </View>
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteFavorite(item.id)}
-      >
-        <Ionicons name="trash-outline" size={20} color={COLORS.error} />
-      </TouchableOpacity>
+      <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
     </TouchableOpacity>
   );
 
@@ -95,7 +67,7 @@ export default function FavoritesScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={COLORS.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Favorites</Text>
+        <Text style={styles.headerTitle}>Top Destinations</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -103,15 +75,15 @@ export default function FavoritesScreen() {
         <FlatList
           data={favorites}
           renderItem={renderFavoriteItem}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item, index) => `${item.dropoff_location}-${index}`}
           contentContainerStyle={styles.listContent}
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <Ionicons name="star-outline" size={64} color={COLORS.textSecondary} />
-          <Text style={styles.emptyTitle}>No Favorites Yet</Text>
+          <Ionicons name="map-outline" size={64} color={COLORS.textSecondary} />
+          <Text style={styles.emptyTitle}>No destinations yet</Text>
           <Text style={styles.emptyText}>
-            Save your frequent destinations for quick booking
+            Your most visited dropoff locations will appear here
           </Text>
           <TouchableOpacity
             style={styles.addButton}
@@ -179,9 +151,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     marginTop: 2,
-  },
-  deleteButton: {
-    padding: 8,
   },
   emptyContainer: {
     flex: 1,

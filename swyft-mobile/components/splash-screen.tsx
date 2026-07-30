@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
+import { View, Image, Text, StyleSheet, Animated, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { View, Image, Text, StyleSheet, Animated } from "react-native";
 import { COLORS } from "../src/constants/config";
 import swyftLogo from "@/assets/images/swyftmobilelogo.png";
 import { useAppReady } from "@/src/context/AppReadyContext";
 
-type Phase = "logo" | "text" | "fadeout" | "exit";
+type Phase = "enter" | "hold" | "exit";
 
 interface SplashScreenProps {
   onComplete: () => void;
@@ -15,8 +15,13 @@ interface SplashScreenProps {
 export default function SplashScreen({ onComplete }: SplashScreenProps) {
   const router = useRouter();
   const { isAppReady } = useAppReady();
-  const [phase, setPhase] = useState<Phase>("logo");
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [phase, setPhase] = useState<Phase>("enter");
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const logoScale = useRef(new Animated.Value(0.96)).current;
+  const logoTranslateY = useRef(new Animated.Value(10)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const textTranslateY = useRef(new Animated.Value(8)).current;
+  const progressWidth = useRef(new Animated.Value(0)).current;
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
@@ -38,71 +43,148 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
     checkAutoLogin();
   }, []);
 
-  const startFadeOut = (delay: number = 0): void => {
-    setTimeout(() => {
-      setPhase("fadeout");
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
-        setPhase("exit");
-        onCompleteRef.current();
-      });
-    }, delay);
-  };
-
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("text"), 0);
-    const t2 = setTimeout(() => startFadeOut(0), 5000);
+    const t1 = setTimeout(() => setPhase("hold"), 800);
+    const t2 = setTimeout(() => setPhase("exit"), 3000);
+    const t3 = setTimeout(() => {
+      onCompleteRef.current();
+    }, 4000);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
     };
   }, []);
 
-  const getLogoStyle = () => {
-    return [
-      styles.logo,
-      {
-        opacity: phase === "logo" || phase === "text" || phase === "exit" ? 1 : 0,
-        transform: [{ scale: phase !== "logo" ? 1 : 0.8 }],
-      },
-    ];
-  };
+  useEffect(() => {
+    if (phase === "enter") {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoScale, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoTranslateY, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
 
-  const getTextStyle = () => {
-    return [
-      styles.brandText,
-      {
-        opacity: phase === "text" || phase === "exit" ? 1 : 0,
-        transform: [
-          {
-            translateY: phase === "text" || phase === "exit" ? 0 : 8,
-          },
-        ],
-      },
-    ];
-  };
+    if (phase === "hold") {
+      Animated.parallel([
+        Animated.timing(textOpacity, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(textTranslateY, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.loop(
+          Animated.timing(progressWidth, {
+            toValue: 1,
+            duration: 1800,
+            useNativeDriver: false,
+          })
+        ).start(),
+      ]).start();
+    }
 
-  if (phase === "exit") {
+    if (phase === "exit") {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start(() => {
+        onCompleteRef.current();
+      });
+    }
+  }, [phase]);
+
+  if (phase === "exit" && fadeAnim.__getValue() === 0) {
     return null;
   }
 
+  const progressTranslate = progressWidth.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-100, 200],
+  });
+
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          opacity: fadeAnim,
+        },
+      ]}
+    >
+      {/* Ambient glow */}
+      <View style={styles.glow} />
+
+      {/* Logo lockup */}
       <View style={styles.content}>
-        <Image
-          source={swyftLogo}
-          style={getLogoStyle()}
-          resizeMode="contain"
-        />
-        <Text style={getTextStyle()}>SWYFT</Text>
+        <Animated.View
+          style={[
+            styles.logoWrapper,
+            {
+              opacity: phase !== "enter" ? 1 : fadeAnim,
+              transform: [
+                { scale: logoScale },
+                { translateY: logoTranslateY },
+              ],
+            },
+          ]}
+        >
+          <Image
+            source={swyftLogo}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.textWrapper,
+            {
+              opacity: phase === "hold" || phase === "exit" ? textOpacity : 0,
+              transform: [{ translateY: textTranslateY }],
+            },
+          ]}
+        >
+          <Text style={styles.brandText}>SWYFT</Text>
+        </Animated.View>
+      </View>
+
+      {/* Progress indicator */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressTrack}>
+          <Animated.View
+            style={[
+              styles.progressBar,
+              {
+                width: "33%",
+                transform: [{ translateX: progressTranslate }],
+              },
+            ]}
+          />
+        </View>
       </View>
     </Animated.View>
   );
 }
+
+const { width } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   container: {
@@ -112,18 +194,56 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  glow: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    marginLeft: -112,
+    marginTop: -112,
+    width: 224,
+    height: 224,
+    borderRadius: 112,
+    backgroundColor: "#2196F3",
+    opacity: 0.25,
+  },
   content: {
     alignItems: "center",
-    gap: 20,
+    gap: 24,
+  },
+  logoWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   logo: {
-    width: 100,
-    height: 100,
+    width: 176,
+    height: 176,
+  },
+  textWrapper: {
+    alignItems: "center",
   },
   brandText: {
-    fontSize: 28,
-    fontWeight: "700",
-    letterSpacing: 8,
+    fontSize: 48,
+    fontWeight: "600",
+    letterSpacing: 14,
     color: COLORS.white,
+    textAlign: "center",
+  },
+  progressContainer: {
+    position: "absolute",
+    bottom: 96,
+    width: 128,
+    height: 2,
+    overflow: "hidden",
+    borderRadius: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+  },
+  progressTrack: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  progressBar: {
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "#2196F3",
   },
 });

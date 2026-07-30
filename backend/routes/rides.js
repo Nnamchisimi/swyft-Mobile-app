@@ -774,13 +774,23 @@ function registerRidesRoutes(app, io, db) {
     });
   });
 
-  // Favorites endpoints
+  // Favorites endpoints - top 5 most visited dropoff locations
   app.get('/api/favorites', (req, res) => {
     const { passenger_email } = req.query;
-    db.query('SELECT * FROM favorites WHERE passenger_email = $1 ORDER BY created_at DESC', [passenger_email], (err, result) => {
-      if (err) return res.status(500).json({ error: 'Server error' });
-      res.json(result.rows);
-    });
+    if (!passenger_email) return res.status(400).json({ error: 'passenger_email is required' });
+    db.query(
+      `SELECT dropoff_location, COUNT(*) AS visit_count
+       FROM rides
+       WHERE passenger_email = $1 AND status IN ('completed','picked_up','active','confirmed')
+       GROUP BY dropoff_location
+       ORDER BY visit_count DESC
+       LIMIT 5`,
+      [passenger_email],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: 'Server error' });
+        res.json(result.rows);
+      }
+    );
   });
 
   app.post('/api/favorites', (req, res) => {
