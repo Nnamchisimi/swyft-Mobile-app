@@ -1,5 +1,4 @@
 const Iyzipay = require('iyzipay');
-const https = require('https');
 
 const apiKey = process.env.IYZICO_API_KEY;
 const secretKey = process.env.IYZICO_SECRET_KEY;
@@ -98,41 +97,56 @@ function registerPaymentsRoutes(app, db, io) {
         address: 'Istanbul, Turkey',
       };
 
-      const paymentRequest = { ...request, buyer, address, basketItems: [cardInfo] };
-
-      const authHeader = Buffer.from(`${apiKey}:${secretKey}`).toString('base64');
-      const host = baseUrl.replace(/^https?:\/\//, '');
+      const paymentRequest = {
+        locale: 'tr',
+        conversationId: paymentId,
+        price: parseFloat(amount).toFixed(2),
+        paidPrice: parseFloat(amount).toFixed(2),
+        currency,
+        installment: '1',
+        basketId: ride_id,
+        paymentChannel: 'WEB',
+        paymentGroup: 'PRODUCT',
+        callbackUrl: `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/payments/callback`,
+        buyer: {
+          id: `BY${Date.now()}`,
+          name: ride.passenger_name || 'Passenger',
+          surname: '',
+          gsmNumber: ride.passenger_phone || '+905555555555',
+          email: passenger_email,
+          identityNumber: '11111111111',
+          registrationAddress: 'Turkey',
+          city: 'Istanbul',
+          country: 'Turkey',
+        },
+        shippingAddress: {
+          contactName: ride.passenger_name || 'Passenger',
+          city: 'Istanbul',
+          country: 'Turkey',
+          address: 'Istanbul, Turkey',
+        },
+        billingAddress: {
+          contactName: ride.passenger_name || 'Passenger',
+          city: 'Istanbul',
+          country: 'Turkey',
+          address: 'Istanbul, Turkey',
+        },
+        basketItems: [
+          {
+            id: ride_id.toString(),
+            name: 'SWYFT Courier Delivery',
+            category1: 'Delivery',
+            itemType: 'VIRTUAL',
+            price: parseFloat(amount).toFixed(2),
+          },
+        ],
+      };
 
       const result = await new Promise((resolve, reject) => {
-        const postData = JSON.stringify(paymentRequest);
-
-        const options = {
-          hostname: host,
-          port: 443,
-          path: '/v2/payment',
-          method: 'POST',
-          headers: {
-            'Authorization': `Basic ${authHeader}`,
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(postData),
-          },
-        };
-
-        const req = https.request(options, (res) => {
-          let data = '';
-          res.on('data', (chunk) => { data += chunk; });
-          res.on('end', () => {
-            try {
-              resolve(JSON.parse(data));
-            } catch (e) {
-              reject(new Error('Invalid JSON from Iyzico: ' + data));
-            }
-          });
+        iyzipay.checkoutFormInitialize.create(paymentRequest, (err, response) => {
+          if (err) return reject(err);
+          resolve(response);
         });
-
-        req.on('error', reject);
-        req.write(postData);
-        req.end();
       });
 
       console.log('Iyzico payment result:', JSON.stringify(result));
