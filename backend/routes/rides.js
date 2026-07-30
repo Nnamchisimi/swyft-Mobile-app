@@ -72,7 +72,7 @@ function registerRidesRoutes(app, io, db) {
   app.get('/api/rides/:id', (req, res) => {
     const rideId = req.params.id;
 
-    db.query('SELECT id, passenger_email, driver_email, status, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, price, ride_type, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email, created_at, updated_at, delivery_id, delivery_otp_plain, delivery_otp_expires_at FROM rides WHERE id = $1', [rideId], (err, results) => {
+    db.query('SELECT id, passenger_email, driver_email, status, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, price, ride_type, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email, created_at, updated_at, delivery_id, delivery_otp_plain, delivery_otp_expires_at, driver_id, driver_name, driver_phone, driver_vehicle, driver_lat, driver_lng FROM rides WHERE id = $1', [rideId], (err, results) => {
       if (err) return res.status(500).json({ error: 'Server error' });
       if (results.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });
       res.json(results.rows[0]);
