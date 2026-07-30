@@ -146,9 +146,9 @@ function registerPaymentsRoutes(app, db, io) {
       );
 
       if (result.paymentPageUrl) {
-        return res.json({ paymentId, paymentPageUrl: result.paymentPageUrl, status: 'pending' });
+        return res.json({ paymentId, paymentPageUrl: result.paymentPageUrl, token: result.token, status: 'pending' });
       } else if (result.threeDSHtmlContent) {
-        return res.json({ paymentId, threeDSHtmlContent: result.threeDSHtmlContent, status: 'pending' });
+        return res.json({ paymentId, threeDSHtmlContent: result.threeDSHtmlContent, token: result.token, status: 'pending' });
       }
 
       return res.status(400).json({
@@ -237,6 +237,69 @@ function registerPaymentsRoutes(app, db, io) {
     } catch (error) {
       console.error('Payment webhook error:', error);
       res.status(500).json({ error: 'Webhook processing failed' });
+    }
+  });
+
+  app.post('/api/payments/verify', async (req, res) => {
+    try {
+      const { paymentId, token } = req.body;
+      if (!paymentId || !token) {
+        return res.status(400).json({ error: 'paymentId and token are required' });
+      }
+
+      const paymentResult = await dbQuery('SELECT * FROM payments WHERE payment_id = $1', [paymentId]);
+      const payment = paymentResult.rows[0];
+      if (!payment) {
+        return res.status(404).json({ error: 'Payment not found' });
+      }
+
+      try {
+        const inquiryRequest = {
+          locale: 'tr',
+          conversationId: paymentId,
+          token,
+        };
+
+        const inquiryResult = await new Promise((resolve, reject) => {
+          const creator =
+            iyzipay.checkoutFormInquiry?.create ||
+            iyzipay.checkoutFormInquiry?.request ||
+            iyzipay.checkoutFormInquiry?.inquiry;
+          if (!creator) {
+            return reject(new Error('Iyzico checkout form inquiry method not found'));
+          }
+          creator(inquiryRequest, (err, response) => {
+            if (err) return reject(err);
+            resolve(response);
+          });
+        });
+
+        const status = inquiryResult.status === 'success' || inquiryResult.status === 'captured' ? 'succeeded' : 'failed';
+
+        await dbQuery(
+          `UPDATE payments SET status = $1, raw_response = $2, verified = TRUE, updated_at = NOW() WHERE payment_id = $3`,
+          [status, JSON.stringify(inquiryResult), paymentId]
+        );
+
+        if (io && payment.passenger_email) {
+          io.to(payment.passenger_email).emit('paymentStatusUpdated', {
+            paymentId,
+            status,
+            ride_id: payment.ride_id,
+          });
+          if (status === 'succeeded' && payment.ride_id) {
+            io.emit('paymentSucceeded', { paymentId, rideId: payment.ride_id });
+          }
+        }
+
+        return res.json({ status, rawResponse: inquiryResult });
+      } catch (inquiryError) {
+        console.error('Payment inquiry error:', inquiryError);
+        return res.status(500).json({ error: 'Payment verification failed', details: inquiryError.message });
+      }
+    } catch (error) {
+      console.error('Payment verify error:', error);
+      return res.status(500).json({ error: 'Payment verification failed', details: error.message });
     }
   });
 

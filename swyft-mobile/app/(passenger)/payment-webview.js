@@ -17,6 +17,7 @@ export default function PaymentWebViewScreen() {
   const [paymentUrl, setPaymentUrl] = useState(null);
   const [checking, setChecking] = useState(false);
   const [browserVisible, setBrowserVisible] = useState(true);
+  const [paymentToken, setPaymentToken] = useState(null);
 
   useEffect(() => {
     initializePayment();
@@ -51,7 +52,7 @@ export default function PaymentWebViewScreen() {
 
     let interval;
     let attempts = 0;
-    const MAX_ATTEMPTS = 20;
+    const MAX_ATTEMPTS = 10;
 
     const startPolling = () => {
       interval = setInterval(async () => {
@@ -105,6 +106,7 @@ export default function PaymentWebViewScreen() {
 
       if (response.data) {
         setPaymentId(response.data.paymentId);
+        setPaymentToken(response.data.token);
         if (response.data.paymentPageUrl) {
           setPaymentUrl(response.data.paymentPageUrl);
           openBrowser(response.data.paymentPageUrl);
@@ -128,26 +130,32 @@ export default function PaymentWebViewScreen() {
         enableBarCollapsing: true,
       });
       setBrowserVisible(false);
-      checkPaymentStatus();
+      await verifyPayment();
     } catch (error) {
       console.error('Browser error:', error);
       setBrowserVisible(false);
-      checkPaymentStatus();
+      await verifyPayment();
     }
   };
 
-  const checkPaymentStatus = async () => {
-    if (!paymentId) return;
+  const verifyPayment = async () => {
+    if (!paymentId || !paymentToken) return;
     setChecking(true);
     try {
-      const response = await paymentAPI.getPaymentStatus(paymentId);
+      const response = await paymentAPI.verifyPayment({ paymentId, token: paymentToken });
       if (response.data) {
         handlePaymentResult(response.data.status);
       }
     } catch (error) {
-      console.error('Status check error:', error);
-      Alert.alert('Error', 'Could not verify payment status.');
-      router.back();
+      console.error('Payment verify error:', error);
+      Alert.alert(
+        'Verification',
+        'Could not automatically verify payment. Tap Retry or wait for confirmation.',
+        [
+          { text: 'Cancel', onPress: () => router.back() },
+          { text: 'Retry', onPress: verifyPayment },
+        ]
+      );
     } finally {
       setChecking(false);
     }
