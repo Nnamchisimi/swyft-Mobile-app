@@ -125,16 +125,14 @@ export default function PaymentWebViewScreen() {
 
   const openBrowser = async (url) => {
     try {
-      const result = await WebBrowser.openBrowserAsync(url, {
+      await WebBrowser.openBrowserAsync(url, {
         showTitle: false,
         enableBarCollapsing: true,
       });
-      setBrowserVisible(false);
-      await verifyPayment();
     } catch (error) {
       console.error('Browser error:', error);
+    } finally {
       setBrowserVisible(false);
-      await verifyPayment();
     }
   };
 

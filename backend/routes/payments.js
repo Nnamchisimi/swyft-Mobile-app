@@ -168,9 +168,82 @@ function registerPaymentsRoutes(app, db, io) {
     }
   });
 
-  app.get('/api/payments/callback', (req, res) => {
-    console.log('Iyzico callback GET received, likely a redirect');
-    res.status(200).send('OK');
+  app.get('/api/payments/callback', async (req, res) => {
+    try {
+      console.log('Iyzico callback GET params:', JSON.stringify(req.query));
+      const callbackParams = req.query;
+      const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
+      const token = callbackParams.token;
+
+      if (!conversationId) {
+        return res.status(200).json({ received: true });
+      }
+
+      const paymentResult = await dbQuery('SELECT * FROM payments WHERE payment_id = $1', [conversationId]);
+      const payment = paymentResult.rows[0];
+      if (!payment) {
+        return res.status(200).json({ received: true });
+      }
+
+      let status = 'failed';
+      if (token && iyzipay.checkoutFormInquiry) {
+        try {
+          const inquiryRequest = {
+            locale: 'tr',
+            conversationId: payment.payment_id,
+            token,
+          };
+
+          const inquiryResult = await new Promise((resolve, reject) => {
+            const creator =
+              iyzipay.checkoutFormInquiry?.create ||
+              iyzipay.checkoutFormInquiry?.request ||
+              iyzipay.checkoutFormInquiry?.inquiry;
+            if (!creator) return reject(new Error('Iyzico checkout form inquiry method not found'));
+            creator(inquiryRequest, (err, response) => {
+              if (err) return reject(err);
+              resolve(response);
+            });
+          });
+
+          status = inquiryResult.status === 'success' || inquiryResult.status === 'captured' ? 'succeeded' : 'failed';
+
+          await dbQuery(
+            `UPDATE payments SET status = $1, raw_response = $2, callback_params = $3, verified = TRUE, updated_at = NOW() WHERE payment_id = $4`,
+            [status, JSON.stringify(inquiryResult), JSON.stringify(callbackParams), payment.payment_id]
+          );
+        } catch (inquiryError) {
+          console.error('Payment inquiry error in GET callback:', inquiryError);
+          status = callbackParams.status === 'success' ? 'succeeded' : 'failed';
+          await dbQuery(
+            `UPDATE payments SET status = $1, callback_params = $2, updated_at = NOW() WHERE payment_id = $3`,
+            [status, JSON.stringify(callbackParams), payment.payment_id]
+          );
+        }
+      } else {
+        status = callbackParams.status === 'success' ? 'succeeded' : 'failed';
+        await dbQuery(
+          `UPDATE payments SET status = $1, callback_params = $2, updated_at = NOW() WHERE payment_id = $3`,
+          [status, JSON.stringify(callbackParams), payment.payment_id]
+        );
+      }
+
+      if (io && payment.passenger_email) {
+        io.to(payment.passenger_email).emit('paymentStatusUpdated', {
+          paymentId: payment.payment_id,
+          status,
+          ride_id: payment.ride_id,
+        });
+      }
+      if (io && status === 'succeeded' && payment.ride_id) {
+        io.emit('paymentSucceeded', { paymentId: payment.payment_id, rideId: payment.ride_id });
+      }
+
+      res.status(200).json({ received: true, status });
+    } catch (error) {
+      console.error('Payment GET callback error:', error);
+      res.status(200).json({ received: true });
+    }
   });
 
   app.post('/api/payments/callback', async (req, res) => {
