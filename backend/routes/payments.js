@@ -250,7 +250,13 @@ function registerPaymentsRoutes(app, db, io) {
 
   app.get('/api/payments/callback', async (req, res) => {
     try {
-      console.log('Iyzico callback received (verification handled by webhook):', JSON.stringify(req.query));
+      const callbackParams = req.query;
+      const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
+
+      if (conversationId) {
+        await verifyPayment(conversationId);
+      }
+
       res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
     } catch (error) {
       console.error('Payment GET callback error:', error);
@@ -260,7 +266,13 @@ function registerPaymentsRoutes(app, db, io) {
 
   app.post('/api/payments/callback', async (req, res) => {
     try {
-      console.log('Iyzico callback received (verification handled by webhook):', JSON.stringify(req.body));
+      const callbackParams = { ...req.body, ...req.query };
+      const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
+
+      if (conversationId) {
+        await verifyPayment(conversationId);
+      }
+
       res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
     } catch (error) {
       console.error('Payment callback error:', error);
@@ -268,13 +280,42 @@ function registerPaymentsRoutes(app, db, io) {
     }
   });
 
-  app.post('/api/payments/webhook', (req, res) => {
-    console.log("========== WEBHOOK HIT ==========");
-    console.log(req.headers);
-    console.log(req.body);
+  app.post('/api/payments/webhook', async (req, res) => {
 
-    res.sendStatus(200);
-});
+    console.log("============= WEBHOOK RECEIVED =============");
+      console.log(req.headers);
+      console.log(req.body);
+    try {
+      const notification = req.body;
+
+      if (!notification || !notification.conversationId) {
+        return res.status(400).json({ error: 'Invalid payload' });
+      }
+
+      const signature = req.headers['x-iyz-signature-v3'] || req.headers['X-IYZ-SIGNATURE-V3'];
+      if (!signature) {
+        console.error('Missing webhook signature. Headers:', JSON.stringify(req.headers));
+      } else if (secretKey && req.rawBody) {
+        try {
+          const hmac = crypto.createHmac('sha256', secretKey);
+          const computedSignature = hmac.update(req.rawBody).digest('base64');
+          if (computedSignature !== signature) {
+            console.error('Invalid webhook signature');
+            return res.status(400).json({ error: 'Invalid signature' });
+          }
+        } catch (signError) {
+          console.error('Signature verification error:', signError);
+        }
+      }
+
+      const status = await verifyPayment(notification.conversationId);
+
+      res.status(200).json({ received: true, status });
+    } catch (error) {
+      console.error('Payment webhook error:', error);
+      res.status(200).json({ received: true });
+    }
+  });
 
   app.post('/api/payments/verify', async (req, res) => {
     try {
