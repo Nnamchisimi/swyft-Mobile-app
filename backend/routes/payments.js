@@ -268,38 +268,13 @@ function registerPaymentsRoutes(app, db, io) {
     }
   });
 
-  app.post('/api/payments/webhook', async (req, res) => {
-    try {
-      const notification = req.body;
+  app.post('/api/payments/webhook', (req, res) => {
+    console.log("========== WEBHOOK HIT ==========");
+    console.log(req.headers);
+    console.log(req.body);
 
-      if (!notification || !notification.conversationId) {
-        return res.status(400).json({ error: 'Invalid payload' });
-      }
-
-      const signature = req.headers['x-iyz-signature-v3'] || req.headers['X-IYZ-SIGNATURE-V3'];
-      if (!signature) {
-        console.error('Missing webhook signature. Headers:', JSON.stringify(req.headers));
-      } else if (secretKey && req.rawBody) {
-        try {
-          const hmac = crypto.createHmac('sha256', secretKey);
-          const computedSignature = hmac.update(req.rawBody).digest('base64');
-          if (computedSignature !== signature) {
-            console.error('Invalid webhook signature');
-            return res.status(400).json({ error: 'Invalid signature' });
-          }
-        } catch (signError) {
-          console.error('Signature verification error:', signError);
-        }
-      }
-
-      const status = await verifyPayment(notification.conversationId);
-
-      res.status(200).json({ received: true, status });
-    } catch (error) {
-      console.error('Payment webhook error:', error);
-      res.status(200).json({ received: true });
-    }
-  });
+    res.sendStatus(200);
+});s
 
   app.post('/api/payments/verify', async (req, res) => {
     try {
