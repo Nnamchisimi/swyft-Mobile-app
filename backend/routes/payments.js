@@ -253,8 +253,17 @@ function registerPaymentsRoutes(app, db, io) {
       const callbackParams = req.query;
       const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
 
+      console.log('Payment GET callback received:', { conversationId, callbackKeys: Object.keys(callbackParams) });
+
       if (conversationId) {
+        try {
+          await dbQuery(`UPDATE payments SET callback_params = $1, updated_at = NOW() WHERE payment_id = $2`, [callbackParams, conversationId]);
+        } catch (dbError) {
+          console.error('Payment GET callback DB error:', dbError);
+        }
         await verifyPayment(conversationId);
+      } else {
+        console.warn('Payment GET callback: missing conversationId, query params:', callbackParams);
       }
 
       res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
@@ -269,8 +278,17 @@ function registerPaymentsRoutes(app, db, io) {
       const callbackParams = { ...req.body, ...req.query };
       const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
 
+      console.log('Payment POST callback received:', { conversationId, keys: Object.keys(callbackParams) });
+
       if (conversationId) {
+        try {
+          await dbQuery(`UPDATE payments SET callback_params = $1, updated_at = NOW() WHERE payment_id = $2`, [callbackParams, conversationId]);
+        } catch (dbError) {
+          console.error('Payment callback DB error:', dbError);
+        }
         await verifyPayment(conversationId);
+      } else {
+        console.warn('Payment callback: missing conversationId, params:', callbackParams);
       }
 
       res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
@@ -281,39 +299,55 @@ function registerPaymentsRoutes(app, db, io) {
   });
 
   app.post('/api/payments/webhook', async (req, res) => {
+    console.log('============= WEBHOOK RECEIVED =============');
+    console.log('Webhook headers:', JSON.stringify(req.headers));
+    console.log('Webhook body:', JSON.stringify(req.body));
 
-    console.log("============= WEBHOOK RECEIVED =============");
-      console.log(req.headers);
-      console.log(req.body);
     try {
       const notification = req.body;
 
-      if (!notification || !notification.conversationId) {
+      if (!notification || typeof notification !== 'object') {
         return res.status(400).json({ error: 'Invalid payload' });
       }
 
-      const signature = req.headers['x-iyz-signature-v3'] || req.headers['X-IYZ-SIGNATURE-V3'];
-      if (!signature) {
-        console.error('Missing webhook signature. Headers:', JSON.stringify(req.headers));
-      } else if (secretKey && req.rawBody) {
-        try {
-          const hmac = crypto.createHmac('sha256', secretKey);
-          const computedSignature = hmac.update(req.rawBody).digest('base64');
-          if (computedSignature !== signature) {
-            console.error('Invalid webhook signature');
-            return res.status(400).json({ error: 'Invalid signature' });
-          }
-        } catch (signError) {
-          console.error('Signature verification error:', signError);
+      const signatureHeader = req.headers['x-iyz-signature-v3'] || req.headers['X-IYZ-SIGNATURE-V3'];
+      if (!signatureHeader) {
+        console.error('Missing webhook signature');
+      } else {
+        const isHppFormat = !!(notification.token && notification.iyziEventType && (notification.iyziPaymentId || notification.paymentId));
+        const key = isHppFormat
+          ? [secretKey, notification.iyziEventType || '', String(notification.iyziPaymentId ?? notification.paymentId ?? ''), notification.token || '', notification.paymentConversationId || notification.conversationId || '', notification.status || ''].join('')
+          : [secretKey, notification.iyziEventType || '', String(notification.paymentId || ''), notification.paymentConversationId || notification.conversationId || '', notification.status || ''].join('');
+
+        const computed = crypto.createHmac('sha256', secretKey).update(key).digest('hex');
+        console.log('Webhook signature match:', { computed, received: signatureHeader, format: isHppFormat ? 'HPP' : 'Direct' });
+
+        if (computed !== signatureHeader) {
+          return res.status(400).json({ error: 'Invalid signature' });
         }
       }
 
-      const status = await verifyPayment(notification.conversationId);
+      const conversationId = notification.paymentConversationId || notification.conversationId || notification.conversation_id;
+      if (!conversationId) {
+        return res.status(400).json({ error: 'Invalid payload: missing paymentConversationId' });
+      }
 
-      res.status(200).json({ received: true, status });
+      try {
+        await dbQuery(`UPDATE payments SET webhook_payload = $1, updated_at = NOW() WHERE payment_id = $2`, [notification, conversationId]);
+      } catch (dbError) {
+        console.error('Payment webhook DB error:', dbError);
+      }
+
+      try {
+        const status = await verifyPayment(conversationId);
+        return res.status(200).json({ received: true, status });
+      } catch (verifyError) {
+        console.error('Payment verification error after webhook:', verifyError);
+        return res.status(200).json({ received: true, status: 'processing' });
+      }
     } catch (error) {
       console.error('Payment webhook error:', error);
-      res.status(200).json({ received: true });
+      return res.status(200).json({ received: true });
     }
   });
 

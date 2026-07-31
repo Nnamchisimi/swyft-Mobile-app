@@ -27,10 +27,10 @@ app.use('/api/payments/webhook', (req, res, next) => {
   const chunks = [];
   req.on('data', chunk => chunks.push(chunk));
   req.on('end', () => {
-    const rawBody = Buffer.concat(chunks).toString('utf8');
+    const rawBody = Buffer.concat(chunks);
     req.rawBody = rawBody;
     try {
-      req.body = JSON.parse(rawBody);
+      req.body = JSON.parse(rawBody.toString('utf8'));
     } catch (e) {
       return res.status(400).json({ error: 'Invalid JSON payload' });
     }
