@@ -266,10 +266,13 @@ function registerPaymentsRoutes(app, db, io) {
         console.warn('Payment GET callback: missing conversationId, query params:', callbackParams);
       }
 
-      res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
+      const appDeepLink = process.env.APP_SCHEME ? `${process.env.APP_SCHEME}://payment/success?paymentId=${encodeURIComponent(conversationId || '')}` : null;
+      const redirectTarget = appDeepLink ? appDeepLink : '/payment/success';
+
+      res.status(200).send(`<html><body><script>window.location.replace("${redirectTarget}");</script></body></html>`);
     } catch (error) {
       console.error('Payment GET callback error:', error);
-      res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
+      res.status(200).send('<html><body><script>window.location.replace("/payment/success");</script></body></html>');
     }
   });
 
@@ -291,10 +294,13 @@ function registerPaymentsRoutes(app, db, io) {
         console.warn('Payment callback: missing conversationId, params:', callbackParams);
       }
 
-      res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
+      const appDeepLink = process.env.APP_SCHEME ? `${process.env.APP_SCHEME}://payment/success?paymentId=${encodeURIComponent(conversationId || '')}` : null;
+      const redirectTarget = appDeepLink ? appDeepLink : '/payment/success';
+
+      res.status(200).send(`<html><body><script>window.location.replace("${redirectTarget}");</script></body></html>`);
     } catch (error) {
       console.error('Payment callback error:', error);
-      res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
+      res.status(200).send('<html><body><script>window.location.replace("/payment/success");</script></body></html>');
     }
   });
 
@@ -310,19 +316,27 @@ function registerPaymentsRoutes(app, db, io) {
         return res.status(400).json({ error: 'Invalid payload' });
       }
 
-      const signatureHeader = req.headers['x-iyz-signature-v3'] || req.headers['X-IYZ-SIGNATURE-V3'];
-      if (!signatureHeader) {
-        console.error('Missing webhook signature');
-      } else {
+      const signatureV3 = req.headers['x-iyz-signature-v3'] || req.headers['X-IYZ-SIGNATURE-V3'];
+      const legacySignature = req.headers['x-iyz-signature'];
+      if (legacySignature && !signatureV3) {
+        console.warn('Received legacy x-iyz-signature without X-IYZ-SIGNATURE-V3; webhook V3 signature must be enabled with iyzico support');
+      }
+
+      const requireSignature = String(process.env.REQUIRE_WEBHOOK_SIGNATURE || 'false').toLowerCase() === 'true';
+      if (requireSignature && !signatureV3) {
+        return res.status(400).json({ error: 'Missing webhook signature X-IYZ-SIGNATURE-V3' });
+      }
+
+      if (signatureV3 && secretKey) {
         const isHppFormat = !!(notification.token && notification.iyziEventType && (notification.iyziPaymentId || notification.paymentId));
         const key = isHppFormat
           ? [secretKey, notification.iyziEventType || '', String(notification.iyziPaymentId ?? notification.paymentId ?? ''), notification.token || '', notification.paymentConversationId || notification.conversationId || '', notification.status || ''].join('')
           : [secretKey, notification.iyziEventType || '', String(notification.paymentId || ''), notification.paymentConversationId || notification.conversationId || '', notification.status || ''].join('');
 
         const computed = crypto.createHmac('sha256', secretKey).update(key).digest('hex');
-        console.log('Webhook signature match:', { computed, received: signatureHeader, format: isHppFormat ? 'HPP' : 'Direct' });
+        console.log('Webhook signature match:', { computed, received: signatureV3, format: isHppFormat ? 'HPP' : 'Direct' });
 
-        if (computed !== signatureHeader) {
+        if (computed !== signatureV3) {
           return res.status(400).json({ error: 'Invalid signature' });
         }
       }
@@ -332,22 +346,31 @@ function registerPaymentsRoutes(app, db, io) {
         return res.status(400).json({ error: 'Invalid payload: missing paymentConversationId' });
       }
 
+      const paymentStatus = String(notification.status || '').toUpperCase();
+      const paymentSucceeded = paymentStatus === 'SUCCESS';
+      const status = paymentSucceeded ? 'succeeded' : paymentStatus === 'FAILURE' ? 'failed' : 'pending';
+
       try {
-        await dbQuery(`UPDATE payments SET webhook_payload = $1, updated_at = NOW() WHERE payment_id = $2`, [notification, conversationId]);
+        await dbQuery(
+          `UPDATE payments SET webhook_payload = $1, status = COALESCE(NULLIF($2, ''), status), verified = verified OR $3::boolean, updated_at = NOW() WHERE payment_id = $4`,
+          [notification, paymentStatus || null, String(paymentSucceeded), conversationId]
+        );
       } catch (dbError) {
         console.error('Payment webhook DB error:', dbError);
       }
 
-      try {
-        const status = await verifyPayment(conversationId);
-        return res.status(200).json({ received: true, status });
-      } catch (verifyError) {
-        console.error('Payment verification error after webhook:', verifyError);
-        return res.status(200).json({ received: true, status: 'processing' });
+      if (paymentSucceeded) {
+        try {
+          await verifyPayment(conversationId);
+        } catch (verifyError) {
+          console.error('Payment verification error after webhook:', verifyError);
+        }
       }
+
+      res.status(200).json({ received: true, status });
     } catch (error) {
       console.error('Payment webhook error:', error);
-      return res.status(200).json({ received: true });
+      res.status(200).json({ received: true });
     }
   });
 
