@@ -274,7 +274,7 @@ function registerPaymentsRoutes(app, db, io) {
     console.log(req.body);
 
     res.sendStatus(200);
-});s
+});
 
   app.post('/api/payments/verify', async (req, res) => {
     try {
