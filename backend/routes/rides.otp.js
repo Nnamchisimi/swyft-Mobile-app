@@ -48,6 +48,35 @@ function registerOtpRoutes(app, io, db) {
             if (err2) return res.status(500).json({ error: 'Server error' });
             if (result2.rowCount === 0) return res.status(400).json({ error: 'Cannot complete ride' });
 
+            // Credit driver wallet for completed ride
+            if (ride.driver_email) {
+              db.query('SELECT id FROM public.users WHERE email = $1', [ride.driver_email], (errDriver, driverResults) => {
+                if (!errDriver && driverResults.rows.length > 0) {
+                  const driverUserId = driverResults.rows[0].id;
+                  const now = new Date().toISOString();
+                  const ridePrice = parseFloat(ride.price) || 0;
+
+                  db.query('SELECT * FROM driver_wallets WHERE user_id = $1', [driverUserId], (errWallet, walletResults) => {
+                    const wallet = walletResults.rows[0];
+
+                    if (!wallet) {
+                      db.query(
+                        'INSERT INTO driver_wallets (user_id, available_balance, pending_balance, total_earned, total_withdrawn, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+                        [driverUserId, ridePrice, 0, ridePrice, 0, now, now],
+                        (errInsert) => { if (errInsert) console.error('Wallet insert error:', errInsert); }
+                      );
+                    } else {
+                      db.query(
+                        'UPDATE driver_wallets SET available_balance = available_balance + $1, total_earned = total_earned + $1, updated_at = $2 WHERE user_id = $3',
+                        [ridePrice, now, driverUserId],
+                        (errUpdate) => { if (errUpdate) console.error('Wallet update error:', errUpdate); }
+                      );
+                    }
+                  });
+                }
+              });
+            }
+
             io.emit('rideUpdated', { id: rideId, status: 'completed' });
 
             if (ride.passenger_email) {

@@ -77,6 +77,9 @@ export const driverAPI = {
   
   getEarnings: (email) => api.get('/api/drivers/earnings', { params: { email } }),
   getTodayStats: (email) => api.get('/api/drivers/stats', { params: { email } }),
+  getWallet: (email) => api.get('/api/drivers/wallet', { params: { email } }),
+  requestWithdrawal: (data) => api.post('/api/drivers/wallet/withdraw', data),
+  getWithdrawals: (email) => api.get('/api/drivers/withdrawals', { params: { email } }),
   
   // Driver verification endpoints
   submitIdDocument: (email, document) => api.post(`/api/drivers/${encodeURIComponent(email)}/id-document`, document),
@@ -103,6 +106,10 @@ export const adminAPI = {
   archiveDriver: (email, decision, notes) =>
     api.post(`/api/admin/drivers/${encodeURIComponent(email)}/archive`, { decision, notes }),
   getArchivedDrivers: () => api.get('/api/admin/drivers/archived'),
+  getWithdrawals: (params = {}) => api.get('/api/admin/withdrawals', { params }),
+  processWithdrawal: (id, data) => api.post(`/api/admin/withdrawals/${id}/process`, data),
+  rejectWithdrawal: (id, data) => api.post(`/api/admin/withdrawals/${id}/reject`, data),
+  markWithdrawalPaid: (id, data) => api.post(`/api/admin/withdrawals/${id}/mark-paid`, data),
 };
 
 export const fareAPI = {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -18,6 +18,7 @@ export default function PaymentWebViewScreen() {
   const [checking, setChecking] = useState(false);
   const [browserVisible, setBrowserVisible] = useState(true);
   const [paymentToken, setPaymentToken] = useState(null);
+  const processedStatusRef = useRef(null);
 
   useEffect(() => {
     initializePayment();
@@ -180,6 +181,9 @@ export default function PaymentWebViewScreen() {
   };
 
   const handlePaymentResult = async (status) => {
+    if (processedStatusRef.current === status) return;
+    processedStatusRef.current = status;
+
     setPaymentInProgress(false);
     if (status === 'succeeded' || status === 'captured' || status === 'success') {
       Alert.alert('Payment Successful', 'Your payment has been processed.', [
