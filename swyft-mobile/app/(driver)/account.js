@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -134,6 +135,14 @@ export default function DriverProfileScreen() {
     router.push('/(driver)/earnings');
   };
 
+  const handleWithdraw = () => {
+    router.push('/(driver)/withdraw');
+  };
+
+  const handleWithdrawalHistory = () => {
+    router.push('/(driver)/withdrawal-history');
+  };
+
   const handleRideHistory = async () => {
     try {
       let email = userEmail;
@@ -198,6 +207,7 @@ export default function DriverProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Loading profile...</Text>
@@ -217,6 +227,7 @@ export default function DriverProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backButton}>← Back</Text>
@@ -388,7 +399,23 @@ export default function DriverProfileScreen() {
           </View>
         </View>
 
-        {}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Wallet</Text>
+          <View style={styles.menuCard}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleWithdraw}>
+              <Ionicons name="wallet" size={24} color={COLORS.primary} />
+              <Text style={styles.menuText}>Withdraw Funds</Text>
+              <Text style={styles.menuArrow}>{'>'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleWithdrawalHistory}>
+              <Ionicons name="time" size={24} color={COLORS.primary} />
+              <Text style={styles.menuText}>Withdrawal History</Text>
+              <Text style={styles.menuArrow}>{'>'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
           <View style={styles.menuCard}>

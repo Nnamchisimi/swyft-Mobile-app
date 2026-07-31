@@ -100,10 +100,14 @@ export default function AdminReviewScreen() {
   const [rejectFor, setRejectFor] = useState('');
   const [rejectReason, setRejectReason] = useState('');
 
-  const [view, setView] = useState('pending'); // 'pending' | 'archive'
-  const [archived, setArchived] = useState([]);
-  const [loadingArchived, setLoadingArchived] = useState(false);
-  const [archiveDetail, setArchiveDetail] = useState(null);
+  const [view, setView] = useState('pending'); // 'pending' | 'withdrawals' | 'archive'
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
+  const [withdrawalError, setWithdrawalError] = useState('');
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
+  const [processNotes, setProcessNotes] = useState('');
+  const [transferReference, setTransferReference] = useState('');
+  const [actingWithdrawal, setActingWithdrawal] = useState(false);
 
   const loadDrivers = useCallback(async () => {
     setLoading(true);
@@ -133,6 +137,23 @@ export default function AdminReviewScreen() {
       setLoadingArchived(false);
     }
   }, []);
+
+  const loadWithdrawals = useCallback(async () => {
+    setLoadingWithdrawals(true);
+    setWithdrawalError('');
+    try {
+      const res = await adminAPI.getWithdrawals();
+      setWithdrawals(res.data || []);
+    } catch (e) {
+      setWithdrawalError(e.response?.data?.error || e.message || 'Failed to load withdrawals');
+    } finally {
+      setLoadingWithdrawals(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view === 'withdrawals') loadWithdrawals();
+  }, [view, loadWithdrawals]);
 
   useEffect(() => {
     if (view === 'archive') loadArchived();
@@ -268,6 +289,12 @@ export default function AdminReviewScreen() {
           <Text style={[styles.tabText, view === 'pending' && styles.tabTextActive]}>Pending</Text>
         </TouchableOpacity>
         <TouchableOpacity
+          style={[styles.tab, view === 'withdrawals' && styles.tabActive]}
+          onPress={() => { setView('withdrawals'); setSelected(null); setBundle(null); }}
+        >
+          <Text style={[styles.tabText, view === 'withdrawals' && styles.tabTextActive]}>Withdrawals</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
           style={[styles.tab, view === 'archive' && styles.tabActive]}
           onPress={() => { setView('archive'); setSelected(null); setBundle(null); }}
         >
@@ -315,7 +342,211 @@ export default function AdminReviewScreen() {
         </ScrollView>
       )}
 
-      {!selected && !archiveDetail && view === 'archive' && (
+      {!selected && !archiveDetail && view === 'withdrawals' && (
+        <ScrollView
+          style={styles.list}
+          refreshControl={<RefreshControl refreshing={loadingWithdrawals} onRefresh={loadWithdrawals} />}
+        >
+          <Text style={styles.sectionHint}>Driver withdrawal requests</Text>
+          {loadingWithdrawals && <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.primary} />}
+          {withdrawalError ? <Text style={styles.errorText}>{withdrawalError}</Text> : null}
+          {!loadingWithdrawals && !withdrawalError && withdrawals.length === 0 && (
+            <View style={styles.emptyWrap}>
+              <Ionicons name="cash-outline" size={48} color="#FF9800" />
+              <Text style={styles.emptyText}>No withdrawal requests yet.</Text>
+            </View>
+          )}
+          {withdrawals.map((w) => (
+            <View key={w.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>₺{Number(w.amount).toFixed(2)}</Text>
+                <View style={[styles.badge, { backgroundColor: w.status === 'PAID' ? '#4CAF50' : w.status === 'REJECTED' ? '#F44336' : w.status === 'PROCESSING' ? '#2196F3' : '#FF9800' }]}>
+                  <Text style={styles.badgeText}>{w.status}</Text>
+                </View>
+              </View>
+              <View style={styles.cardBody}>
+                <DetailRow label="Driver" value={`${w.driver_name || ''} ${w.driver_email ? `(${w.driver_email})` : ''}`} />
+                <DetailRow label="Bank" value={w.bank_name || '—'} />
+                <DetailRow label="IBAN" value={w.iban || '—'} />
+                <DetailRow label="Holder" value={w.account_holder_name || '—'} />
+                <DetailRow label="Requested" value={w.created_at ? new Date(w.created_at).toLocaleString() : '—'} />
+                {w.processed_at ? <DetailRow label="Processed" value={new Date(w.processed_at).toLocaleString()} /> : null}
+                {w.admin_notes ? <DetailRow label="Notes" value={w.admin_notes} /> : null}
+                {w.transfer_reference ? <DetailRow label="Reference" value={w.transfer_reference} /> : null}
+              </View>
+              {w.status === 'PENDING' && (
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.approveBtn]}
+                    onPress={() => setSelectedWithdrawal(w)}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                    <Text style={styles.actionBtnText}>Process</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.rejectBtn]}
+                    onPress={async () => {
+                      setActingWithdrawal(true);
+                      try {
+                        await adminAPI.rejectWithdrawal(w.id, { admin_email: 'admin@swyft.com', admin_notes: 'Rejected from admin' });
+                        await loadWithdrawals();
+                      } catch (e) {
+                        Alert.alert('Error', e.response?.data?.error || e.message || 'Failed to reject');
+                      } finally {
+                        setActingWithdrawal(false);
+                      }
+                    }}
+                    disabled={actingWithdrawal}
+                  >
+                    <Ionicons name="close" size={16} color="#fff" />
+                    <Text style={styles.actionBtnText}>Reject</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {w.status === 'PROCESSING' && (
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.approveBtn]}
+                    onPress={() => setSelectedWithdrawal(w)}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                    <Text style={styles.actionBtnText}>Mark as Paid</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {selectedWithdrawal && (
+        <ScrollView style={styles.detail}>
+          <View style={styles.banner}>
+            <Ionicons name="cash" size={18} color="#fff" />
+            <Text style={styles.bannerText}>Withdrawal #{selectedWithdrawal.id}</Text>
+          </View>
+
+          <View style={styles.driverCard}>
+            <View style={styles.avatarLg}>
+              <Text style={styles.avatarTextLg}>₺</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.driverCardName}>₺{Number(selectedWithdrawal.amount).toFixed(2)}</Text>
+              <Text style={styles.driverCardSub}>{selectedWithdrawal.driver_name || 'Driver'} · {selectedWithdrawal.driver_email}</Text>
+            </View>
+            <View style={[styles.badge, { backgroundColor: selectedWithdrawal.status === 'PAID' ? '#4CAF50' : selectedWithdrawal.status === 'REJECTED' ? '#F44336' : selectedWithdrawal.status === 'PROCESSING' ? '#2196F3' : '#FF9800' }]}>
+              <Text style={styles.badgeText}>{selectedWithdrawal.status}</Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Bank Details</Text>
+            <View style={styles.cardBody}>
+              <DetailRow label="Bank" value={selectedWithdrawal.bank_name || '—'} />
+              <DetailRow label="IBAN" value={selectedWithdrawal.iban || '—'} />
+              <DetailRow label="Account Holder" value={selectedWithdrawal.account_holder_name || '—'} />
+            </View>
+          </View>
+
+          {selectedWithdrawal.status === 'PENDING' && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Process Withdrawal</Text>
+              <Text style={styles.reasonText}>Mark this request as processing before transferring.</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Admin notes (optional)"
+                placeholderTextColor="#9E9E9E"
+                value={processNotes}
+                onChangeText={setProcessNotes}
+                multiline
+                numberOfLines={2}
+              />
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.approveBtn]}
+                  disabled={actingWithdrawal}
+                  onPress={async () => {
+                    setActingWithdrawal(true);
+                    try {
+                      await adminAPI.processWithdrawal(selectedWithdrawal.id, { admin_email: 'admin@swyft.com', admin_notes: processNotes || 'Processing' });
+                      setProcessNotes('');
+                      setSelectedWithdrawal(null);
+                      await loadWithdrawals();
+                    } catch (e) {
+                      Alert.alert('Error', e.response?.data?.error || e.message || 'Failed to process');
+                    } finally {
+                      setActingWithdrawal(false);
+                    }
+                  }}
+                >
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Text style={styles.actionBtnText}>Mark Processing</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.rejectBtn]}
+                  disabled={actingWithdrawal}
+                  onPress={async () => {
+                    setActingWithdrawal(true);
+                    try {
+                      await adminAPI.rejectWithdrawal(selectedWithdrawal.id, { admin_email: 'admin@swyft.com', admin_notes: processNotes || 'Rejected' });
+                      setProcessNotes('');
+                      setSelectedWithdrawal(null);
+                      await loadWithdrawals();
+                    } catch (e) {
+                      Alert.alert('Error', e.response?.data?.error || e.message || 'Failed to reject');
+                    } finally {
+                      setActingWithdrawal(false);
+                    }
+                  }}
+                >
+                  <Ionicons name="close" size={16} color="#fff" />
+                  <Text style={styles.actionBtnText}>Reject</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {selectedWithdrawal.status === 'PROCESSING' && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Mark as Paid</Text>
+              <Text style={styles.reasonText}>Use this after the bank transfer is completed.</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Transfer reference (optional)"
+                placeholderTextColor="#9E9E9E"
+                value={transferReference}
+                onChangeText={setTransferReference}
+              />
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.approveBtn]}
+                  disabled={actingWithdrawal}
+                  onPress={async () => {
+                    setActingWithdrawal(true);
+                    try {
+                      await adminAPI.markWithdrawalPaid(selectedWithdrawal.id, { admin_email: 'admin@swyft.com', transfer_reference: transferReference || undefined });
+                      setTransferReference('');
+                      setSelectedWithdrawal(null);
+                      await loadWithdrawals();
+                    } catch (e) {
+                      Alert.alert('Error', e.response?.data?.error || e.message || 'Failed to mark paid');
+                    } finally {
+                      setActingWithdrawal(false);
+                    }
+                  }}
+                >
+                  <Ionicons name="checkmark-done" size={16} color="#fff" />
+                  <Text style={styles.actionBtnText}>Mark Paid</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.closeBtn} onPress={() => { setSelectedWithdrawal(null); setProcessNotes(''); setTransferReference(''); }}>
+            <Text style={styles.closeText}>Back to list</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
         <ScrollView
           style={styles.list}
           refreshControl={<RefreshControl refreshing={loadingArchived} onRefresh={loadArchived} />}

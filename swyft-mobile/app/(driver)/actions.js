@@ -2,6 +2,7 @@ import { Alert } from 'react-native';
 import { authService } from '../../src/services/auth';
 import { ridesAPI, driverAPI } from '../../src/services/api';
 import { socketService } from '../../src/services/socket';
+import { setLastKnownOnlineStatus } from './hooks';
 
 export async function toggleOnline(isOnline, setIsOnline, isOnlineRef, driverInfo, socketService, fetchPendingRides, setPendingRides, location, locationRef, router) {
   if (!isOnline && !location && !locationRef.current) {
@@ -52,6 +53,7 @@ export async function toggleOnline(isOnline, setIsOnline, isOnlineRef, driverInf
 
   setIsOnline(newStatus);
   isOnlineRef.current = newStatus;
+  setLastKnownOnlineStatus(newStatus);
 }
 
 export async function handleAcceptRide(ride, driverInfo, authService, ridesAPI, setCurrentRide, setPendingRides) {

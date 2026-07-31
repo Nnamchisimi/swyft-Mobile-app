@@ -105,13 +105,32 @@ function registerStatusRoutes(app, io, db) {
         }
 
         const ride = rides.rows[0];
-        io.emit('rideUpdated', {
+        const updatedRidePayload = {
           id: ride.id,
-          status: 'arrived_dropoff',
           passenger_email: ride.passenger_email,
           driver_email: ride.driver_email,
-        });
-        res.json({ message: 'Arrived at dropoff', rideId });
+          status: 'arrived_dropoff',
+          pickup_location: ride.pickup_location,
+          dropoff_location: ride.dropoff_location,
+          pickup_lat: ride.pickup_lat,
+          pickup_lng: ride.pickup_lng,
+          dropoff_lat: ride.dropoff_lat,
+          dropoff_lng: ride.dropoff_lng,
+          driver_name: ride.driver_name,
+          driver_phone: ride.driver_phone,
+          driver_vehicle: ride.driver_vehicle,
+          driver_lat: ride.driver_lat,
+          driver_lng: ride.driver_lng,
+          driver_rating: ride.driver_rating,
+          price: ride.price,
+          delivery_id: ride.delivery_id,
+          receiver_email: ride.receiver_email,
+          receiver_phone: ride.receiver_phone,
+          receiver_name: ride.receiver_name,
+          created_at: ride.created_at,
+        };
+        io.emit('rideUpdated', updatedRidePayload);
+        res.json({ message: 'Arrived at dropoff', rideId, ride: updatedRidePayload });
       });
     });
   });

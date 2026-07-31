@@ -97,8 +97,14 @@ export default function TrackRideScreen() {
     const handleRideUpdated = (updatedRide) => {
       const matchesRide = updatedRide.id === rideId || updatedRide.id === ride?.id || String(updatedRide.id) === String(rideId);
       if (matchesRide) {
-        setRide(updatedRide);
-        currentRideRef.current = updatedRide;
+        setRide((prev) => {
+          const base = prev || {};
+          const safeRide = Object.fromEntries(
+            Object.entries(updatedRide).filter(([_, v]) => v !== undefined)
+          );
+          return { ...base, ...safeRide };
+        });
+        currentRideRef.current = { ...(currentRideRef.current || {}), ...updatedRide };
 
         if (updatedRide.status === 'cancelled') {
           Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');

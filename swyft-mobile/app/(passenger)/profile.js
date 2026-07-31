@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { authService } from '../../src/services/auth';
 import { ridesAPI } from '../../src/services/api';
+import { socketService } from '../../src/services/socket';
 import { COLORS } from '../../src/constants/config';
 
 export default function ProfileScreen() {
@@ -26,7 +27,29 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     loadUserData();
+    setupSocket();
+    return () => {
+      socketService.removeAllListeners();
+    };
   }, []);
+
+  const setupSocket = async () => {
+    const email = await authService.getUserEmail();
+    if (!email) return;
+    socketService.connect();
+    socketService.joinRoom(email);
+
+    socketService.on('rideUpdated', (ride) => {
+      if (ride.passenger_email === email || ride.id === verificationRide?.id || (userEmail && ride.passenger_email === userEmail)) {
+        const activeStatuses = ['pending', 'accepted', 'picked_up', 'active', 'arriving', 'arrived_pickup', 'arrived_dropoff'];
+        if (activeStatuses.includes(ride.status)) {
+          loadVerificationData();
+        } else if (['completed', 'cancelled'].includes(ride.status)) {
+          setVerificationRide(null);
+        }
+      }
+    });
+  };
 
   useEffect(() => {
     if (userEmail) {

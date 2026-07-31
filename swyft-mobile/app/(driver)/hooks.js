@@ -6,9 +6,11 @@ import { socketService } from '../../src/services/socket';
 import { authService } from '../../src/services/auth';
 import { calculateDistance, calculateETA } from './utils';
 
+let lastKnownOnlineStatus = false;
+
 export function useDriverDashboardState() {
   const [driverInfo, setDriverInfo] = useState(null);
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => lastKnownOnlineStatus);
   const [pendingRides, setPendingRides] = useState([]);
   const [currentRide, setCurrentRide] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -34,6 +36,14 @@ export function useDriverDashboardState() {
   };
 }
 
+export function getLastKnownOnlineStatus() {
+  return lastKnownOnlineStatus;
+}
+
+export function setLastKnownOnlineStatus(value) {
+  lastKnownOnlineStatus = value;
+}
+
 export function useDriverDashboardEffects(state, refs) {
   const {
     setDriverInfo,
@@ -50,6 +60,10 @@ export function useDriverDashboardEffects(state, refs) {
     setEta,
     setEtaDropoff,
   } = state;
+
+  useEffect(() => {
+    lastKnownOnlineStatus = isOnline;
+  }, [isOnline]);
 
   const { currentRideRef, locationSubscriptionRef, isOnlineRef, locationRef } = refs;
 
