@@ -62,10 +62,10 @@ const io = new Server(server, {
 // rides/drivers/sockets depend on `io`, so register after it is created.
 registerAuthRoutes(app, db);
 registerRidesRoutes(app, io, db);
+registerWithdrawalRoutes(app, io, db);
 registerDriversRoutes(app, db);
 registerVerificationRoutes(app, db);
 registerPaymentsRoutes(app, db, io);
-registerWithdrawalRoutes(app, io, db);
 
 io.on('connection', (socket) => {
   console.log('Client connected');
