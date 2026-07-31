@@ -48,7 +48,7 @@ export default function ProfileScreen() {
       setVerificationLoading(true);
       const response = await ridesAPI.getRides({ passenger_email: userEmail });
       const rides = response.data || [];
-      const active = rides.find(r => ['pending', 'accepted', 'picked_up', 'active', 'arriving', 'arrived_pickup'].includes(r.status));
+      const active = rides.find(r => ['pending', 'accepted', 'picked_up', 'active', 'arriving', 'arrived_pickup', 'arrived_dropoff'].includes(r.status));
       setVerificationRide(active || null);
     } catch (error) {
       console.error('Error loading verification data:', error);
@@ -225,6 +225,16 @@ export default function ProfileScreen() {
                     </Text>
                   </View>
                 </>
+              )}
+
+              {verificationRide.delivery_otp_plain && (
+                <View style={styles.verificationRow}>
+                  <View style={styles.verificationLabelContainer}>
+                    <Ionicons name="key" size={16} color={COLORS.textSecondary} />
+                    <Text style={styles.verificationLabel}>OTP</Text>
+                  </View>
+                  <Text style={styles.verificationValue}>{verificationRide.delivery_otp_plain}</Text>
+                </View>
               )}
             </View>
 
