@@ -46,7 +46,7 @@ export default function WithdrawalHistoryScreen() {
       if (!userEmail) return;
 
       const response = await driverAPI.getWithdrawals(userEmail);
-      setWithdrawals(response || []);
+      setWithdrawals(response?.data || []);
     } catch (error) {
       console.error('Error loading withdrawal history:', error);
     } finally {
