@@ -90,6 +90,7 @@ export default function PaymentWebViewScreen() {
       if (data?.paymentId !== paymentId) return;
       if (interval) clearInterval(interval);
       setBrowserVisible(false);
+      if (data.status === 'pending') return;
       handlePaymentResult(data.status);
     };
 
@@ -151,6 +152,9 @@ export default function PaymentWebViewScreen() {
     try {
       const response = await paymentAPI.verifyPayment({ paymentId, token: paymentToken });
       if (response.data) {
+        if (response.data.status === 'pending') {
+          return;
+        }
         handlePaymentResult(response.data.status);
       }
     } catch (error) {

@@ -22,6 +22,7 @@ function ensurePaymentsTable(db) {
         currency VARCHAR(10) NOT NULL DEFAULT 'TRY',
         status VARCHAR(50) NOT NULL DEFAULT 'pending',
         token VARCHAR(255),
+        verified BOOLEAN DEFAULT FALSE,
         raw_response JSONB,
         callback_params JSONB,
         webhook_payload JSONB,
@@ -32,8 +33,11 @@ function ensurePaymentsTable(db) {
       if (err) return reject(err);
       db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS token VARCHAR(255)`, (alterErr) => {
         if (alterErr) console.error('Failed to add payments.token column:', alterErr);
-        resolve();
       });
+      db.query(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE`, (alterErr) => {
+        if (alterErr) console.error('Failed to add payments.verified column:', alterErr);
+      });
+      resolve();
     });
   });
 }
@@ -57,6 +61,81 @@ function registerPaymentsRoutes(app, db, io) {
         else resolve(results);
       });
     });
+
+  async function verifyPayment(paymentId) {
+    if (!paymentId || !iyzipay.checkoutForm || !iyzipay.checkoutForm.retrieve) {
+      return 'pending';
+    }
+
+    const paymentResult = await dbQuery('SELECT * FROM payments WHERE payment_id = $1', [paymentId]);
+    const payment = paymentResult.rows[0];
+    if (!payment || !payment.token) {
+      return 'pending';
+    }
+
+    if (payment.status === 'succeeded' || payment.status === 'failed') {
+      return payment.status;
+    }
+
+    const inquiryRequest = {
+      locale: 'tr',
+      conversationId: payment.payment_id,
+      token: payment.token,
+    };
+
+    let inquiryResult = null;
+    try {
+      inquiryResult = await new Promise((resolve, reject) => {
+        iyzipay.checkoutForm.retrieve(inquiryRequest, (err, response) => {
+          if (err) return reject(err);
+          resolve(response);
+        });
+      });
+    } catch (error) {
+      console.error('Iyzico payment inquiry error:', error);
+      return payment.status;
+    }
+
+    const paymentSucceeded = inquiryResult.status === 'success' && inquiryResult.paymentStatus === 'SUCCESS';
+    const status = paymentSucceeded ? 'succeeded' : 'failed';
+
+    const updates = {
+      status,
+      raw_response: inquiryResult,
+      verified: status !== 'pending',
+      updated_at: new Date().toISOString(),
+    };
+
+    const setClauses = Object.keys(updates).map((key, index) => `${key} = $${index + 1}`).join(', ');
+    const values = Object.values(updates);
+
+    await dbQuery(`UPDATE payments SET ${setClauses} WHERE payment_id = $${values.length + 1}`, [...values, paymentId]);
+
+    if (io && payment.passenger_email) {
+      io.to(payment.passenger_email).emit('paymentStatusUpdated', {
+        paymentId: payment.payment_id,
+        status,
+        ride_id: payment.ride_id,
+      });
+    }
+
+    if (io && status === 'succeeded' && payment.ride_id) {
+      io.emit('paymentSucceeded', { paymentId: payment.payment_id, rideId: payment.ride_id });
+
+      const rideResult = await dbQuery('SELECT * FROM rides WHERE id = $1', [payment.ride_id]);
+      const ride = rideResult.rows[0];
+      if (ride) {
+        const newRide = {
+          ...ride,
+          created_at: ride.created_at ? new Date(ride.created_at).toISOString() : new Date().toISOString(),
+        };
+        console.log('Emitting newRide to onlineDrivers after card payment verification');
+        io.to('onlineDrivers').emit('newRide', newRide);
+      }
+    }
+
+    return status;
+  }
 
   app.post('/api/payments/create', async (req, res) => {
     try {
@@ -146,7 +225,7 @@ function registerPaymentsRoutes(app, db, io) {
 
       await dbQuery(
         `UPDATE payments SET raw_response = $1, token = $2, updated_at = NOW() WHERE payment_id = $3`,
-        [JSON.stringify(result), result.token, paymentId]
+        [result, result.token, paymentId]
       );
 
       if (result.paymentPageUrl) {
@@ -170,68 +249,11 @@ function registerPaymentsRoutes(app, db, io) {
 
   app.get('/api/payments/callback', async (req, res) => {
     try {
-      console.log('Iyzico callback GET params:', JSON.stringify(req.query));
       const callbackParams = req.query;
       const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
-      const token = callbackParams.token;
 
-      if (!conversationId) {
-        return res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
-      }
-
-      const paymentResult = await dbQuery('SELECT * FROM payments WHERE payment_id = $1', [conversationId]);
-      const payment = paymentResult.rows[0];
-      if (!payment) {
-        return res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
-      }
-
-      let status = 'failed';
-      if (token && iyzipay.checkoutForm && iyzipay.checkoutForm.retrieve) {
-        try {
-          const inquiryRequest = {
-            locale: 'tr',
-            conversationId: payment.payment_id,
-            token,
-          };
-
-          const inquiryResult = await new Promise((resolve, reject) => {
-            iyzipay.checkoutForm.retrieve(inquiryRequest, (err, response) => {
-              if (err) return reject(err);
-              resolve(response);
-            });
-          });
-
-          status = inquiryResult.status === 'success' || inquiryResult.status === 'captured' ? 'succeeded' : 'failed';
-
-          await dbQuery(
-            `UPDATE payments SET status = $1, raw_response = $2, callback_params = $3, verified = TRUE, updated_at = NOW() WHERE payment_id = $4`,
-            [status, JSON.stringify(inquiryResult), JSON.stringify(callbackParams), payment.payment_id]
-          );
-        } catch (inquiryError) {
-          console.error('Payment inquiry error in GET callback:', inquiryError);
-          status = callbackParams.status === 'success' ? 'succeeded' : 'failed';
-          await dbQuery(
-            `UPDATE payments SET status = $1, callback_params = $2, updated_at = NOW() WHERE payment_id = $3`,
-            [status, JSON.stringify(callbackParams), payment.payment_id]
-          );
-        }
-      } else {
-        status = callbackParams.status === 'success' ? 'succeeded' : 'failed';
-        await dbQuery(
-          `UPDATE payments SET status = $1, callback_params = $2, updated_at = NOW() WHERE payment_id = $3`,
-          [status, JSON.stringify(callbackParams), payment.payment_id]
-        );
-      }
-
-      if (io && payment.passenger_email) {
-        io.to(payment.passenger_email).emit('paymentStatusUpdated', {
-          paymentId: payment.payment_id,
-          status,
-          ride_id: payment.ride_id,
-        });
-      }
-      if (io && status === 'succeeded' && payment.ride_id) {
-        io.emit('paymentSucceeded', { paymentId: payment.payment_id, rideId: payment.ride_id });
+      if (conversationId) {
+        await verifyPayment(conversationId);
       }
 
       res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
@@ -246,71 +268,8 @@ function registerPaymentsRoutes(app, db, io) {
       const callbackParams = { ...req.body, ...req.query };
       const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
 
-      if (!conversationId) {
-        return res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
-      }
-
-      const paymentResult = await dbQuery('SELECT * FROM payments WHERE payment_id = $1', [conversationId]);
-      const payment = paymentResult.rows[0];
-      if (!payment || !payment.token) {
-        return res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
-      }
-
-      let status = 'failed';
-      try {
-        const inquiryRequest = {
-          locale: 'tr',
-          conversationId: payment.payment_id,
-          token: payment.token,
-        };
-
-        const inquiryResult = await new Promise((resolve, reject) => {
-          if (!iyzipay.checkoutForm || !iyzipay.checkoutForm.retrieve) {
-            return reject(new Error('Iyzico checkout form retrieve method not found'));
-          }
-          iyzipay.checkoutForm.retrieve(inquiryRequest, (err, response) => {
-            if (err) return reject(err);
-            resolve(response);
-          });
-        });
-
-        console.log('Iyzico inquiry result for callback:', JSON.stringify(inquiryResult));
-        status = inquiryResult.status === 'success' || inquiryResult.status === 'captured' ? 'succeeded' : 'failed';
-
-        await dbQuery(
-          `UPDATE payments SET status = $1, raw_response = $2, callback_params = $3, verified = TRUE, updated_at = NOW() WHERE payment_id = $4`,
-          [status, JSON.stringify(inquiryResult), JSON.stringify(callbackParams), payment.payment_id]
-        );
-      } catch (inquiryError) {
-        console.error('Payment inquiry error in callback:', inquiryError);
-        const fallbackStatus = callbackParams.status === 'success' ? 'succeeded' : 'failed';
-        status = fallbackStatus;
-        await dbQuery(
-          `UPDATE payments SET status = $1, callback_params = $2, updated_at = NOW() WHERE payment_id = $3`,
-          [fallbackStatus, JSON.stringify(callbackParams), payment.payment_id]
-        );
-      }
-
-      if (io && payment.passenger_email) {
-        io.to(payment.passenger_email).emit('paymentStatusUpdated', {
-          paymentId: payment.payment_id,
-          status,
-          ride_id: payment.ride_id,
-        });
-      }
-      if (io && status === 'succeeded' && payment.ride_id) {
-        io.emit('paymentSucceeded', { paymentId: payment.payment_id, rideId: payment.ride_id });
-
-        const rideResult = await dbQuery('SELECT * FROM rides WHERE id = $1', [payment.ride_id]);
-        const ride = rideResult.rows[0];
-        if (ride) {
-          const newRide = {
-            ...ride,
-            created_at: ride.created_at ? new Date(ride.created_at).toISOString() : new Date().toISOString(),
-          };
-          console.log('Emitting newRide to onlineDrivers after card payment verification');
-          io.to('onlineDrivers').emit('newRide', newRide);
-        }
+      if (conversationId) {
+        await verifyPayment(conversationId);
       }
 
       res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
@@ -328,101 +287,29 @@ function registerPaymentsRoutes(app, db, io) {
         return res.status(400).json({ error: 'Invalid payload' });
       }
 
-      const conversationId = notification.conversationId;
-      const isSuccess = notification.status === 'success' || String(notification.paymentStatus || '').toLowerCase() === 'success';
-      const status = isSuccess ? 'succeeded' : 'failed';
+      const status = await verifyPayment(notification.conversationId);
 
-      await dbQuery(
-        `UPDATE payments SET status = $1, webhook_payload = $2, updated_at = NOW() WHERE payment_id = $3`,
-        [status, JSON.stringify(notification), conversationId]
-      );
-
-      const paymentResult = await dbQuery('SELECT passenger_email, ride_id FROM payments WHERE payment_id = $1', [conversationId]);
-      const payment = paymentResult.rows[0];
-      if (payment) {
-        if (io && payment.passenger_email) {
-          io.to(payment.passenger_email).emit('paymentStatusUpdated', {
-            paymentId: conversationId,
-            status,
-            ride_id: payment.ride_id,
-          });
-        }
-        if (io && isSuccess && payment.ride_id) {
-          io.emit('paymentSucceeded', { paymentId: conversationId, rideId: payment.ride_id });
-        }
-      }
-
-      res.status(200).json({ received: true });
+      res.status(200).json({ received: true, status });
     } catch (error) {
       console.error('Payment webhook error:', error);
-      res.status(500).json({ error: 'Webhook processing failed' });
+      res.status(200).json({ received: true });
     }
   });
 
   app.post('/api/payments/verify', async (req, res) => {
     try {
-      const { paymentId, token } = req.body;
-      if (!paymentId || !token) {
-        return res.status(400).json({ error: 'paymentId and token are required' });
+      const { paymentId } = req.body;
+      if (!paymentId) {
+        return res.status(400).json({ error: 'paymentId is required' });
       }
+
+      const status = await verifyPayment(paymentId);
 
       const paymentResult = await dbQuery('SELECT * FROM payments WHERE payment_id = $1', [paymentId]);
       const payment = paymentResult.rows[0];
-      if (!payment) {
-        return res.status(404).json({ error: 'Payment not found' });
-      }
+      const rawResponse = payment ? payment.raw_response : null;
 
-      try {
-        const inquiryRequest = {
-          locale: 'tr',
-          conversationId: paymentId,
-          token,
-        };
-
-        const inquiryResult = await new Promise((resolve, reject) => {
-          if (!iyzipay.checkoutForm || !iyzipay.checkoutForm.retrieve) {
-            return reject(new Error('Iyzico checkout form retrieve method not found'));
-          }
-          iyzipay.checkoutForm.retrieve(inquiryRequest, (err, response) => {
-            if (err) return reject(err);
-            resolve(response);
-          });
-        });
-
-        const status = inquiryResult.status === 'success' || inquiryResult.status === 'captured' ? 'succeeded' : 'failed';
-
-        await dbQuery(
-          `UPDATE payments SET status = $1, raw_response = $2, verified = TRUE, updated_at = NOW() WHERE payment_id = $3`,
-          [status, JSON.stringify(inquiryResult), paymentId]
-        );
-
-        if (io && payment.passenger_email) {
-          io.to(payment.passenger_email).emit('paymentStatusUpdated', {
-            paymentId,
-            status,
-            ride_id: payment.ride_id,
-          });
-          if (status === 'succeeded' && payment.ride_id) {
-            io.emit('paymentSucceeded', { paymentId, rideId: payment.ride_id });
-
-            const rideResult = await dbQuery('SELECT * FROM rides WHERE id = $1', [payment.ride_id]);
-            const ride = rideResult.rows[0];
-            if (ride) {
-              const newRide = {
-                ...ride,
-                created_at: ride.created_at ? new Date(ride.created_at).toISOString() : new Date().toISOString(),
-              };
-              console.log('Emitting newRide to onlineDrivers after card payment verification');
-              io.to('onlineDrivers').emit('newRide', newRide);
-            }
-          }
-        }
-
-        return res.json({ status, rawResponse: inquiryResult });
-      } catch (inquiryError) {
-        console.error('Payment inquiry error:', inquiryError);
-        return res.status(500).json({ error: 'Payment verification failed', details: inquiryError.message });
-      }
+      return res.json({ status, rawResponse });
     } catch (error) {
       console.error('Payment verify error:', error);
       return res.status(500).json({ error: 'Payment verification failed', details: error.message });
