@@ -129,7 +129,7 @@ export const paymentAPI = {
   deletePaymentMethod: (id) => api.delete(`/api/payment-methods/${id}`),
   createPayment: (data) => api.post('/api/payments/create', data),
   verifyPayment: (data) => api.post('/api/payments/verify', data),
-  getPaymentStatus: (paymentId) => api.get(`/api/payments/status/${paymentId}`),
+  getPaymentStatus: (paymentId, config) => api.get(`/api/payments/status/${paymentId}`, config),
 };
 
 export default api;

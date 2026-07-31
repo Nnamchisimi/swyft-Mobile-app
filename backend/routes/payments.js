@@ -266,13 +266,10 @@ function registerPaymentsRoutes(app, db, io) {
         console.warn('Payment GET callback: missing conversationId, query params:', callbackParams);
       }
 
-      const appDeepLink = process.env.APP_SCHEME ? `${process.env.APP_SCHEME}://payment/success?paymentId=${encodeURIComponent(conversationId || '')}` : null;
-      const redirectTarget = appDeepLink ? appDeepLink : '/payment/success';
-
-      res.status(200).send(`<html><body><script>window.location.replace("${redirectTarget}");</script></body></html>`);
+      res.status(200).send(`<html><body><h2>Payment processing</h2><p>You can close this tab and return to the app.</p></body></html>`);
     } catch (error) {
       console.error('Payment GET callback error:', error);
-      res.status(200).send('<html><body><script>window.location.replace("/payment/success");</script></body></html>');
+      res.status(200).send(`<html><body><h2>Payment processing</h2><p>You can close this tab and return to the app.</p></body></html>`);
     }
   });
 
@@ -294,13 +291,11 @@ function registerPaymentsRoutes(app, db, io) {
         console.warn('Payment callback: missing conversationId, params:', callbackParams);
       }
 
-      const appDeepLink = process.env.APP_SCHEME ? `${process.env.APP_SCHEME}://payment/success?paymentId=${encodeURIComponent(conversationId || '')}` : null;
-      const redirectTarget = appDeepLink ? appDeepLink : '/payment/success';
 
-      res.status(200).send(`<html><body><script>window.location.replace("${redirectTarget}");</script></body></html>`);
+      res.status(200).send(`<html><body><h2>Payment processing</h2><p>You can close this tab and return to the app.</p></body></html>`);
     } catch (error) {
       console.error('Payment callback error:', error);
-      res.status(200).send('<html><body><script>window.location.replace("/payment/success");</script></body></html>');
+      res.status(200).send(`<html><body><h2>Payment processing</h2><p>You can close this tab and return to the app.</p></body></html>`);
     }
   });
 
