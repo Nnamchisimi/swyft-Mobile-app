@@ -16,7 +16,8 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
   const router = useRouter();
   const { isAppReady } = useAppReady();
   const [phase, setPhase] = useState<Phase>("enter");
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [exited, setExited] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
   const logoScale = useRef(new Animated.Value(0.96)).current;
   const logoTranslateY = useRef(new Animated.Value(10)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
@@ -90,28 +91,32 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           duration: 500,
           useNativeDriver: true,
         }),
-        Animated.loop(
-          Animated.timing(progressWidth, {
-            toValue: 1,
-            duration: 1800,
-            useNativeDriver: false,
-          })
-        ).start(),
       ]).start();
-    }
 
+      Animated.loop(
+        Animated.timing(progressWidth, {
+          toValue: 1,
+          duration: 1800,
+          useNativeDriver: false,
+        })
+      ).start();
+    }
+  }, [phase]);
+
+  useEffect(() => {
     if (phase === "exit") {
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 1000,
         useNativeDriver: true,
       }).start(() => {
+        setExited(true);
         onCompleteRef.current();
       });
     }
   }, [phase]);
 
-  if (phase === "exit" && fadeAnim.__getValue() === 0) {
+  if (phase === "exit" && exited) {
     return null;
   }
 
@@ -208,7 +213,7 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: "center",
-    gap: 24,
+    gap: 16,
   },
   logoWrapper: {
     alignItems: "center",
@@ -222,9 +227,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   brandText: {
-    fontSize: 48,
+    fontSize:20,
     fontWeight: "600",
-    letterSpacing: 14,
+    letterSpacing: 10,
     color: COLORS.white,
     textAlign: "center",
   },
