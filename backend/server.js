@@ -22,6 +22,25 @@ app.get('/', (req, res) => {
 });
 
 app.use(cors());
+
+app.use('/api/payments/webhook', (req, res, next) => {
+  const chunks = [];
+  req.on('data', chunk => chunks.push(chunk));
+  req.on('end', () => {
+    const rawBody = Buffer.concat(chunks).toString('utf8');
+    req.rawBody = rawBody;
+    try {
+      req.body = JSON.parse(rawBody);
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid JSON payload' });
+    }
+    next();
+  });
+  req.on('error', () => {
+    res.status(400).json({ error: 'Failed to read request body' });
+  });
+});
+
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ limit: '25mb', extended: true }));
 

@@ -142,7 +142,6 @@ export default function PaymentWebViewScreen() {
       console.error('Browser error:', error);
     } finally {
       setBrowserVisible(false);
-      verifyPayment();
     }
   };
 

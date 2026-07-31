@@ -1,4 +1,5 @@
 const Iyzipay = require('iyzipay');
+const crypto = require('crypto');
 
 const apiKey = process.env.IYZICO_API_KEY;
 const secretKey = process.env.IYZICO_SECRET_KEY;
@@ -249,13 +250,7 @@ function registerPaymentsRoutes(app, db, io) {
 
   app.get('/api/payments/callback', async (req, res) => {
     try {
-      const callbackParams = req.query;
-      const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
-
-      if (conversationId) {
-        await verifyPayment(conversationId);
-      }
-
+      console.log('Iyzico callback received (verification handled by webhook):', JSON.stringify(req.query));
       res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
     } catch (error) {
       console.error('Payment GET callback error:', error);
@@ -265,13 +260,7 @@ function registerPaymentsRoutes(app, db, io) {
 
   app.post('/api/payments/callback', async (req, res) => {
     try {
-      const callbackParams = { ...req.body, ...req.query };
-      const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
-
-      if (conversationId) {
-        await verifyPayment(conversationId);
-      }
-
+      console.log('Iyzico callback received (verification handled by webhook):', JSON.stringify(req.body));
       res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
     } catch (error) {
       console.error('Payment callback error:', error);
@@ -282,6 +271,20 @@ function registerPaymentsRoutes(app, db, io) {
   app.post('/api/payments/webhook', async (req, res) => {
     try {
       const notification = req.body;
+      const signature = req.headers['x-iyz-signature-v3'];
+
+      if (!signature) {
+        console.error('Missing webhook signature');
+        return res.status(400).json({ error: 'Missing signature' });
+      }
+
+      const hmac = crypto.createHmac('sha256', secretKey);
+      const computedSignature = hmac.update(req.rawBody).digest('base64');
+
+      if (computedSignature !== signature) {
+        console.error('Invalid webhook signature');
+        return res.status(400).json({ error: 'Invalid signature' });
+      }
 
       if (!notification || !notification.conversationId) {
         return res.status(400).json({ error: 'Invalid payload' });
