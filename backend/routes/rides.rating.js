@@ -1,3 +1,5 @@
+const { updateDriverRating, updateUserRating } = require('./rides.helpers');
+
 function registerRatingRoutes(app, io, db) {
   app.post('/api/rides/:id/rate', (req, res) => {
     const rideId = req.params.id;

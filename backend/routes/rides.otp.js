@@ -1,3 +1,5 @@
+const { generateVerificationCode, hashOtp, verifyOtp, sendDeliveryOtp } = require('../utils/helpers');
+
 function registerOtpRoutes(app, io, db) {
   app.post('/api/rides/:id/verify-otp', (req, res) => {
     const rideId = req.params.id;
