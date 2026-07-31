@@ -94,7 +94,7 @@ function registerRidesRoutes(app, io, db) {
   app.post('/api/rides', (req, res) => {
     console.log('Ride request received:', req.body);
 
-    const { passenger_email, passenger_name, passenger_phone, pickup, dropoff, pickup_location, dropoff_location, ride_type, price, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email } = req.body;
+    const { passenger_email, passenger_name, passenger_phone, pickup, dropoff, pickup_location, dropoff_location, ride_type, price, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email, payment_method } = req.body;
 
     // Support both field names (pickup/dropoff OR pickup_location/dropoff_location)
     const pickupLoc = pickup || pickup_location;
@@ -199,7 +199,7 @@ function registerRidesRoutes(app, io, db) {
            const otpRecipient = receiver_email || passenger_email;
            sendDeliveryOtp(otpRecipient, otp, deliveryId);
 
-            const newRide = {
+           const newRide = {
              id: rideId,
              delivery_id: deliveryId,
              delivery_otp_plain: otp,
@@ -226,9 +226,11 @@ function registerRidesRoutes(app, io, db) {
             created_at: new Date().toISOString()
           };
 
-          // Emit to all online drivers
-          console.log('Emitting newRide to onlineDrivers room');
-          io.to("onlineDrivers").emit("newRide", newRide);
+          if (payment_method !== 'card') {
+            // Emit to all online drivers
+            console.log('Emitting newRide to onlineDrivers room');
+            io.to("onlineDrivers").emit("newRide", newRide);
+          }
           console.log('Emitting rideCreated to passenger:', passenger_email);
           io.to(passenger_email).emit('rideCreated', newRide);
 

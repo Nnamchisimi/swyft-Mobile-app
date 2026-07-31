@@ -67,6 +67,14 @@ export default function PaymentWebViewScreen() {
         } catch (error) {
           attempts += 1;
           console.error('Payment status check error:', error);
+          console.error('Payment status check details:', {
+            code: error?.code,
+            message: error?.message,
+            url: error?.config?.url,
+            method: error?.config?.method,
+            status: error?.response?.status,
+            data: error?.response?.data,
+          });
           if (attempts >= MAX_ATTEMPTS) {
             clearInterval(interval);
             setBrowserVisible(false);
@@ -147,6 +155,14 @@ export default function PaymentWebViewScreen() {
       }
     } catch (error) {
       console.error('Payment verify error:', error);
+      console.error('Payment verify details:', {
+        code: error?.code,
+        message: error?.message,
+        url: error?.config?.url,
+        method: error?.config?.method,
+        status: error?.response?.status,
+        data: error?.response?.data,
+      });
       Alert.alert(
         'Verification',
         'Could not automatically verify payment. Tap Retry or wait for confirmation.',

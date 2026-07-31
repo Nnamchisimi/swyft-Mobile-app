@@ -453,7 +453,7 @@ export function useBookRideActions(state) {
       setLoading(true);
       try {
         setPaymentInProgress(true);
-        const response = await ridesAPI.createRide(rideData);
+        const response = await ridesAPI.createRide({ ...rideData, payment_method: 'card' });
         const ride = response.data;
         const createdRide = { id: ride.rideId, ...rideData, status: 'pending' };
         setCurrentRide(createdRide);

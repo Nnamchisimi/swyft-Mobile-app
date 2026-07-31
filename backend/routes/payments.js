@@ -176,13 +176,13 @@ function registerPaymentsRoutes(app, db, io) {
       const token = callbackParams.token;
 
       if (!conversationId) {
-        return res.status(200).json({ received: true });
+        return res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
       }
 
       const paymentResult = await dbQuery('SELECT * FROM payments WHERE payment_id = $1', [conversationId]);
       const payment = paymentResult.rows[0];
       if (!payment) {
-        return res.status(200).json({ received: true });
+        return res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
       }
 
       let status = 'failed';
@@ -234,10 +234,10 @@ function registerPaymentsRoutes(app, db, io) {
         io.emit('paymentSucceeded', { paymentId: payment.payment_id, rideId: payment.ride_id });
       }
 
-      res.status(200).json({ received: true, status });
+      res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
     } catch (error) {
       console.error('Payment GET callback error:', error);
-      res.status(200).json({ received: true });
+      res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
     }
   });
 
@@ -247,13 +247,13 @@ function registerPaymentsRoutes(app, db, io) {
       const conversationId = callbackParams.conversationId || callbackParams.conversation_id;
 
       if (!conversationId) {
-        return res.status(200).json({ received: true });
+        return res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
       }
 
       const paymentResult = await dbQuery('SELECT * FROM payments WHERE payment_id = $1', [conversationId]);
       const payment = paymentResult.rows[0];
       if (!payment || !payment.token) {
-        return res.status(200).json({ received: true });
+        return res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
       }
 
       let status = 'failed';
@@ -300,12 +300,23 @@ function registerPaymentsRoutes(app, db, io) {
       }
       if (io && status === 'succeeded' && payment.ride_id) {
         io.emit('paymentSucceeded', { paymentId: payment.payment_id, rideId: payment.ride_id });
+
+        const rideResult = await dbQuery('SELECT * FROM rides WHERE id = $1', [payment.ride_id]);
+        const ride = rideResult.rows[0];
+        if (ride) {
+          const newRide = {
+            ...ride,
+            created_at: ride.created_at ? new Date(ride.created_at).toISOString() : new Date().toISOString(),
+          };
+          console.log('Emitting newRide to onlineDrivers after card payment verification');
+          io.to('onlineDrivers').emit('newRide', newRide);
+        }
       }
 
-      res.status(200).json({ received: true, status });
+      res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
     } catch (error) {
       console.error('Payment callback error:', error);
-      res.status(200).json({ received: true });
+      res.status(200).send('<html><body><h1>Payment Complete</h1><p>You may close this window.</p><script>setTimeout(function(){ window.close(); }, 1000);</script></body></html>');
     }
   });
 
@@ -393,6 +404,17 @@ function registerPaymentsRoutes(app, db, io) {
           });
           if (status === 'succeeded' && payment.ride_id) {
             io.emit('paymentSucceeded', { paymentId, rideId: payment.ride_id });
+
+            const rideResult = await dbQuery('SELECT * FROM rides WHERE id = $1', [payment.ride_id]);
+            const ride = rideResult.rows[0];
+            if (ride) {
+              const newRide = {
+                ...ride,
+                created_at: ride.created_at ? new Date(ride.created_at).toISOString() : new Date().toISOString(),
+              };
+              console.log('Emitting newRide to onlineDrivers after card payment verification');
+              io.to('onlineDrivers').emit('newRide', newRide);
+            }
           }
         }
 
