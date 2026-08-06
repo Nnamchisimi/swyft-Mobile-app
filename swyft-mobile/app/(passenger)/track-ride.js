@@ -106,6 +106,13 @@ export default function TrackRideScreen() {
         });
         currentRideRef.current = { ...(currentRideRef.current || {}), ...updatedRide };
 
+        if (updatedRide.driver_lat && updatedRide.driver_lng) {
+          setDriverLocation({
+            latitude: parseFloat(updatedRide.driver_lat),
+            longitude: parseFloat(updatedRide.driver_lng),
+          });
+        }
+
         if (updatedRide.status === 'cancelled') {
           Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
           router.replace('/(passenger)/home');
@@ -203,7 +210,14 @@ export default function TrackRideScreen() {
   };
 
   const handleTrackRoute = () => {
-    if (!driverLocation || !ride?.dropoff_lat || !ride?.dropoff_lng) return;
+    if (!driverLocation) {
+      Alert.alert('Unavailable', 'Courier location not available yet. Please wait for the courier to accept the delivery.');
+      return;
+    }
+    if (!ride?.dropoff_lat || !ride?.dropoff_lng) {
+      Alert.alert('Unavailable', 'Drop-off location not available yet.');
+      return;
+    }
 
     const origin = `${driverLocation.latitude},${driverLocation.longitude}`;
     const destination = `${parseFloat(ride.dropoff_lat)},${parseFloat(ride.dropoff_lng)}`;
