@@ -54,6 +54,7 @@ function RootLayoutContent() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(passenger)" />
         <Stack.Screen name="(driver)" />
+        <Stack.Screen name="(admin)" />
       </Stack>
       {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
     </>

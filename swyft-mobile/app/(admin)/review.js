@@ -10,11 +10,14 @@ import {
   RefreshControl,
   TextInput,
   Modal,
+  StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { adminAPI } from '../../src/services/api';
+import authService from '../../src/services/auth';
 import { COLORS } from '../../src/constants/config';
 
 const SECTIONS = [
@@ -108,6 +111,10 @@ export default function AdminReviewScreen() {
   const [processNotes, setProcessNotes] = useState('');
   const [transferReference, setTransferReference] = useState('');
   const [actingWithdrawal, setActingWithdrawal] = useState(false);
+
+  const [archived, setArchived] = useState([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
+  const [archiveDetail, setArchiveDetail] = useState(null);
 
   const loadDrivers = useCallback(async () => {
     setLoading(true);
@@ -260,25 +267,30 @@ export default function AdminReviewScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <View style={styles.header}>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.brandName}>SWYFTinc</Text>
+          <Text style={styles.headerTitle}>Moderator Review</Text>
+        </View>
         <TouchableOpacity
-          onPress={() => {
-            if (view === 'archive' && archiveDetail) {
-              setArchiveDetail(null);
-              return;
-            }
-            if (router.canGoBack && router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(auth)/signin');
-            }
-          }}
-          style={styles.backBtn}
+          style={styles.headerLogoutBtn}
+          onPress={() =>
+            Alert.alert('Logout', 'Are you sure you want to logout?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Logout',
+                style: 'destructive',
+                onPress: async () => {
+                  await authService.logout();
+                  router.replace('/(auth)/signin');
+                },
+              },
+            ])
+          }
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="log-out-outline" size={18} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Moderator Review</Text>
-        <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.tabBar}>
@@ -310,13 +322,13 @@ export default function AdminReviewScreen() {
           <Text style={styles.sectionHint}>Drivers awaiting verification</Text>
           {loading && <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.primary} />}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {!loading && !error && drivers.length === 0 && (
+          {!loading && !error && Array.isArray(drivers) && drivers.length === 0 && (
             <View style={styles.emptyWrap}>
               <Ionicons name="checkmark-done-circle-outline" size={48} color="#4CAF50" />
               <Text style={styles.emptyText}>All caught up. No drivers pending review.</Text>
             </View>
           )}
-          {drivers.map((d) => (
+          {Array.isArray(drivers) && drivers.map((d) => (
             <TouchableOpacity key={d.id} style={styles.driverRow} onPress={() => openDriver(d)}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
@@ -329,14 +341,14 @@ export default function AdminReviewScreen() {
                 </Text>
                 <Text style={styles.driverSub}>{d.email}</Text>
                 <Text style={styles.driverSub}>{d.phone || ''}</Text>
+                {d.is_approved ? (
+                  <View style={[styles.badge, { backgroundColor: '#4CAF50' }]}>
+                    <Text style={styles.badgeText}>Approved</Text>
+                  </View>
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color="#999" />
+                )}
               </View>
-              {d.is_approved ? (
-                <View style={[styles.badge, { backgroundColor: '#4CAF50' }]}>
-                  <Text style={styles.badgeText}>Approved</Text>
-                </View>
-              ) : (
-                <Ionicons name="chevron-forward" size={20} color="#999" />
-              )}
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -547,6 +559,7 @@ export default function AdminReviewScreen() {
           </TouchableOpacity>
         </ScrollView>
       )}
+      {!selected && !archiveDetail && view === 'archive' && (
         <ScrollView
           style={styles.list}
           refreshControl={<RefreshControl refreshing={loadingArchived} onRefresh={loadArchived} />}
@@ -798,7 +811,7 @@ export default function AdminReviewScreen() {
           </View>
 
           {archiveDetail.id_document ? (
-            <SectionBlock title="ID Document" status={getStatus(archiveDetail, 'id-document')} hasData acting={false}>
+            <SectionBlock title="ID Document" status={getStatus(archiveDetail, 'id-document')} hasData={false} acting={false}>
               <DetailRow label="Type" value={archiveDetail.id_document.document_type} />
               <DetailRow label="Number" value={archiveDetail.id_document.document_number} />
               <DetailRow label="Expiry" value={archiveDetail.id_document.expiry_date} />
@@ -813,7 +826,7 @@ export default function AdminReviewScreen() {
           ) : null}
 
           {archiveDetail.selfie ? (
-            <SectionBlock title="Selfie Verification" status={getStatus(archiveDetail, 'selfie')} hasData acting={false}>
+            <SectionBlock title="Selfie Verification" status={getStatus(archiveDetail, 'selfie')} hasData={false} acting={false}>
               {archiveDetail.selfie.match_confidence != null && (
                 <DetailRow label="Match confidence" value={`${archiveDetail.selfie.match_confidence}%`} />
               )}
@@ -828,14 +841,14 @@ export default function AdminReviewScreen() {
           ) : null}
 
           {archiveDetail.phone ? (
-            <SectionBlock title="Phone Number" status={getStatus(archiveDetail, 'phone')} hasData acting={false}>
+            <SectionBlock title="Phone Number" status={getStatus(archiveDetail, 'phone')} hasData={false} acting={false}>
               <DetailRow label="Number" value={archiveDetail.phone.phone_number} />
               <DetailRow label="Verified" value={archiveDetail.phone.is_verified ? 'Yes' : 'No'} />
             </SectionBlock>
           ) : null}
 
           {archiveDetail.bank_account ? (
-            <SectionBlock title="Bank Account" status={getStatus(archiveDetail, 'bank')} hasData acting={false}>
+            <SectionBlock title="Bank Account" status={getStatus(archiveDetail, 'bank')} hasData={false} acting={false}>
               <DetailRow label="Bank" value={archiveDetail.bank_account.bank_name} />
               <DetailRow label="Holder" value={archiveDetail.bank_account.account_holder_name} />
               <DetailRow label="Account" value={archiveDetail.bank_account.account_number} />
@@ -857,7 +870,11 @@ export default function AdminReviewScreen() {
           {archiveDetail.notes ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Reviewer notes</Text>
-              <Text style={styles.field}>{archiveDetail.notes}</Text>
+              {typeof archiveDetail.notes === 'string' ? (
+                <Text style={styles.detailValue}>{archiveDetail.notes}</Text>
+              ) : (
+                <Text style={styles.detailValue}>{JSON.stringify(archiveDetail.notes)}</Text>
+              )}
             </View>
           ) : null}
 
@@ -947,17 +964,48 @@ const SectionBlock = ({ title, status, acting, hasData = true, onApprove, onReje
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f6f8' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
   header: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    padding: 20,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    position: 'relative',
   },
-  backBtn: { padding: 4 },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1, textAlign: 'center' },
+  headerTitleContainer: {
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  brandName: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    letterSpacing: 2,
+    marginBottom: 2,
+  },
+  headerLogoutBtn: {
+    position: 'absolute',
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
   sectionHint: { fontSize: 13, fontWeight: '600', color: '#607D8B', marginBottom: 10, textTransform: 'uppercase' },
   tabBar: { flexDirection: 'row', backgroundColor: '#ECEFF1', padding: 6 },
   tab: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },

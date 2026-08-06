@@ -48,6 +48,10 @@ export default function Index() {
     return <Redirect href="/(driver)/dashboard" />;
   }
 
+  if (userRole === 'admin') {
+    return <Redirect href="/(admin)/review" />;
+  }
+
   return <Redirect href="/(passenger)/home" />;
 }
 
