@@ -60,35 +60,98 @@ export default function PackageImageUpload({ imageUrl, onImageUploaded, onImageR
   const [uploading, setUploading] = useState(false);
 
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permission required', 'Please allow access to your photo library.');
-      return;
-    }
+    Alert.alert(
+      'Add Package Photo',
+      'Please add a clear photo of the package for transparency.',
+      [
+        { text: 'Take Photo', onPress: handleCamera },
+        { text: 'Choose from Gallery', onPress: handleGallery },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
-      base64: true,
-    });
-
-    if (result.canceled) return;
-    const asset = result.assets?.[0];
-    if (!asset?.base64) {
-      Alert.alert('Error', 'Could not read selected image.');
-      return;
-    }
-
-    setUploading(true);
+  const handleCamera = async () => {
     try {
-      const timestamp = Date.now();
-      const path = `package-images/ride-${timestamp}.jpg`;
-      const publicUrl = await uploadDriverImage(asset.base64, path);
-      onImageUploaded?.(publicUrl);
-    } catch (e) {
-      Alert.alert('Upload failed', e.message || 'Please try again.');
-    } finally {
-      setUploading(false);
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Please allow camera access to take photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.85,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        if (!asset.base64) {
+          Alert.alert('Error', 'Could not read selected image.');
+          return;
+        }
+
+        setUploading(true);
+        try {
+          const timestamp = Date.now();
+          const path = `package-images/ride-${timestamp}.jpg`;
+          const publicUrl = await uploadDriverImage(asset.base64, path);
+          onImageUploaded?.(publicUrl);
+        } catch (e) {
+          console.error('[UPLOAD_ERROR]', e);
+          Alert.alert('Upload failed', e.message || 'Please try again.');
+        } finally {
+          setUploading(false);
+        }
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Could not access camera. Please try again.');
+    }
+  };
+
+  const handleGallery = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Please allow photo access to continue.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.85,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        if (!asset.base64) {
+          Alert.alert('Error', 'Could not read selected image.');
+          return;
+        }
+
+        setUploading(true);
+        try {
+          const timestamp = Date.now();
+          const path = `package-images/ride-${timestamp}.jpg`;
+          const publicUrl = await uploadDriverImage(asset.base64, path);
+          onImageUploaded?.(publicUrl);
+        } catch (e) {
+          console.error('[UPLOAD_ERROR]', e);
+          Alert.alert('Upload failed', e.message || 'Please try again.');
+        } finally {
+          setUploading(false);
+        }
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Could not access image. Please try again.');
     }
   };
 
@@ -117,7 +180,7 @@ export default function PackageImageUpload({ imageUrl, onImageUploaded, onImageR
           {uploading ? 'Uploading package photo...' : 'Add package photo'}
         </Text>
         <Text style={styles.uploadSubtitle}>
-          Required for transparency. Take a clear photo of the item to be delivered.
+          Required for transparency. Take a clear photo or choose from gallery.
         </Text>
       </View>
     </TouchableOpacity>

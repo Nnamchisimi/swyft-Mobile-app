@@ -1,7 +1,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_BUCKET } from '../constants/config';
 
 const base64ToUint8Array = (b64) => {
-  const clean = b64.indexOf(',') >= 0 ? b64.split(',')[1] : b64.replace(/=+$/, '');
+  const clean = b64.indexOf(',') >= 0 ? b64.split(',')[1] : b64;
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   const map = {};
   for (let i = 0; i < chars.length; i++) map[chars[i]] = i;
