@@ -6,6 +6,12 @@ require('dotenv').config();
 
 const db = require('./db-supabase');
 const { adminGuard, verifyToken } = require('./utils/helpers');
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // Route modules
 const { registerAuthRoutes } = require('./routes/auth');
@@ -47,6 +53,31 @@ app.use(express.urlencoded({ limit: '25mb', extended: true }));
 
 // Admin guard: every /api/admin/* request must carry a valid JWT with role = 'admin'
 app.use('/api/admin', adminGuard);
+
+app.post('/api/upload', async (req, res) => {
+  try {
+    const { base64, path, bucket = 'casyft' } = req.body;
+    if (!base64 || !path) {
+      return res.status(400).json({ error: 'base64 and path are required' });
+    }
+
+    const buffer = Buffer.from(base64, 'base64');
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+
+    if (error) {
+      console.error('[UPLOAD_ERROR]', error);
+      return res.status(400).json({ error: error.message || 'Upload failed' });
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    res.json({ url: data.publicUrl });
+  } catch (err) {
+    console.error('[UPLOAD_ERROR]', err);
+    res.status(500).json({ error: err.message || 'Upload failed' });
+  }
+});
 
 // === SOCKET.IO (real-time) ===
 const server = http.createServer(app);

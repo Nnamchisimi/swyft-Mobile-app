@@ -84,6 +84,7 @@ CREATE TABLE rides (
   package_size VARCHAR(50),
   package_details TEXT,
   special_instructions TEXT,
+  package_image_url VARCHAR(500),
   vehicle_type VARCHAR(50),
   receiver_name VARCHAR(100),
   receiver_phone VARCHAR(20),
