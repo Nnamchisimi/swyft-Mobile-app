@@ -62,6 +62,7 @@ function registerWithdrawalRoutes(app, io, db) {
           });
         }
 
+        const now = new Date().toISOString();
         const createWalletIfNotExists = () => {
           const now = new Date().toISOString();
           if (!wallet) {
