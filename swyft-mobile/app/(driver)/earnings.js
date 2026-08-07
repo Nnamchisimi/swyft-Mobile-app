@@ -9,6 +9,12 @@ import {
   ActivityIndicator,
   Alert,
   StatusBar,
+  TextInput,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { authService } from '../../src/services/auth';
@@ -30,10 +36,26 @@ export default function DriverEarningsScreen() {
   });
   const [recentRides, setRecentRides] = useState([]);
   const [ridesExpanded, setRidesExpanded] = useState(false);
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
+  const [withdrawalModalVisible, setWithdrawalModalVisible] = useState(false);
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [withdrawalBankName, setWithdrawalBankName] = useState('');
+  const [withdrawalIban, setWithdrawalIban] = useState('');
+  const [withdrawalAccountHolder, setWithdrawalAccountHolder] = useState('');
+  const [withdrawing, setWithdrawing] = useState(false);
 
   useEffect(() => {
     loadEarningsData();
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      authService.getUserEmail().then((email) => {
+        if (email) loadWithdrawals(email);
+      });
+    }
+  }, [loading]);
 
   const loadEarningsData = async () => {
     try {
@@ -71,6 +93,58 @@ export default function DriverEarningsScreen() {
   };
 
   const currentBalance = earnings.total_earnings - earnings.withdrawn;
+
+  const loadWithdrawals = async (email) => {
+    setWithdrawalsLoading(true);
+    try {
+      const response = await driverAPI.getWithdrawals(email);
+      setWithdrawals(response.data || []);
+    } catch (error) {
+      console.error('Error loading withdrawals:', error);
+    } finally {
+      setWithdrawalsLoading(false);
+    }
+  };
+
+  const handleWithdraw = async () => {
+    const amount = parseFloat(withdrawalAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+    if (amount > currentBalance) {
+      Alert.alert('Error', 'Amount exceeds available balance');
+      return;
+    }
+    if (!withdrawalBankName.trim() || !withdrawalIban.trim() || !withdrawalAccountHolder.trim()) {
+      Alert.alert('Error', 'Please fill in all bank details');
+      return;
+    }
+
+    setWithdrawing(true);
+    try {
+      const email = await authService.getUserEmail();
+      await driverAPI.requestWithdrawal({
+        email,
+        amount,
+        bank_name: withdrawalBankName.trim(),
+        iban: withdrawalIban.trim(),
+        account_holder_name: withdrawalAccountHolder.trim(),
+      });
+      Alert.alert('Success', 'Withdrawal request submitted successfully');
+      setWithdrawalModalVisible(false);
+      setWithdrawalAmount('');
+      setWithdrawalBankName('');
+      setWithdrawalIban('');
+      setWithdrawalAccountHolder('');
+      await loadWithdrawals(email);
+    } catch (error) {
+      const message = error?.response?.data?.error || error.message || 'Failed to request withdrawal';
+      Alert.alert('Error', message);
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A';
@@ -157,6 +231,12 @@ export default function DriverEarningsScreen() {
                 ₺{currentBalance.toFixed(2)}
               </Text>
             </View>
+            {currentBalance > 0 && (
+              <TouchableOpacity style={styles.withdrawButton} onPress={() => setWithdrawalModalVisible(true)}>
+                <Ionicons name="cash-outline" size={18} color={COLORS.white} />
+                <Text style={styles.withdrawButtonText}>Request Withdrawal</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {}
@@ -190,10 +270,106 @@ export default function DriverEarningsScreen() {
             </View>
           )}
           </View>
+
+          <View style={styles.withdrawalsSection}>
+            <Text style={styles.sectionTitle}>Withdrawal History</Text>
+            {withdrawalsLoading ? (
+              <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 12 }} />
+            ) : withdrawals.length > 0 ? (
+              <View style={styles.withdrawalsList}>
+                {withdrawals.map((w) => (
+                  <View key={w.id} style={styles.withdrawalItem}>
+                    <View style={styles.withdrawalInfo}>
+                      <Text style={styles.withdrawalAmount}>₺{Number(w.amount).toFixed(2)}</Text>
+                      <Text style={styles.withdrawalDate}>{formatDate(w.created_at)}</Text>
+                      {w.bank_name ? <Text style={styles.withdrawalBank}>{w.bank_name} • {w.iban ? w.iban.slice(-4) : ''}</Text> : null}
+                    </View>
+                    <View style={[styles.withdrawalStatus, { backgroundColor: w.status === 'PAID' ? '#E8F5E9' : w.status === 'REJECTED' ? '#FFEBEE' : '#FFF3E0' }]}>
+                      <Text style={[styles.withdrawalStatusText, { color: w.status === 'PAID' ? COLORS.success : w.status === 'REJECTED' ? COLORS.error : '#FF9800' }]}>
+                        {w.status}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyWithdrawals}>
+                <Text style={styles.emptyText}>No withdrawals yet</Text>
+              </View>
+            )}
+          </View>
         </ScrollView>
       )}
 
       <DriverBottomTabBar />
+
+      <Modal visible={withdrawalModalVisible} transparent animationType="slide" onRequestClose={() => { Keyboard.dismiss(); setWithdrawalModalVisible(false); }}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={0}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalCard}>
+                  <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 12 }}>
+                    <Text style={styles.modalTitle}>Request Withdrawal</Text>
+                    <Text style={styles.modalHint}>Available: ₺{currentBalance.toFixed(2)}</Text>
+
+                    <Text style={styles.fieldLabel}>AMOUNT (₺)</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="0.00"
+                      placeholderTextColor={COLORS.textSecondary}
+                      value={withdrawalAmount}
+                      onChangeText={setWithdrawalAmount}
+                      keyboardType="decimal-pad"
+                    />
+
+                    <Text style={styles.fieldLabel}>BANK NAME</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. Garanti, İş Bankası"
+                      placeholderTextColor={COLORS.textSecondary}
+                      value={withdrawalBankName}
+                      onChangeText={setWithdrawalBankName}
+                    />
+
+                    <Text style={styles.fieldLabel}>IBAN</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="TR00 0000 0000 0000 0000 0000 00"
+                      placeholderTextColor={COLORS.textSecondary}
+                      value={withdrawalIban}
+                      onChangeText={setWithdrawalIban}
+                      autoCapitalize="characters"
+                    />
+
+                    <Text style={styles.fieldLabel}>ACCOUNT HOLDER NAME</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Full name on account"
+                      placeholderTextColor={COLORS.textSecondary}
+                      value={withdrawalAccountHolder}
+                      onChangeText={setWithdrawalAccountHolder}
+                    />
+
+                    <View style={styles.modalActions}>
+                      <TouchableOpacity style={styles.modalCancel} onPress={() => { Keyboard.dismiss(); setWithdrawalModalVisible(false); }}>
+                        <Text style={styles.modalCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.modalConfirm} onPress={handleWithdraw} disabled={withdrawing}>
+                        {withdrawing ? (
+                          <ActivityIndicator size="small" color={COLORS.white} />
+                        ) : (
+                          <Text style={styles.modalConfirmText}>Submit Request</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -371,5 +547,137 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  withdrawButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.success,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  withdrawButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  withdrawalsSection: {
+    marginBottom: 20,
+  },
+  withdrawalsList: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  withdrawalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  withdrawalInfo: {
+    flex: 1,
+  },
+  withdrawalAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  withdrawalDate: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  withdrawalBank: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  withdrawalStatus: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  withdrawalStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  emptyWithdrawals: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    padding: 20,
+    paddingBottom: 28,
+    maxHeight: '85%',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  modalHint: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 4,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: COLORS.surface,
+    color: COLORS.text,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+  },
+  modalCancelText: {
+    color: COLORS.textSecondary,
+    fontWeight: '700',
+  },
+  modalConfirm: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+  },
+  modalConfirmText: {
+    color: COLORS.white,
+    fontWeight: '700',
   },
 });

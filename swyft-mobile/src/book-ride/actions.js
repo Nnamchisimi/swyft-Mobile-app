@@ -6,7 +6,7 @@ export async function handleBookRide(state) {
     interCityMode, interCityRoute, selectedRideType, selectedVehicleType,
     pickupAddress, dropoffLocation: dropoffLocationValue, receiverName, receiverEmail,
     receiverPhone, userName, userEmail, userPhone, estimatedPrice,
-    packageType, packageSize, packageDetails, specialInstructions,
+    packageType, packageSize, packageDetails, packageImageUrl, specialInstructions,
     pickupLocation, currentLocation, setCurrentRide, setRideBooked,
     setPickupLockedForRide, setLoading, paymentMethod, setPendingRideData, router
   } = state;
@@ -26,6 +26,7 @@ export async function handleBookRide(state) {
     if (!selectedRideType) missing.push('city hub area');
   }
   if (!vehicleType) missing.push('vehicle type (select package size)');
+  if (!packageImageUrl?.trim()) missing.push('package photo');
 
   if (missing.length > 0) {
     Alert.alert('Missing Information', 'Please select: ' + missing.join(', '));
@@ -49,6 +50,7 @@ export async function handleBookRide(state) {
       package_type: packageType,
       package_size: packageSize,
       package_details: packageDetails,
+      package_image_url: packageImageUrl || null,
       special_instructions: specialInstructions,
       price: estimatedPrice,
       status: 'pending',

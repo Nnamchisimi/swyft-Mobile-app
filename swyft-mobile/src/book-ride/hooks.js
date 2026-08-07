@@ -43,6 +43,7 @@ export function useBookRideState() {
   const [packageType, setPackageType] = useState('');
   const [packageSize, setPackageSize] = useState('');
   const [packageDetails, setPackageDetails] = useState('');
+  const [packageImageUrl, setPackageImageUrl] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [selectedQuickNote, setSelectedQuickNote] = useState('');
   const [interCityMode, setInterCityMode] = useState(false);
@@ -79,6 +80,7 @@ export function useBookRideState() {
     setPackageType('');
     setPackageSize('');
     setPackageDetails('');
+    setPackageImageUrl('');
     setSpecialInstructions('');
     setPaymentMethod('cash');
     setPendingRideData(null);
@@ -88,7 +90,7 @@ export function useBookRideState() {
     interCityMode, interCityRoute, selectedRideType, selectedVehicleType,
     pickupAddress, dropoffLocation, dropoffAddress, receiverName, receiverEmail, receiverPhone,
     userName, userEmail, userPhone, estimatedPrice, packageType, packageSize,
-    packageDetails, specialInstructions, pickupLocation, currentLocation, currentRide,
+    packageDetails, packageImageUrl, specialInstructions, pickupLocation, currentLocation, currentRide,
     setCurrentRide, setRideBooked, setPickupLockedForRide, setLoading, resetForm,
     setPickupManuallySelected,
     paymentMethod, setPaymentMethod,
@@ -109,7 +111,7 @@ export function useBookRideState() {
       showPickupSuggestions: setShowPickupSuggestions, showDropoffSuggestions: setShowDropoffSuggestions,
       rideBooked: setRideBooked, currentRide: setCurrentRide, locationLoading: setLocationLoading,
       selectedRideType: setSelectedRideType, estimatedPrice: setEstimatedPrice,
-      packageType: setPackageType, packageSize: setPackageSize, packageDetails: setPackageDetails,
+       packageType: setPackageType, packageSize: setPackageSize, packageDetails: setPackageDetails, packageImageUrl: setPackageImageUrl,
       specialInstructions: setSpecialInstructions, selectedQuickNote: setSelectedQuickNote,
       interCityMode: setInterCityMode, interCityRoute: setInterCityRoute,
       pricingLoaded: setPricingLoaded, selectedVehicleType: setSelectedVehicleType,
@@ -154,6 +156,7 @@ export function useBookRideState() {
     packageType, setPackageType,
     packageSize, setPackageSize,
     packageDetails, setPackageDetails,
+    packageImageUrl, setPackageImageUrl,
     specialInstructions, setSpecialInstructions,
     selectedQuickNote, setSelectedQuickNote,
     interCityMode, setInterCityMode,

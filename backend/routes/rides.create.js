@@ -43,7 +43,7 @@ function registerCreateRoutes(app, io, db) {
   app.get('/api/rides/:id', (req, res) => {
     const rideId = req.params.id;
 
-    db.query('SELECT id, passenger_email, driver_email, status, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, price, ride_type, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email, created_at, updated_at, delivery_id, delivery_otp_plain, delivery_otp_expires_at, driver_id, driver_name, driver_phone, driver_vehicle, driver_lat, driver_lng FROM rides WHERE id = $1', [rideId], (err, results) => {
+    db.query('SELECT id, passenger_email, driver_email, status, pickup_location, dropoff_location, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, price, ride_type, package_type, package_size, package_details, package_image_url, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email, created_at, updated_at, delivery_id, delivery_otp_plain, delivery_otp_expires_at, driver_id, driver_name, driver_phone, driver_vehicle, driver_lat, driver_lng FROM rides WHERE id = $1', [rideId], (err, results) => {
       if (err) return res.status(500).json({ error: 'Server error' });
       if (results.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });
       res.json(results.rows[0]);
@@ -65,7 +65,7 @@ function registerCreateRoutes(app, io, db) {
   app.post('/api/rides', (req, res) => {
     console.log('Ride request received:', req.body);
 
-    const { passenger_email, passenger_name, passenger_phone, pickup, dropoff, pickup_location, dropoff_location, ride_type, price, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email, payment_method } = req.body;
+    const { passenger_email, passenger_name, passenger_phone, pickup, dropoff, pickup_location, dropoff_location, ride_type, price, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email, payment_method, package_image_url } = req.body;
 
     const pickupLoc = pickup || pickup_location;
     const dropoffLoc = dropoff || dropoff_location;
@@ -128,8 +128,8 @@ function registerCreateRoutes(app, io, db) {
         passengerName = 'Passenger';
       }
 
-      const query = 'INSERT INTO rides (passenger_id, passenger_email, passenger_name, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING id';
-      const values = [passengerId, passenger_email, passengerName, passenger_phone, pickupLoc, dropoffLoc, ride_type, price, 'pending', pickLat, pickLng, dropLat, dropLng, package_type || null, package_size || null, package_details || null, special_instructions || null, vehicle_type || null, receiver_name || null, receiver_phone || null, receiver_email || null];
+      const query = 'INSERT INTO rides (passenger_id, passenger_email, passenger_name, passenger_phone, pickup_location, dropoff_location, ride_type, price, status, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, package_type, package_size, package_details, package_image_url, special_instructions, vehicle_type, receiver_name, receiver_phone, receiver_email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22) RETURNING id';
+      const values = [passengerId, passenger_email, passengerName, passenger_phone, pickupLoc, dropoffLoc, ride_type, price, 'pending', pickLat, pickLng, dropLat, dropLng, package_type || null, package_size || null, package_details || null, package_image_url || null, special_instructions || null, vehicle_type || null, receiver_name || null, receiver_phone || null, receiver_email || null];
 
       db.query(query, values, (err, result) => {
         if (err) {
