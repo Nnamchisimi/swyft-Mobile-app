@@ -59,21 +59,17 @@ function registerDriversRoutes(app, db) {
 
     console.log('Fetching earnings for:', email);
 
-    // Include completed statuses: completed, confirmed (passenger confirmed), active
-    // Earnings are counted when ride is COMPLETED (driver marks complete), not just confirmed
     const completedStatuses = ['completed', 'confirmed', 'active'];
     const statusList = completedStatuses.map(s => "'" + s + "'").join(',');
 
-    // Get total earnings
     const simpleQuery = `SELECT COALESCE(SUM(price), 0) as total FROM rides WHERE driver_email = $1 AND status IN (${statusList})`;
     db.query(simpleQuery, [email], (err, results) => {
       if (err) {
         console.log('Earnings query error:', err.message);
-        return res.json({ today_earnings: 0, total_earnings: 0, total_trips: 0, recent_rides: [] });
+        return res.json({ today_earnings: 0, total_earnings: 0, total_trips: 0, withdrawn: 0, recent_rides: [], recent_withdrawals: [] });
       }
       const total = results.rows[0]?.total || 0;
 
-      // Get today's earnings - count on COMPLETED status (driver marks complete)
       const todayQuery = `SELECT COALESCE(SUM(price), 0) as today FROM rides WHERE driver_email = $1 AND status IN (${statusList}) AND DATE(created_at) = CURRENT_DATE`;
       db.query(todayQuery, [email], (err2, todayResults) => {
         if (err2) {
@@ -81,7 +77,6 @@ function registerDriversRoutes(app, db) {
         }
         const today = todayResults.rows[0]?.today || 0;
 
-        // Get this week's earnings (last 7 days)
         const weekQuery = `SELECT COALESCE(SUM(price), 0) as week FROM rides WHERE driver_email = $1 AND status IN (${statusList}) AND created_at >= CURRENT_DATE - INTERVAL '7 days'`;
         db.query(weekQuery, [email], (errWeek, weekResults) => {
           if (errWeek) {
@@ -89,7 +84,6 @@ function registerDriversRoutes(app, db) {
           }
           const week = weekResults.rows[0]?.week || 0;
 
-          // Get this month's earnings
           const monthQuery = `SELECT COALESCE(SUM(price), 0) as month FROM rides WHERE driver_email = $1 AND status IN (${statusList}) AND created_at >= DATE_TRUNC('month', CURRENT_DATE)`;
           db.query(monthQuery, [email], (errMonth, monthResults) => {
             if (errMonth) {
@@ -97,7 +91,6 @@ function registerDriversRoutes(app, db) {
             }
             const month = monthResults.rows[0]?.month || 0;
 
-            // Get trip count
             const countQuery = `SELECT COUNT(*) as count FROM rides WHERE driver_email = $1 AND status IN (${statusList})`;
             db.query(countQuery, [email], (err3, countResults) => {
               if (err3) {
@@ -105,7 +98,6 @@ function registerDriversRoutes(app, db) {
               }
               const trips = countResults.rows[0]?.count || 0;
 
-              // Get recent rides
               const recentRidesQuery = `
                 SELECT r.id, r.passenger_name, r.price, r.status, r.created_at,
                        r.pickup_location, r.dropoff_location
@@ -120,13 +112,46 @@ function registerDriversRoutes(app, db) {
                 }
                 const recentRides = ridesResults?.rows || [];
 
-                res.json({
-                  today_earnings: today,
-                  total_earnings: total,
-                  total_trips: trips,
-                  week_earnings: week,
-                  month_earnings: month,
-                  recent_rides: recentRides
+                db.query('SELECT id FROM public.users WHERE email = $1', [email], (errUser, userResults) => {
+                  if (errUser || userResults.rows.length === 0) {
+                    return res.json({ today_earnings: today, total_earnings: total, total_trips: trips, week_earnings: week, month_earnings: month, withdrawn: 0, recent_rides: recentRides, recent_withdrawals: [] });
+                  }
+
+                  const userId = userResults.rows[0].id;
+                  db.query('SELECT * FROM driver_wallets WHERE user_id = $1', [userId], (errWallet, walletResults) => {
+                    if (errWallet) {
+                      return res.json({ today_earnings: today, total_earnings: total, total_trips: trips, week_earnings: week, month_earnings: month, withdrawn: 0, recent_rides: recentRides, recent_withdrawals: [] });
+                    }
+                    const wallet = walletResults.rows[0];
+                    const withdrawn = wallet ? parseFloat(wallet.total_withdrawn || 0) : 0;
+
+                    db.query(
+                      `SELECT id, amount, status, created_at FROM withdrawal_requests WHERE driver_id = $1 ORDER BY created_at DESC LIMIT 10`,
+                      [userId],
+                      (errW, wResults) => {
+                        if (errW) {
+                          return res.json({ today_earnings: today, total_earnings: total, total_trips: trips, week_earnings: week, month_earnings: month, withdrawn, recent_rides: recentRides, recent_withdrawals: [] });
+                        }
+                        const recent_withdrawals = wResults.rows.map(w => ({
+                          id: w.id,
+                          amount: parseFloat(w.amount),
+                          status: w.status,
+                          created_at: w.created_at,
+                        }));
+
+                        res.json({
+                          today_earnings: today,
+                          total_earnings: total,
+                          total_trips: trips,
+                          week_earnings: week,
+                          month_earnings: month,
+                          withdrawn,
+                          recent_rides: recentRides,
+                          recent_withdrawals,
+                        });
+                      }
+                    );
+                  });
                 });
               });
             });

@@ -36,8 +36,7 @@ export default function DriverEarningsScreen() {
   });
   const [recentRides, setRecentRides] = useState([]);
   const [ridesExpanded, setRidesExpanded] = useState(false);
-  const [withdrawals, setWithdrawals] = useState([]);
-  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
+  const [recentWithdrawals, setRecentWithdrawals] = useState([]);
   const [withdrawalModalVisible, setWithdrawalModalVisible] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [withdrawalBankName, setWithdrawalBankName] = useState('');
@@ -48,14 +47,6 @@ export default function DriverEarningsScreen() {
   useEffect(() => {
     loadEarningsData();
   }, []);
-
-  useEffect(() => {
-    if (!loading) {
-      authService.getUserEmail().then((email) => {
-        if (email) loadWithdrawals(email);
-      });
-    }
-  }, [loading]);
 
   const loadEarningsData = async () => {
     try {
@@ -77,6 +68,7 @@ export default function DriverEarningsScreen() {
           month_earnings: parseFloat(data.month_earnings) || 0,
           withdrawn: parseFloat(data.withdrawn) || 0,
         });
+        setRecentWithdrawals(data.recent_withdrawals || []);
       }
 
       const ridesResponse = await ridesAPI.getRides({ driver_email: email });
@@ -93,18 +85,6 @@ export default function DriverEarningsScreen() {
   };
 
   const currentBalance = earnings.total_earnings - earnings.withdrawn;
-
-  const loadWithdrawals = async (email) => {
-    setWithdrawalsLoading(true);
-    try {
-      const response = await driverAPI.getWithdrawals(email);
-      setWithdrawals(response.data || []);
-    } catch (error) {
-      console.error('Error loading withdrawals:', error);
-    } finally {
-      setWithdrawalsLoading(false);
-    }
-  };
 
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawalAmount);
@@ -137,7 +117,7 @@ export default function DriverEarningsScreen() {
       setWithdrawalBankName('');
       setWithdrawalIban('');
       setWithdrawalAccountHolder('');
-      await loadWithdrawals(email);
+      await loadEarningsData();
     } catch (error) {
       const message = error?.response?.data?.error || error.message || 'Failed to request withdrawal';
       Alert.alert('Error', message);
@@ -151,8 +131,38 @@ export default function DriverEarningsScreen() {
     return new Date(dateStr).toLocaleDateString();
   };
 
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleString();
+  };
+
   const displayedRides = ridesExpanded ? recentRides : recentRides.slice(0, 8);
   const hasMoreRides = recentRides.length > 8;
+
+  const activities = [
+    ...recentRides.map((ride) => ({
+      id: `ride-${ride.id}`,
+      type: 'ride',
+      title: ride.pickup_location ? `Delivery: ${ride.pickup_location.substring(0, 28)}${ride.pickup_location.length > 28 ? '...' : ''}` : 'Delivery',
+      subtitle: ride.dropoff_location ? `To: ${ride.dropoff_location.substring(0, 30)}${ride.dropoff_location.length > 30 ? '...' : ''}` : '',
+      amount: Number(ride.price || 0),
+      date: ride.created_at,
+      status: ride.status,
+      icon: 'cube',
+      color: COLORS.success,
+    })),
+    ...recentWithdrawals.map((w) => ({
+      id: `withdrawal-${w.id}`,
+      type: 'withdrawal',
+      title: `Withdrawal ${w.status}`,
+      subtitle: w.bank_name || 'Bank transfer',
+      amount: -Number(w.amount),
+      date: w.created_at,
+      status: w.status,
+      icon: 'cash-outline',
+      color: w.status === 'PAID' ? COLORS.success : w.status === 'REJECTED' ? COLORS.error : '#FF9800',
+    })),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   return (
     <SafeAreaView style={styles.container}>
@@ -239,63 +249,38 @@ export default function DriverEarningsScreen() {
             )}
           </View>
 
-          {}
-          <View style={styles.ridesSection}>
-            <Text style={styles.sectionTitle}>Recent Completed Deliveries</Text>
-          {recentRides.length > 0 ? (
-            <View style={styles.ridesList}>
-              {displayedRides.map((ride, index) => (
-                <View key={ride.id || index} style={styles.rideItem}>
-                  <View style={styles.rideInfo}>
-                    <Text style={styles.rideLocation}>
-                      {ride.pickup_location ? `${ride.pickup_location.substring(0, 30)}...` : 'N/A'}
+          <View style={styles.activitySection}>
+            <Text style={styles.sectionTitle}>Activity</Text>
+            {activities.length > 0 ? (
+              <View style={styles.activitiesList}>
+                {activities.slice(0, ridesExpanded ? 20 : 8).map((item) => (
+                  <View key={item.id} style={styles.activityItem}>
+                    <View style={[styles.activityIcon, { backgroundColor: item.color + '18' }]}>
+                      <Ionicons name={item.icon} size={18} color={item.color} />
+                    </View>
+                    <View style={styles.activityInfo}>
+                      <Text style={styles.activityTitle}>{item.title}</Text>
+                      {item.subtitle ? <Text style={styles.activitySubtitle}>{item.subtitle}</Text> : null}
+                      <Text style={styles.activityDate}>{formatDateTime(item.date)}</Text>
+                    </View>
+                    <Text style={[styles.activityAmount, { color: item.amount >= 0 ? COLORS.success : COLORS.error }]}>
+                      {item.amount >= 0 ? '+' : ''}{item.amount < 0 ? '-' : ''}₺{Math.abs(item.amount).toFixed(2)}
                     </Text>
-                    <Text style={styles.rideDate}>{formatDate(ride.created_at)}</Text>
-                  </View>
-                  <Text style={styles.ridePrice}>₺{Number(ride.price || 0).toFixed(2)}</Text>
-                </View>
-              ))}
-              {hasMoreRides && (
-                <TouchableOpacity style={styles.toggleButton} onPress={() => setRidesExpanded(!ridesExpanded)}>
-                  <Text style={styles.toggleText}>
-                    {ridesExpanded ? 'Show Less' : `Show All (${recentRides.length})`}
-                  </Text>
-                  <Ionicons name={ridesExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            <View style={styles.emptyRides}>
-              <Text style={styles.emptyText}>No completed rides yet</Text>
-            </View>
-          )}
-          </View>
-
-          <View style={styles.withdrawalsSection}>
-            <Text style={styles.sectionTitle}>Withdrawal History</Text>
-            {withdrawalsLoading ? (
-              <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 12 }} />
-            ) : withdrawals.length > 0 ? (
-              <View style={styles.withdrawalsList}>
-                {withdrawals.map((w) => (
-                  <View key={w.id} style={styles.withdrawalItem}>
-                    <View style={styles.withdrawalInfo}>
-                      <Text style={styles.withdrawalAmount}>₺{Number(w.amount).toFixed(2)}</Text>
-                      <Text style={styles.withdrawalDate}>{formatDate(w.created_at)}</Text>
-                      {w.bank_name ? <Text style={styles.withdrawalBank}>{w.bank_name} • {w.iban ? w.iban.slice(-4) : ''}</Text> : null}
-                    </View>
-                    <View style={[styles.withdrawalStatus, { backgroundColor: w.status === 'PAID' ? '#E8F5E9' : w.status === 'REJECTED' ? '#FFEBEE' : '#FFF3E0' }]}>
-                      <Text style={[styles.withdrawalStatusText, { color: w.status === 'PAID' ? COLORS.success : w.status === 'REJECTED' ? COLORS.error : '#FF9800' }]}>
-                        {w.status}
-                      </Text>
-                    </View>
                   </View>
                 ))}
               </View>
             ) : (
-              <View style={styles.emptyWithdrawals}>
-                <Text style={styles.emptyText}>No withdrawals yet</Text>
+              <View style={styles.emptyActivities}>
+                <Text style={styles.emptyText}>No activity yet</Text>
               </View>
+            )}
+            {hasMoreRides && (
+              <TouchableOpacity style={styles.toggleButton} onPress={() => setRidesExpanded(!ridesExpanded)}>
+                <Text style={styles.toggleText}>
+                  {ridesExpanded ? 'Show Less' : `Show All (${recentRides.length + recentWithdrawals.length})`}
+                </Text>
+                <Ionicons name={ridesExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
+              </TouchableOpacity>
             )}
           </View>
         </ScrollView>
@@ -488,43 +473,58 @@ const styles = StyleSheet.create({
   ridesSection: {
     marginBottom: 20,
   },
+  activitySection: {
+    marginBottom: 20,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
     marginBottom: 12,
   },
-  ridesList: {
+  activitiesList: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
     overflow: 'hidden',
   },
-  rideItem: {
+  activityItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    gap: 12,
   },
-  rideInfo: {
+  activityIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityInfo: {
     flex: 1,
   },
-  rideLocation: {
+  activityTitle: {
     fontSize: 14,
+    fontWeight: '600',
     color: COLORS.text,
   },
-  rideDate: {
+  activitySubtitle: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    marginTop: 4,
+    marginTop: 2,
   },
-  ridePrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.success,
+  activityDate: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
-  emptyRides: {
+  activityAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  emptyActivities: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 24,
@@ -562,56 +562,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 14,
     fontWeight: '700',
-  },
-  withdrawalsSection: {
-    marginBottom: 20,
-  },
-  withdrawalsList: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  withdrawalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  withdrawalInfo: {
-    flex: 1,
-  },
-  withdrawalAmount: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  withdrawalDate: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  withdrawalBank: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  withdrawalStatus: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  withdrawalStatusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  emptyWithdrawals: {
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
   },
   modalOverlay: {
     flex: 1,
