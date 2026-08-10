@@ -77,7 +77,7 @@ function registerDriversRoutes(app, db) {
         }
         const today = todayResults.rows[0]?.today || 0;
 
-        const weekQuery = `SELECT COALESCE(SUM(price), 0) as week FROM rides WHERE driver_email = $1 AND status IN (${statusList}) AND created_at >= CURRENT_DATE - INTERVAL '7 days'`;
+        const weekQuery = `SELECT COALESCE(SUM(price), 0) as week FROM rides WHERE driver_email = $1 AND status IN (${statusList}) AND created_at >= CURRENT_DATE - ((EXTRACT(DOW FROM CURRENT_DATE)::integer + 6) % 7) * INTERVAL '1 day' AND created_at < CURRENT_DATE - ((EXTRACT(DOW FROM CURRENT_DATE)::integer + 6) % 7) * INTERVAL '1 day' + INTERVAL '7 days'`;
         db.query(weekQuery, [email], (errWeek, weekResults) => {
           if (errWeek) {
             console.log('Week earnings query error:', errWeek.message);
