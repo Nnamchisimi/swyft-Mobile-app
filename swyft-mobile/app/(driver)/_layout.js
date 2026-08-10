@@ -2,6 +2,7 @@ import { Stack, Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { authService } from '../../src/services/auth';
+import { driverAPI } from '../../src/services/api';
 import { COLORS } from '../../src/constants/config';
 
 export default function DriverLayout() {
@@ -21,6 +22,20 @@ export default function DriverLayout() {
         if (role !== 'driver') {
           setRedirect('/(passenger)/home');
           return;
+        }
+
+        const email = await authService.getUserEmail();
+        if (email) {
+          try {
+            const response = await driverAPI.getVerificationStatus(email);
+            const status = response.data;
+            if (!status?.is_approved) {
+              setRedirect('/(driver)/verify-summary');
+              return;
+            }
+          } catch (error) {
+            console.error('Verification status check failed:', error);
+          }
         }
       } catch (error) {
         console.error('Driver layout role check error:', error);

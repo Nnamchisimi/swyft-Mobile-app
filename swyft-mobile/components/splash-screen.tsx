@@ -213,15 +213,15 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: "center",
-    gap: 16,
+    gap: 0,
   },
   logoWrapper: {
     alignItems: "center",
     justifyContent: "center",
   },
   logo: {
-    width: 176,
-    height: 176,
+    width: 120,
+    height: 120,
   },
   textWrapper: {
     alignItems: "center",

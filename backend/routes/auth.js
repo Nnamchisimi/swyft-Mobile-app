@@ -230,6 +230,28 @@ function registerAuthRoutes(app, db) {
   });
 
   // === LOGIN ===
+  function issueDriverToken(user, res) {
+    const token = signToken({ id: user.id, email: user.email, role: user.role });
+    db.query('SELECT * FROM cars WHERE user_id = $1', [user.id], (err2, carResults) => {
+      const car = carResults && carResults.rows.length > 0 ? carResults.rows[0] : null;
+      res.json({
+        token,
+        id: user.id,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        phone: user.phone,
+        vehicle: car ? `${car.year} ${car.make} ${car.model}` : null,
+        vehicle_make: car ? car.make : null,
+        vehicle_model: car ? car.model : null,
+        vehicle_year: car ? car.year : null,
+        vehicle_color: car ? car.color : null,
+        vehicle_plate: car ? car.plate_number : null
+      });
+    });
+  }
+
   app.post('/api/users/login', (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -259,41 +281,42 @@ function registerAuthRoutes(app, db) {
         });
       }
 
+      // If driver, check if account is approved
+      if (user.role && user.role.toLowerCase() === 'driver') {
+        db.query('SELECT is_approved FROM driver_verification_status WHERE user_id = $1', [user.id], (errAppr, apprResults) => {
+          if (errAppr) {
+            console.error('Approval check error:', errAppr.message);
+          }
+
+          const isApproved = apprResults && apprResults.rows.length > 0 && apprResults.rows[0].is_approved;
+
+          if (!isApproved) {
+            return res.status(403).json({
+              error: 'Your driver account is pending approval. Please complete your verification steps.',
+              requiresVerification: true,
+              email: email,
+              role: user.role
+            });
+          }
+
+          issueDriverToken(user, res);
+        });
+        return;
+      }
+
       const token = signToken(
         { id: user.id, email: user.email, role: user.role }
       );
 
-      // If driver, get car details
-      if (user.role && user.role.toLowerCase() === 'driver') {
-        db.query('SELECT * FROM cars WHERE user_id = $1', [user.id], (err2, carResults) => {
-          const car = carResults && carResults.rows.length > 0 ? carResults.rows[0] : null;
-          res.json({
-            token,
-            id: user.id,
-            role: user.role,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            email: user.email,
-            phone: user.phone,
-            vehicle: car ? `${car.year} ${car.make} ${car.model}` : null,
-            vehicle_make: car ? car.make : null,
-            vehicle_model: car ? car.model : null,
-            vehicle_year: car ? car.year : null,
-            vehicle_color: car ? car.color : null,
-            vehicle_plate: car ? car.plate_number : null
-          });
-        });
-      } else {
-        res.json({
-          token,
-          id: user.id,
-          role: user.role,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          email: user.email,
-          phone: user.phone
-        });
-      }
+      res.json({
+        token,
+        id: user.id,
+        role: user.role,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        phone: user.phone
+      });
     });
   });
 

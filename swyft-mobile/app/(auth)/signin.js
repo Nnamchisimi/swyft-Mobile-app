@@ -51,7 +51,11 @@ export default function SignInScreen() {
         if (role === 'admin') {
           router.replace('/(admin)/review');
         } else if (role === 'driver') {
-          router.replace('/(driver)/dashboard');
+          if (result.requiresVerification) {
+            router.replace('/(driver)/verify-summary');
+          } else {
+            router.replace('/(driver)/dashboard');
+          }
         } else {
           router.replace('/(passenger)/home');
         }
@@ -59,10 +63,15 @@ export default function SignInScreen() {
         console.log('Login failed with error:', result.error);
 
         if (result.requiresVerification || /verify your email/i.test(result.error || '')) {
-          router.replace({
-            pathname: '/(auth)/verify',
-            params: { email: result.email || email.trim() }
-          });
+          const role = (result.role || 'passenger').toLowerCase();
+          if (role === 'driver') {
+            router.replace('/(driver)/verify-summary');
+          } else {
+            router.replace({
+              pathname: '/(auth)/verify',
+              params: { email: result.email || email.trim() }
+            });
+          }
         } else {
           setError(result.error);
         }

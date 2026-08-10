@@ -31,7 +31,8 @@ class AuthService {
           success: false,
           requiresVerification: true,
           email: errorData.email || email,
-          error: 'Please verify your email first'
+          error: errorMessage,
+          role: errorData.role || null
         };
       }
       

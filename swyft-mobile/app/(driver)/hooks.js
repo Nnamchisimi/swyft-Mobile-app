@@ -144,6 +144,10 @@ export function useDriverDashboardEffects(state, refs) {
       const response = await driverAPI.getVerificationStatus(email);
       const status = response.data;
       console.log('Driver verification status:', status);
+
+      if (!status?.is_approved) {
+        console.warn('Driver account is not approved');
+      }
     } catch (error) {
       console.error('Error loading verification status:', error);
       if (error.response?.status === 404) {
