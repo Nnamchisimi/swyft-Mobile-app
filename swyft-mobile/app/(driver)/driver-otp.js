@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,11 @@ export default function DriverOtpScreen() {
   const { rideId } = useLocalSearchParams();
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const inputRef = useRef(null);
+
+  const focusInput = () => {
+    inputRef.current?.focus();
+  };
 
   useEffect(() => {
     if (!rideId) {
@@ -44,10 +49,12 @@ export default function DriverOtpScreen() {
         ]);
       } else {
         Alert.alert('Error', response.data?.error || 'Failed to verify OTP');
+        focusInput();
       }
     } catch (error) {
-      const message = error?.response?.data?.error || error?.message || 'Failed to verify OTP';
+      const message = error?.response?.data?.error || error.message || 'Failed to verify OTP';
       Alert.alert('Error', message);
+      focusInput();
     } finally {
       setLoading(false);
     }
@@ -68,26 +75,28 @@ export default function DriverOtpScreen() {
           <Text style={styles.otpHintText}>Ask the receiver for the 6-digit code or check the receiver’s email/SMS.</Text>
         </View>
 
-        <View style={styles.otpInputContainer}>
-          <View style={styles.inputRow}>
-            {[0, 1, 2, 3, 4, 5].map((index) => (
-              <View key={index} style={styles.box}>
-                <Text style={styles.boxText}>{otp[index] || ''}</Text>
-              </View>
-            ))}
-          </View>
+        <TouchableOpacity activeOpacity={1} onPress={focusInput}>
+          <View style={styles.otpInputContainer}>
+            <View style={styles.inputRow}>
+              {[0, 1, 2, 3, 4, 5].map((index) => (
+                <View key={index} style={styles.box}>
+                  <Text style={styles.boxText}>{otp[index] || ''}</Text>
+                </View>
+              ))}
+            </View>
 
-          <TextInput
-            style={styles.hiddenInput}
-            value={otp}
-            onChangeText={setOtp}
-            maxLength={6}
-            keyboardType="number-pad"
-            textContentType="oneTimeCode"
-            autoFocus
-            selectTextOnFocus
-          />
-        </View>
+            <TextInput
+              ref={inputRef}
+              style={styles.hiddenInput}
+              value={otp}
+              onChangeText={setOtp}
+              maxLength={6}
+              keyboardType="number-pad"
+              textContentType="oneTimeCode"
+              autoFocus
+            />
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.verifyButton, (loading || otp.length !== 6) && styles.verifyButtonDisabled]}

@@ -295,7 +295,12 @@ export default function DriverEarningsScreen() {
               <TouchableWithoutFeedback>
                 <View style={styles.modalCard}>
                   <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 12 }}>
-                    <Text style={styles.modalTitle}>Request Withdrawal</Text>
+                    <View style={styles.modalHeader}>
+                      <Text style={styles.modalTitle}>Request Withdrawal</Text>
+                      <TouchableOpacity onPress={() => { Keyboard.dismiss(); setWithdrawalModalVisible(false); }}>
+                        <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
                     <Text style={styles.modalHint}>Available: ₺{currentBalance.toFixed(2)}</Text>
 
                     <Text style={styles.fieldLabel}>AMOUNT (₺)</Text>
@@ -580,6 +585,12 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: 'bold',
     color: COLORS.text,
+    marginBottom: 4,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 4,
   },
   modalHint: {

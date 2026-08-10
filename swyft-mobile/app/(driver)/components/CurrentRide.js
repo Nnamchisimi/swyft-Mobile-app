@@ -61,10 +61,11 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
       {isAccepted && (
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.navigationButton} onPress={() => onOpenNavigation(ride.pickup_lat, ride.pickup_lng, ride.pickup_location || ride.pickup)}>
-            <Ionicons name="navigate" size={18} color={COLORS.white} />
+            <Ionicons name="navigate-outline" size={13} color={COLORS.white} />
             <Text style={styles.navigationButtonText}>Navigate to Pickup</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.startButton} onPress={onStartRide}>
+            <Ionicons name="cube-outline" size={13} color={COLORS.white} />
             <Text style={styles.startButtonText}>Package Collected</Text>
           </TouchableOpacity>
         </View>
@@ -96,7 +97,7 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
       {isPickedUp && (
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.navigationButton} onPress={() => onOpenNavigation(ride.dropoff_lat, ride.dropoff_lng, ride.dropoff_location || ride.dropoff)}>
-            <Ionicons name="navigate" size={18} color={COLORS.white} />
+            <Ionicons name="navigate-outline" size={20} color={COLORS.white} />
             <Text style={styles.navigationButtonText}>Navigate</Text>
           </TouchableOpacity>
           <TouchableOpacity 
@@ -104,12 +105,18 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
             onPress={onArrived}
             disabled={hasArrived}
           >
-            <Ionicons name="flag" size={18} color={hasArrived ? COLORS.textSecondary : COLORS.white} />
+            <Ionicons name="flag-outline" size={20} color={hasArrived ? COLORS.textSecondary : COLORS.white} />
             <Text style={[styles.arrivedButtonText, hasArrived && styles.arrivedButtonTextDisabled]}>
               {hasArrived ? 'Arrived' : 'Arrived'}
             </Text>
           </TouchableOpacity>
+        </View>
+      )}
+
+      {isPickedUp && (
+        <View style={styles.actionRow}>
           <TouchableOpacity style={styles.completeButton} onPress={onCompleteRide}>
+            <Ionicons name="checkmark-done-outline" size={20} color={COLORS.white} />
             <Text style={styles.completeButtonText}>Complete Delivery</Text>
           </TouchableOpacity>
         </View>
@@ -208,62 +215,86 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 2,
     height: 56,
     borderRadius: 18,
     backgroundColor: COLORS.primary,
-    elevation: 5,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   navigationButtonText: {
     color: COLORS.white,
-    fontWeight: '600',
-    fontSize: 15,
+    fontWeight: '700',
+    fontSize: 13,
   },
   startButton: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
     backgroundColor: COLORS.success,
     height: 56,
     borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
+    shadowColor: COLORS.success,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   startButtonText: {
     color: COLORS.white,
-    fontWeight: '600',
-    fontSize: 15,
+    fontWeight: '700',
+    fontSize: 13,
   },
   completeButton: {
     flex: 1,
-    backgroundColor: COLORS.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
     height: 56,
     borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   completeButtonText: {
     color: COLORS.white,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 15,
   },
   arrivedButton: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: '#FF9500',
     height: 56,
     borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
+    shadowColor: '#FF9500',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   arrivedButtonText: {
     color: COLORS.white,
-    fontWeight: '600',
+    fontWeight: '700',
     fontSize: 15,
   },
   arrivedButtonDisabled: {
     backgroundColor: COLORS.surface,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   arrivedButtonTextDisabled: {
     color: COLORS.textSecondary,
@@ -288,13 +319,15 @@ const styles = StyleSheet.create({
   },
   cancelRideButton: {
     backgroundColor: COLORS.surface,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.error + '30',
   },
   cancelRideButtonText: {
     color: COLORS.error,
-    fontWeight: '500',
+    fontWeight: '700',
     fontSize: 14,
   },
 });
