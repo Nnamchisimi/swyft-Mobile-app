@@ -55,6 +55,12 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
               </Text>
             </View>
           )}
+          {(ride.pickup_location || ride.pickup) && (
+            <View style={styles.passengerLine}>
+              <Ionicons name="location" size={18} color={COLORS.primary} />
+              <Text style={styles.passengerText}>{ride.pickup_location || ride.pickup}</Text>
+            </View>
+          )}
         </View>
       )}
 

@@ -52,7 +52,7 @@ export default function SignInScreen() {
           router.replace('/(admin)/review');
         } else if (role === 'driver') {
           if (result.requiresVerification) {
-            router.replace('/(driver)/verify-summary');
+            setError(result.error || 'Your driver account is pending approval. Please complete your verification steps.');
           } else {
             router.replace('/(driver)/dashboard');
           }
@@ -64,8 +64,13 @@ export default function SignInScreen() {
 
         if (result.requiresVerification || /verify your email/i.test(result.error || '')) {
           const role = (result.role || 'passenger').toLowerCase();
+
+          if (result.email) {
+            await authService.saveVerificationEmail(result.email);
+          }
+
           if (role === 'driver') {
-            router.replace('/(driver)/verify-summary');
+            setError(result.error || 'Your driver account is pending approval. Please complete your verification steps.');
           } else {
             router.replace({
               pathname: '/(auth)/verify',
@@ -98,9 +103,8 @@ export default function SignInScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.brandName}>SWYFTinc</Text>
           <Text style={styles.title}>Swyft</Text>
-          <Text style={styles.subtitle}>Your ride, on demand</Text>
+          <Text style={styles.subtitle}>Your dispatch, on demand</Text>
         </View>
 
         <View style={styles.form}>

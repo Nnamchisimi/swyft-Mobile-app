@@ -52,8 +52,7 @@ export default function DriverDashboard() {
       effects.fetchPendingRides,
       state.setPendingRides,
       state.location,
-      locationRef,
-      router
+      locationRef
     );
   };
 

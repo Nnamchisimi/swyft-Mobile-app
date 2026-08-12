@@ -60,7 +60,7 @@ export default function SignInScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Swyft</Text>
-          <Text style={styles.subtitle}>Your ride, on demand</Text>
+          <Text style={styles.subtitle}>Your dispatch, on demand</Text>
         </View>
 
         <View style={styles.form}>

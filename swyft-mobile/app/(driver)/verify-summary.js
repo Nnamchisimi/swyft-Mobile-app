@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 import { authService } from '../../src/services/auth';
@@ -21,6 +21,7 @@ export default function DriverVerifySummaryScreen() {
   const [loading, setLoading] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
+  const redirectTimerRef = useRef(null);
 
   const verifications = verificationStatus?.verifications || {};
 
@@ -46,9 +47,29 @@ export default function DriverVerifySummaryScreen() {
     return st === 'verified' || st === 'submitted';
   });
 
+  const isApproved = verificationStatus?.is_approved || false;
+
   useEffect(() => {
     loadVerificationStatus();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadVerificationStatus();
+    }, [])
+  );
+
+  useEffect(() => {
+    if (isApproved) {
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = setTimeout(() => {
+        router.replace('/(driver)/dashboard');
+      }, 1500);
+    }
+    return () => {
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    };
+  }, [isApproved, router]);
 
   const loadVerificationStatus = async () => {
     try {
@@ -90,11 +111,11 @@ export default function DriverVerifySummaryScreen() {
               const email = await authService.getUserEmail();
               const response = await driverAPI.submitForReview(email);
               
-              Alert.alert(
-                'Submitted!',
-                'Your application is under review. You will receive an email once approved.',
-                [{ text: 'OK', onPress: () => router.replace('/(driver)/dashboard') }]
-              );
+      Alert.alert(
+        'Submitted!',
+        'Your application is under review. You will receive an email once approved.',
+        [{ text: 'OK', onPress: () => loadVerificationStatus() }]
+      );
             }
           }
         ]
@@ -142,7 +163,25 @@ export default function DriverVerifySummaryScreen() {
     );
   }
 
-  const isApproved = verificationStatus?.is_approved || false;
+
+  if (isApproved) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+        <View style={styles.navHeader}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.backButton}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>Verification Summary</Text>
+          <View style={{ width: 50 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.success} />
+          <Text style={styles.loadingText}>Account approved! Redirecting to dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -218,58 +257,38 @@ export default function DriverVerifySummaryScreen() {
           })}
         </View>
 
-        {!isApproved && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Approval Status</Text>
-            <View style={styles.approvalCard}>
-              <View style={styles.approvalInfo}>
-                <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
-                <View style={styles.approvalText}>
-                  <Text style={styles.approvalTitle}>
-                    {allRequiredSubmitted
-                      ? 'Ready for Review' 
-                      : 'Complete All Verifications'}
-                  </Text>
-                  <Text style={styles.approvalDesc}>
-                    {allRequiredSubmitted
-                      ? 'Your documents are ready for manual review by our team.'
-                      : 'Complete all verification steps to submit for review.'}
-                  </Text>
-                </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Approval Status</Text>
+          <View style={styles.approvalCard}>
+            <View style={styles.approvalInfo}>
+              <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
+              <View style={styles.approvalText}>
+                <Text style={styles.approvalTitle}>
+                  {allRequiredSubmitted
+                    ? 'Ready for Review' 
+                    : 'Complete All Verifications'}
+                </Text>
+                <Text style={styles.approvalDesc}>
+                  {allRequiredSubmitted
+                    ? 'Your documents are ready for manual review by our team.'
+                    : 'Complete all verification steps to submit for review.'}
+                </Text>
               </View>
-              
-              <TouchableOpacity
-                style={[styles.reviewButton, loading && styles.buttonDisabled]}
-                onPress={handleSubmitForReview}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={COLORS.white} />
-                ) : (
-                  <Text style={styles.reviewButtonText}>Submit for Review</Text>
-                )}
-              </TouchableOpacity>
             </View>
+            
+            <TouchableOpacity
+              style={[styles.reviewButton, loading && styles.buttonDisabled]}
+              onPress={handleSubmitForReview}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.reviewButtonText}>Submit for Review</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        )}
-
-        {isApproved && (
-          <View style={styles.section}>
-            <View style={styles.approvedCard}>
-              <Ionicons name="checkmark-circle" size={48} color={COLORS.success} />
-              <Text style={styles.approvedTitle}>Account Approved!</Text>
-              <Text style={styles.approvedDesc}>
-                Your driver account has been approved. You can now start accepting rides.
-              </Text>
-              <TouchableOpacity
-                style={styles.goOnlineButton}
-                onPress={() => router.replace('/(driver)/dashboard')}
-              >
-                <Text style={styles.goOnlineButtonText}>Go to Dashboard</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>What Happens Next</Text>
@@ -327,6 +346,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
   header: { padding: 24, alignItems: 'center' },
   title: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 },

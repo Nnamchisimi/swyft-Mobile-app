@@ -43,10 +43,11 @@ export default function WithdrawScreen() {
       if (!userEmail) return;
 
       const response = await driverAPI.getWallet(userEmail);
+      const data = response?.data;
       setWallet({
-        available_balance: parseFloat(response.available_balance) || 0,
-        total_withdrawn: parseFloat(response.total_withdrawn) || 0,
-        pending_balance: parseFloat(response.pending_balance) || 0,
+        available_balance: parseFloat(data?.available_balance) || 0,
+        total_withdrawn: parseFloat(data?.total_withdrawn) || 0,
+        pending_balance: parseFloat(data?.pending_balance) || 0,
       });
     } catch (error) {
       console.error('Error loading wallet:', error);

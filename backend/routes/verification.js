@@ -382,43 +382,51 @@ function registerVerificationRoutes(app, db) {
       const userId = userResult.rows[0].id;
       const userVerified = !!userResult.rows[0].is_verified;
 
-      // Get ID document status
-      db.query('SELECT verification_status, is_verified FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err1, idResult) => {
-        // Get selfie verification status
-        db.query('SELECT verification_status, is_verified FROM selfie_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err2, selfieResult) => {
-          // Get phone verification status
-          db.query('SELECT is_verified FROM phone_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err3, phoneResult) => {
-            // Get bank account status
-            db.query('SELECT verification_status, is_verified FROM bank_accounts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err4, bankResult) => {
+      db.query('SELECT is_approved FROM driver_verification_status WHERE user_id = $1', [userId], (errAppr, apprResults) => {
+        if (errAppr) {
+          console.error('Approval check error in getVerificationStatus:', errAppr.message);
+        }
 
-              const idVerified = idResult.rows.length > 0 && idResult.rows[0].is_verified;
-              const selfieVerified = selfieResult.rows.length > 0 && selfieResult.rows[0].is_verified;
-              const phoneVerified = phoneResult.rows.length > 0 && phoneResult.rows[0].is_verified;
-              const bankVerified = bankResult.rows.length > 0 && bankResult.rows[0].is_verified;
+        const driverApproved = apprResults && apprResults.rows.length > 0 && apprResults.rows[0].is_approved;
 
-              const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
-              const isApproved = userVerified || allVerified;
+        // Get ID document status
+        db.query('SELECT verification_status, is_verified FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err1, idResult) => {
+          // Get selfie verification status
+          db.query('SELECT verification_status, is_verified FROM selfie_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err2, selfieResult) => {
+            // Get phone verification status
+            db.query('SELECT is_verified FROM phone_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err3, phoneResult) => {
+              // Get bank account status
+              db.query('SELECT verification_status, is_verified FROM bank_accounts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err4, bankResult) => {
 
-              res.json({
-                is_approved: isApproved,
-                verifications: {
-                  id_document: {
-                    is_verified: idVerified,
-                    status: idResult.rows.length > 0 ? idResult.rows[0].verification_status : 'not_submitted'
-                  },
-                  selfie: {
-                    is_verified: selfieVerified,
-                    status: selfieResult.rows.length > 0 ? selfieResult.rows[0].verification_status : 'not_submitted'
-                  },
-                  phone: {
-                    is_verified: phoneVerified,
-                    status: phoneResult.rows.length > 0 ? 'pending' : 'not_submitted'
-                  },
-                  bank_account: {
-                    is_verified: bankVerified,
-                    status: bankResult.rows.length > 0 ? bankResult.rows[0].verification_status : 'not_submitted'
+                const idVerified = idResult.rows.length > 0 && idResult.rows[0].is_verified;
+                const selfieVerified = selfieResult.rows.length > 0 && selfieResult.rows[0].is_verified;
+                const phoneVerified = phoneResult.rows.length > 0 && phoneResult.rows[0].is_verified;
+                const bankVerified = bankResult.rows.length > 0 && bankResult.rows[0].is_verified;
+
+                const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
+                const isApproved = driverApproved || userVerified || allVerified;
+
+                res.json({
+                  is_approved: isApproved,
+                  verifications: {
+                    id_document: {
+                      is_verified: idVerified,
+                      status: idResult.rows.length > 0 ? idResult.rows[0].verification_status : 'not_submitted'
+                    },
+                    selfie: {
+                      is_verified: selfieVerified,
+                      status: selfieResult.rows.length > 0 ? selfieResult.rows[0].verification_status : 'not_submitted'
+                    },
+                    phone: {
+                      is_verified: phoneVerified,
+                      status: phoneResult.rows.length > 0 ? 'pending' : 'not_submitted'
+                    },
+                    bank_account: {
+                      is_verified: bankVerified,
+                      status: bankResult.rows.length > 0 ? bankResult.rows[0].verification_status : 'not_submitted'
+                    }
                   }
-                }
+                });
               });
             });
           });

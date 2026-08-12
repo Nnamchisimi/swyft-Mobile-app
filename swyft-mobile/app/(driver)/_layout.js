@@ -14,6 +14,12 @@ export default function DriverLayout() {
       try {
         const authenticated = await authService.isAuthenticated();
         if (!authenticated) {
+          const email = await authService.getUserEmail();
+          if (email) {
+            setRedirect(null);
+            setChecking(false);
+            return;
+          }
           setRedirect('/(auth)/signin');
           return;
         }
@@ -26,16 +32,9 @@ export default function DriverLayout() {
 
         const email = await authService.getUserEmail();
         if (email) {
-          try {
-            const response = await driverAPI.getVerificationStatus(email);
-            const status = response.data;
-            if (!status?.is_approved) {
-              setRedirect('/(driver)/verify-summary');
-              return;
-            }
-          } catch (error) {
-            console.error('Verification status check failed:', error);
-          }
+          setRedirect(null);
+          setChecking(false);
+          return;
         }
       } catch (error) {
         console.error('Driver layout role check error:', error);

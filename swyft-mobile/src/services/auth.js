@@ -139,6 +139,10 @@ class AuthService {
     return AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   }
 
+  async saveVerificationEmail(email) {
+    await AsyncStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
+  }
+
   async getUserEmail() {
     return AsyncStorage.getItem(STORAGE_KEYS.USER_EMAIL);
   }
