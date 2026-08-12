@@ -288,18 +288,54 @@ function registerAuthRoutes(app, db) {
             console.error('Approval check error:', errAppr.message);
           }
 
-          const isApproved = apprResults && apprResults.rows.length > 0 && apprResults.rows[0].is_approved;
+          const driverApproved = apprResults && apprResults.rows.length > 0 && apprResults.rows[0].is_approved;
+          const userVerified = !!(user.is_verified || user.verified);
 
-          if (!isApproved) {
-            return res.status(403).json({
-              error: 'Your driver account is pending approval. Please complete your verification steps.',
-              requiresVerification: true,
-              email: email,
-              role: user.role
-            });
+          if (driverApproved || userVerified) {
+            return issueDriverToken(user, res);
           }
 
-          issueDriverToken(user, res);
+          db.query('SELECT is_verified FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [user.id], (err1, idResult) => {
+            if (err1) {
+              console.error('ID document check error:', err1.message);
+            }
+
+            db.query('SELECT is_verified FROM selfie_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [user.id], (err2, selfieResult) => {
+              if (err2) {
+                console.error('Selfie check error:', err2.message);
+              }
+
+              db.query('SELECT is_verified FROM phone_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [user.id], (err3, phoneResult) => {
+                if (err3) {
+                  console.error('Phone check error:', err3.message);
+                }
+
+                db.query('SELECT is_verified FROM bank_accounts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [user.id], (err4, bankResult) => {
+                  if (err4) {
+                    console.error('Bank check error:', err4.message);
+                  }
+
+                  const idVerified = idResult.rows.length > 0 && idResult.rows[0].is_verified;
+                  const selfieVerified = selfieResult.rows.length > 0 && selfieResult.rows[0].is_verified;
+                  const phoneVerified = phoneResult.rows.length > 0 && phoneResult.rows[0].is_verified;
+                  const bankVerified = bankResult.rows.length > 0 && bankResult.rows[0].is_verified;
+
+                  const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
+
+                  if (allVerified) {
+                    return issueDriverToken(user, res);
+                  }
+
+                  return res.status(403).json({
+                    error: 'Your driver account is pending approval. Please complete your verification steps.',
+                    requiresVerification: true,
+                    email: email,
+                    role: user.role
+                  });
+                });
+              });
+            });
+          });
         });
         return;
       }

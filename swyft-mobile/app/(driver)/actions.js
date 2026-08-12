@@ -38,12 +38,12 @@ export async function toggleOnline(isOnline, setIsOnline, isOnlineRef, driverInf
 
 export async function handleAcceptRide(ride, driverInfo, authService, ridesAPI, setCurrentRide, setPendingRides) {
   try {
-    const driverData = {
-      name: `${driverInfo?.firstName || ''} ${driverInfo?.lastName || ''}`.trim() || 'Driver',
-      email: driverInfo?.email || await authService.getUserEmail(),
-      phone: driverInfo?.phone || 'N/A',
-      vehicle: driverInfo?.vehicle || `${driverInfo?.vehicleYear || ''} ${driverInfo?.vehicleMake || ''} ${driverInfo?.vehicleModel || ''}`.trim(),
-    };
+      const driverData = {
+        name: `${driverInfo?.firstName || ''} ${driverInfo?.lastName || ''}`.trim() || 'Driver',
+        email: driverInfo?.email || await authService.getUserEmail(),
+        phone: driverInfo?.phone || '',
+        vehicle: driverInfo?.vehicle || `${driverInfo?.vehicleYear || ''} ${driverInfo?.vehicleMake || ''} ${driverInfo?.vehicleModel || ''}`.trim(),
+      };
 
     await ridesAPI.acceptRide(ride.id, driverData);
 
