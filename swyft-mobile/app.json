@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/images/swyftmobilelogo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#2196F3"
     },
     "ios": {
       "supportsTablet": true,
@@ -57,7 +57,7 @@
           "image": "./assets/images/swyftmobilelogo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#2196F3"
         }
       ],
       [
