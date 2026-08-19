@@ -107,6 +107,30 @@ class AuthService {
     }
   }
 
+  async forgotPassword(email) {
+    try {
+      const response = await authAPI.forgotPassword(email);
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to send reset email',
+      };
+    }
+  }
+
+  async resetPassword(token, password) {
+    try {
+      const response = await authAPI.resetPassword(token, password);
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to reset password',
+      };
+    }
+  }
+
   async saveAuthData(user) {
     const normalizedRole = (user.role || 'passenger').toLowerCase();
     

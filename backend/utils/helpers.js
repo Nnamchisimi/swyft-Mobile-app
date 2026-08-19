@@ -130,6 +130,37 @@ async function sendVerificationEmail(toEmail, code) {
   }
 }
 
+// Send password reset email via Resend
+async function sendPasswordResetEmail(toEmail, resetToken) {
+  try {
+    const resetLink = `${process.env.FRONTEND_URL || 'https://swyft-mobile-app.onrender.com'}/reset-password?token=${resetToken}&email=${encodeURIComponent(toEmail)}`;
+    const { data, error } = await resend.emails.send({
+      from: 'Swyft <support@otoekspert.com>',
+      to: [toEmail],
+      subject: 'Swyft - Reset Your Password',
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #2563eb;">Reset Your Password</h2>
+          <p>We received a request to reset your password for your Swyft account.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${resetLink}" style="background-color: #2563eb; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">Reset Password</a>
+          </div>
+          <p style="font-size: 14px; color: #666;">This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
+        </div>
+      `,
+      text: `Reset your password: ${resetLink}\n\nThis link will expire in 1 hour.`,
+    });
+    if (error) {
+      console.error('Password reset email error:', error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Password reset email error:', err.message);
+    return false;
+  }
+}
+
 module.exports = {
   JWT_SECRET,
   generateVerificationCode,
@@ -141,5 +172,6 @@ module.exports = {
   adminGuard,
   resend,
   sendDeliveryOtp,
-  sendVerificationEmail
+  sendVerificationEmail,
+  sendPasswordResetEmail
 };

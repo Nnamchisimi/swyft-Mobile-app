@@ -1,9 +1,11 @@
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const {
   generateVerificationCode,
   signToken,
   verifyToken,
-  sendVerificationEmail
+  sendVerificationEmail,
+  sendPasswordResetEmail
 } = require('../utils/helpers');
 
 // Register auth/user endpoints: verify-code, resend, signup, verify (GET), login, profile, google oauth
@@ -354,6 +356,61 @@ function registerAuthRoutes(app, db) {
         phone: user.phone
       });
     });
+  });
+
+  // === FORGOT PASSWORD ===
+  app.post('/api/users/forgot-password', (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    db.query('SELECT id FROM public.users WHERE email = $1', [email], (err, results) => {
+      if (err) {
+        return res.status(500).json({ error: 'Server error' });
+      }
+
+      const userId = results.rows[0]?.id;
+      if (!userId) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const resetToken = jwt.sign({ id: userId, email, purpose: 'password-reset' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+      sendPasswordResetEmail(email, resetToken);
+
+      res.json({ message: 'Password reset email sent' });
+    });
+  });
+
+  // === RESET PASSWORD ===
+  app.post('/api/users/reset-password', async (req, res) => {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      if (decoded.purpose !== 'password-reset') {
+        return res.status(400).json({ error: 'Invalid reset token' });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      db.query('UPDATE public.users SET password = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, decoded.id], (err) => {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to reset password' });
+        }
+
+        res.json({ message: 'Password reset successful' });
+      });
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid or expired token' });
+    }
   });
 
   // === USER PROFILE ===
