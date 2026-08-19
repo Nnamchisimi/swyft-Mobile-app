@@ -22,6 +22,7 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleForgotPassword = async () => {
     if (!email.trim()) {
@@ -36,10 +37,8 @@ export default function ForgotPasswordScreen() {
       const result = await authService.forgotPassword(email.trim());
 
       if (result.success) {
-        router.replace({
-          pathname: '/(auth)/reset-password',
-          params: { email: email.trim() }
-        });
+        setSuccess(true);
+        setError('');
       } else {
         setError(result.error);
       }
@@ -70,33 +69,48 @@ export default function ForgotPasswordScreen() {
             </Text>
           </View>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              placeholderTextColor={COLORS.textSecondary}
-            />
+          {!success ? (
+            <View style={styles.form}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholderTextColor={COLORS.textSecondary}
+              />
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+              {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleForgotPassword}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.buttonText}>Send Reset Link</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[styles.button, loading && styles.buttonDisabled]}
+                onPress={handleForgotPassword}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.buttonText}>Send Reset Link</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.successContainer}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="checkmark-circle" size={64} color={COLORS.success} />
+              </View>
+              <Text style={styles.successTitle}>Check Your Email</Text>
+              <Text style={styles.successText}>
+                We’ve sent a password reset link to {email}. Tap the link in the email to reset your password.
+              </Text>
+              <TouchableOpacity style={styles.button} onPress={() => router.replace('/(auth)/signin')}>
+                <Text style={styles.buttonText}>Back to Sign In</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -178,5 +192,26 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
+  },
+  successContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  iconContainer: {
+    marginBottom: 20,
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  successText: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
   },
 });

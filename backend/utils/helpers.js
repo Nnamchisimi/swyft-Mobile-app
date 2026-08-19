@@ -133,7 +133,7 @@ async function sendVerificationEmail(toEmail, code) {
 // Send password reset email via Resend
 async function sendPasswordResetEmail(toEmail, resetToken) {
   try {
-    const resetLink = `${process.env.FRONTEND_URL || 'https://swyft-mobile-app.onrender.com'}/reset-password?token=${resetToken}&email=${encodeURIComponent(toEmail)}`;
+    const resetLink = `swyftmobile://reset-password?token=${resetToken}&email=${encodeURIComponent(toEmail)}`;
     const { data, error } = await resend.emails.send({
       from: 'Swyft <support@otoekspert.com>',
       to: [toEmail],

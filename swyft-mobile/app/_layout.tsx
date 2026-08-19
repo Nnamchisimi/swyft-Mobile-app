@@ -14,12 +14,18 @@ function RootLayoutContent() {
   useEffect(() => {
     const handleDeepLink = (url) => {
       const parsed = Linking.parse(url);
-      if (parsed.scheme === "swyftmobile" && parsed.hostname === "verify") {
+      if (parsed.scheme === "swyftmobile") {
         const token = parsed.queryParams?.token;
         const email = parsed.queryParams?.email;
-        if (token && email) {
+
+        if (parsed.hostname === "verify" && token && email) {
           router.replace({
             pathname: "/(auth)/verify-link",
+            params: { token, email }
+          });
+        } else if (parsed.hostname === "reset-password" && token && email) {
+          router.replace({
+            pathname: "/(auth)/reset-password",
             params: { token, email }
           });
         }
