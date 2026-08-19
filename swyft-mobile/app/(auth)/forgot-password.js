@@ -65,7 +65,7 @@ export default function ForgotPasswordScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Forgot Password?</Text>
             <Text style={styles.subtitle}>
-              Enter the email address associated with your account and we’ll send you a reset link.
+              Enter the email address associated with your account and we’ll send you a reset code.
             </Text>
           </View>
 
@@ -104,7 +104,7 @@ export default function ForgotPasswordScreen() {
               </View>
               <Text style={styles.successTitle}>Check Your Email</Text>
               <Text style={styles.successText}>
-                We’ve sent a password reset link to {email}. Tap the link in the email to reset your password.
+                We’ve sent a password reset code to {email}. Enter it in the app to reset your password.
               </Text>
               <TouchableOpacity style={styles.button} onPress={() => router.replace('/(auth)/signin')}>
                 <Text style={styles.buttonText}>Back to Sign In</Text>

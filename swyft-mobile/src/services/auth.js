@@ -119,9 +119,9 @@ class AuthService {
     }
   }
 
-  async resetPassword(token, password) {
+  async resetPassword(email, code, password) {
     try {
-      const response = await authAPI.resetPassword(token, password);
+      const response = await authAPI.resetPassword(email, code, password);
       return { success: true, message: response.data.message };
     } catch (error) {
       return {

@@ -359,12 +359,24 @@ function registerAuthRoutes(app, db) {
   });
 
   // === FORGOT PASSWORD ===
+  const ensurePasswordResetTables = () => {
+    db.query(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash VARCHAR(255) NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+  };
+
   app.post('/api/users/forgot-password', (req, res) => {
     const { email } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
+
+    ensurePasswordResetTables();
 
     db.query('SELECT id FROM public.users WHERE email = $1', [email], (err, results) => {
       if (err) {
@@ -376,40 +388,80 @@ function registerAuthRoutes(app, db) {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const resetToken = jwt.sign({ id: userId, email, purpose: 'password-reset' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const code = generateVerificationCode();
 
-      sendPasswordResetEmail(email, resetToken);
+      bcrypt.hash(code, 10, (err, tokenHash) => {
+        if (err) {
+          return res.status(500).json({ error: 'Server error' });
+        }
 
-      res.json({ message: 'Password reset email sent' });
+        db.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+
+        db.query('INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, tokenHash], (err2) => {
+          if (err2) {
+            console.log('Password reset token error:', err2.message);
+          }
+
+          sendPasswordResetEmail(email, code);
+
+          res.json({ message: 'Password reset code sent' });
+        });
+      });
     });
   });
 
   // === RESET PASSWORD ===
   app.post('/api/users/reset-password', async (req, res) => {
-    const { token, password } = req.body;
+    const { email, code, password } = req.body;
 
-    if (!token || !password) {
-      return res.status(400).json({ error: 'Token and new password are required' });
+    if (!email || !code || !password) {
+      return res.status(400).json({ error: 'Email, code, and new password are required' });
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      ensurePasswordResetTables();
 
-      if (decoded.purpose !== 'password-reset') {
-        return res.status(400).json({ error: 'Invalid reset token' });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      db.query('UPDATE public.users SET password = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, decoded.id], (err) => {
+      db.query('SELECT id FROM public.users WHERE email = $1', [email], async (err, results) => {
         if (err) {
-          return res.status(500).json({ error: 'Failed to reset password' });
+          return res.status(500).json({ error: 'Server error' });
         }
 
-        res.json({ message: 'Password reset successful' });
+        const userId = results.rows[0]?.id;
+        if (!userId) {
+          return res.status(404).json({ error: 'User not found' });
+        }
+
+        db.query('SELECT token_hash FROM password_reset_tokens WHERE user_id = $1 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1', [userId], async (err2, tokenResults) => {
+          if (err2) {
+            return res.status(500).json({ error: 'Server error' });
+          }
+
+          if (tokenResults.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired reset code' });
+          }
+
+          const tokenHash = tokenResults.rows[0].token_hash;
+          const match = await bcrypt.compare(code, tokenHash);
+
+          if (!match) {
+            return res.status(400).json({ error: 'Invalid reset code' });
+          }
+
+          const hashedPassword = await bcrypt.hash(password, 10);
+
+          db.query('UPDATE public.users SET password = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, userId], (err3) => {
+            if (err3) {
+              return res.status(500).json({ error: 'Failed to reset password' });
+            }
+
+            db.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+
+            res.json({ message: 'Password reset successful' });
+          });
+        });
       });
     } catch (err) {
-      return res.status(400).json({ error: 'Invalid or expired token' });
+      return res.status(400).json({ error: 'Invalid or expired code' });
     }
   });
 

@@ -22,15 +22,15 @@ export default function ResetPasswordScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const email = params.email || '';
-  const token = params.token || '';
 
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleResetPassword = async () => {
-    if (!password || !confirmPassword) {
+    if (!code || !password || !confirmPassword) {
       setError('Please fill in all fields');
       return;
     }
@@ -49,7 +49,7 @@ export default function ResetPasswordScreen() {
     setLoading(true);
 
     try {
-      const result = await authService.resetPassword(token, password);
+      const result = await authService.resetPassword(email, code, password);
 
       if (result.success) {
         Alert.alert('Success', 'Your password has been reset. Please sign in with your new password.', [
@@ -81,11 +81,22 @@ export default function ResetPasswordScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>Reset Password</Text>
             <Text style={styles.subtitle}>
-              Set a new password for your Swyft account.
+              Enter the reset code sent to {email} and set a new password.
             </Text>
           </View>
 
           <View style={styles.form}>
+            <Text style={styles.label}>Reset Code</Text>
+            <TextInput
+              style={styles.input}
+              value={code}
+              onChangeText={setCode}
+              placeholder="Enter 6-digit code"
+              keyboardType="number-pad"
+              maxLength={6}
+              placeholderTextColor={COLORS.textSecondary}
+            />
+
             <Text style={styles.label}>New Password</Text>
             <TextInput
               style={styles.input}

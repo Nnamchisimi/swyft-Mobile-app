@@ -44,7 +44,7 @@ export const authAPI = {
   verifyCode: (email, code) => api.post('/api/users/verify-code', { email, code }),
   resendCode: (email) => api.post('/api/users/resend-code', { email }),
   forgotPassword: (email) => api.post('/api/users/forgot-password', { email }),
-  resetPassword: (token, password) => api.post('/api/users/reset-password', { token, password }),
+  resetPassword: (email, code, password) => api.post('/api/users/reset-password', { email, code, password }),
   getProfile: () => api.get('/api/user/profile'),
 };
 

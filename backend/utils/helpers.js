@@ -131,9 +131,8 @@ async function sendVerificationEmail(toEmail, code) {
 }
 
 // Send password reset email via Resend
-async function sendPasswordResetEmail(toEmail, resetToken) {
+async function sendPasswordResetEmail(toEmail, code) {
   try {
-    const resetLink = `swyftmobile://reset-password?token=${resetToken}&email=${encodeURIComponent(toEmail)}`;
     const { data, error } = await resend.emails.send({
       from: 'Swyft <support@otoekspert.com>',
       to: [toEmail],
@@ -142,13 +141,15 @@ async function sendPasswordResetEmail(toEmail, resetToken) {
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #2563eb;">Reset Your Password</h2>
           <p>We received a request to reset your password for your Swyft account.</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetLink}" style="background-color: #2563eb; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">Reset Password</a>
+          <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f3f4f6; border-radius: 8px;">
+            <p style="font-size: 14px; color: #666; margin-bottom: 8px;">Your password reset code is:</p>
+            <p style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #2563eb; margin: 0;">${code}</p>
           </div>
-          <p style="font-size: 14px; color: #666;">This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
+          <p style="font-size: 14px; color: #666;">Enter this code in the Swyft app to reset your password. This code will expire in 15 minutes.</p>
+          <p style="color: #dc2626; font-size: 14px;">If you didn't request a password reset, you can safely ignore this email.</p>
         </div>
       `,
-      text: `Reset your password: ${resetLink}\n\nThis link will expire in 1 hour.`,
+      text: `Your Swyft password reset code is: ${code}\n\nEnter this code in the Swyft app to reset your password.\n\nThis code will expire in 15 minutes.\n\nIf you didn't request a password reset, you can safely ignore this email.`,
     });
     if (error) {
       console.error('Password reset email error:', error);
