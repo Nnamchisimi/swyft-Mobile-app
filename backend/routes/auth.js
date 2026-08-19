@@ -359,14 +359,14 @@ function registerAuthRoutes(app, db) {
   });
 
   // === FORGOT PASSWORD ===
-  const ensurePasswordResetTables = () => {
+  const ensurePasswordResetTables = (cb) => {
     db.query(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       token_hash VARCHAR(255) NOT NULL,
       expires_at TIMESTAMPTZ NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
-    )`);
+    )`, cb);
   };
 
   app.post('/api/users/forgot-password', (req, res) => {
@@ -376,35 +376,39 @@ function registerAuthRoutes(app, db) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    ensurePasswordResetTables();
-
-    db.query('SELECT id FROM public.users WHERE email = $1', [email], (err, results) => {
+    ensurePasswordResetTables((err) => {
       if (err) {
-        return res.status(500).json({ error: 'Server error' });
+        console.error('Failed to ensure password reset tables:', err);
       }
 
-      const userId = results.rows[0]?.id;
-      if (!userId) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-
-      const code = generateVerificationCode();
-
-      bcrypt.hash(code, 10, (err, tokenHash) => {
+      db.query('SELECT id FROM public.users WHERE email = $1', [email], (err, results) => {
         if (err) {
           return res.status(500).json({ error: 'Server error' });
         }
 
-        db.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+        const userId = results.rows[0]?.id;
+        if (!userId) {
+          return res.status(404).json({ error: 'User not found' });
+        }
 
-        db.query('INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, tokenHash], (err2) => {
-          if (err2) {
-            console.log('Password reset token error:', err2.message);
+        const code = generateVerificationCode();
+
+        bcrypt.hash(code, 10, (err, tokenHash) => {
+          if (err) {
+            return res.status(500).json({ error: 'Server error' });
           }
 
-          sendPasswordResetEmail(email, code);
+          db.query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
 
-          res.json({ message: 'Password reset code sent' });
+          db.query('INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL \'15 minutes\')', [userId, tokenHash], (err2) => {
+            if (err2) {
+              console.log('Password reset token error:', err2.message);
+            }
+
+            sendPasswordResetEmail(email, code);
+
+            res.json({ message: 'Password reset code sent' });
+          });
         });
       });
     });
@@ -419,10 +423,15 @@ function registerAuthRoutes(app, db) {
     }
 
     try {
-      ensurePasswordResetTables();
+      ensurePasswordResetTables((err) => {
+        if (err) {
+          console.error('Failed to ensure password reset tables:', err);
+        }
+      });
 
       db.query('SELECT id FROM public.users WHERE email = $1', [email], async (err, results) => {
         if (err) {
+          console.error('Reset password user lookup error:', err);
           return res.status(500).json({ error: 'Server error' });
         }
 
@@ -433,6 +442,7 @@ function registerAuthRoutes(app, db) {
 
         db.query('SELECT token_hash FROM password_reset_tokens WHERE user_id = $1 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1', [userId], async (err2, tokenResults) => {
           if (err2) {
+            console.error('Reset password token lookup error:', err2);
             return res.status(500).json({ error: 'Server error' });
           }
 
@@ -451,6 +461,7 @@ function registerAuthRoutes(app, db) {
 
           db.query('UPDATE public.users SET password = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, userId], (err3) => {
             if (err3) {
+              console.error('Reset password update error:', err3);
               return res.status(500).json({ error: 'Failed to reset password' });
             }
 
@@ -461,6 +472,7 @@ function registerAuthRoutes(app, db) {
         });
       });
     } catch (err) {
+      console.error('Reset password unexpected error:', err);
       return res.status(400).json({ error: 'Invalid or expired code' });
     }
   });

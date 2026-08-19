@@ -124,6 +124,7 @@ class AuthService {
       const response = await authAPI.resetPassword(email, code, password);
       return { success: true, message: response.data.message };
     } catch (error) {
+      console.error('Reset password API error:', error.response?.status, error.response?.data || error.message);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to reset password',
