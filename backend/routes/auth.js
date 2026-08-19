@@ -459,7 +459,7 @@ function registerAuthRoutes(app, db) {
 
           const hashedPassword = await bcrypt.hash(password, 10);
 
-          db.query('UPDATE public.users SET password = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, userId], (err3) => {
+          db.query('UPDATE public.users SET password = $1 WHERE id = $2', [hashedPassword, userId], (err3) => {
             if (err3) {
               console.error('Reset password update error:', err3);
               return res.status(500).json({ error: 'Failed to reset password' });
