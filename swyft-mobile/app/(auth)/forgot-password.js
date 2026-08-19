@@ -106,8 +106,11 @@ export default function ForgotPasswordScreen() {
               <Text style={styles.successText}>
                 We’ve sent a password reset code to {email}. Enter it in the app to reset your password.
               </Text>
-              <TouchableOpacity style={styles.button} onPress={() => router.replace('/(auth)/signin')}>
-                <Text style={styles.buttonText}>Back to Sign In</Text>
+              <TouchableOpacity style={styles.button} onPress={() => router.replace({ pathname: '/(auth)/reset-password', params: { email } })}>
+                <Text style={styles.buttonText}>Enter Reset Code</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace('/(auth)/signin')}>
+                <Text style={styles.secondaryButtonText}>Back to Sign In</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -190,6 +193,16 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    marginTop: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: COLORS.primary,
     fontSize: 16,
     fontWeight: '600',
   },
