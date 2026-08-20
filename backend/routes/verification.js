@@ -97,6 +97,7 @@ function registerVerificationRoutes(app, db) {
          selfie JSONB,
          phone_verification JSONB,
          bank_account JSONB,
+         withdrawals JSONB,
          archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
        )`,
       `CREATE TABLE IF NOT EXISTS ratings (
@@ -163,9 +164,11 @@ function registerVerificationRoutes(app, db) {
       `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) DEFAULT 'pending'`,
       `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE`,
       `ALTER TABLE bank_accounts ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE`,
-      // driver_verification_status
-      `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`,
-      `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`,
+       // driver_verification_status
+       `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`,
+       `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`,
+       // driver_verification_archive
+       `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS withdrawals JSONB`,
       // ratings
       `ALTER TABLE ratings ADD COLUMN IF NOT EXISTS ride_id INTEGER`,
       `ALTER TABLE ratings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
@@ -194,6 +197,96 @@ function registerVerificationRoutes(app, db) {
 
   ensureVerificationTables();
   migrateVerificationTables();
+  backfillArchive();
+
+  const getSuccessfulWithdrawals = (userId, callback) => {
+    db.query(
+      `SELECT id, amount, status, bank_name, iban, account_holder_name, admin_notes, transfer_reference, processed_at, created_at
+       FROM withdrawal_requests
+       WHERE driver_id = $1 AND status = 'PAID'
+       ORDER BY created_at DESC`,
+      [userId],
+      (err, results) => {
+        if (err) return callback(err, []);
+        const withdrawals = results.rows.map(w => ({
+          id: w.id,
+          amount: parseFloat(w.amount),
+          status: w.status,
+          bank_name: w.bank_name,
+          iban: w.iban,
+          account_holder_name: w.account_holder_name,
+          admin_notes: w.admin_notes,
+          transfer_reference: w.transfer_reference,
+          processed_at: w.processed_at,
+          created_at: w.created_at,
+        }));
+        callback(null, withdrawals);
+      }
+    );
+  };
+
+  const backfillArchive = () => {
+    db.query(
+      `SELECT dvs.user_id, u.email, u.first_name, u.last_name, u.phone
+       FROM driver_verification_status dvs
+       JOIN public.users u ON u.id = dvs.user_id
+       WHERE dvs.is_approved = true
+       AND NOT EXISTS (SELECT 1 FROM driver_verification_archive dva WHERE dva.user_id = dvs.user_id)`,
+      [],
+      (err, results) => {
+        if (err) {
+          console.error('[ARCHIVE_BACKFILL] Error fetching approved drivers:', err.message);
+          return;
+        }
+        const approvedDrivers = results.rows || [];
+        console.log(`[ARCHIVE_BACKFILL] Found ${approvedDrivers.length} approved drivers to archive`);
+        let completed = 0;
+        approvedDrivers.forEach((driver) => {
+          getVerificationBundle(driver.user_id, (bundleErr, bundle) => {
+            if (bundleErr) {
+              console.error(`[ARCHIVE_BACKFILL] Bundle error for ${driver.email}:`, bundleErr.message);
+            } else {
+              const snapshot = buildArchiveSnapshot(bundle);
+              getSuccessfulWithdrawals(driver.user_id, (wErr, withdrawals) => {
+                if (wErr) {
+                  console.error(`[ARCHIVE_BACKFILL] Withdrawals error for ${driver.email}:`, wErr.message);
+                } else {
+                  const finalSnapshot = { ...snapshot, withdrawals: withdrawals || [] };
+                  db.query(
+                    `INSERT INTO driver_verification_archive
+                      (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, withdrawals)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+                    [
+                      driver.user_id,
+                      driver.email,
+                      driver.first_name,
+                      driver.last_name,
+                      driver.phone,
+                      'approved',
+                      null,
+                      null,
+                      JSON.stringify(finalSnapshot.id_document),
+                      JSON.stringify(finalSnapshot.selfie),
+                      JSON.stringify(finalSnapshot.phone),
+                      JSON.stringify(finalSnapshot.bank_account),
+                      JSON.stringify(finalSnapshot.withdrawals),
+                    ],
+                    (archiveErr) => {
+                      if (archiveErr) {
+                        console.error(`[ARCHIVE_BACKFILL] Insert error for ${driver.email}:`, archiveErr.message);
+                      } else {
+                        console.log(`[ARCHIVE_BACKFILL] Archived ${driver.email}`);
+                      }
+                    }
+                  );
+                }
+              });
+            }
+          });
+        });
+      }
+    );
+  };
 
   // Upload government-issued ID
   app.post('/api/drivers/:email/id-document', (req, res) => {
@@ -940,7 +1033,62 @@ function registerVerificationRoutes(app, db) {
         [userId, approved],
         (err2) => {
           if (err2) return res.status(500).json({ error: 'Failed to update approval' });
-          res.json({ message: approved ? 'Driver approved' : 'Driver not approved', email, is_approved: approved });
+
+          const message = approved ? 'Driver approved' : 'Driver not approved';
+          res.json({ message, email, is_approved: approved });
+
+          if (approved) {
+            const reviewerEmail = (() => {
+              try {
+                const decoded = jwt.verify(req.headers.authorization?.split(' ')[1], process.env.JWT_SECRET);
+                return decoded.email || null;
+              } catch (e) {
+                return null;
+              }
+            })();
+
+            getVerificationBundle(userId, (bundleErr, bundle) => {
+              if (bundleErr) return;
+              const snapshot = buildArchiveSnapshot(bundle);
+              getSuccessfulWithdrawals(userId, (wErr, withdrawals) => {
+                if (wErr) return;
+                const finalSnapshot = { ...snapshot, withdrawals };
+                db.query(
+                  `INSERT INTO driver_verification_archive
+                    (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, withdrawals)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                   ON CONFLICT (user_id) DO UPDATE SET
+                     decision = EXCLUDED.decision,
+                     reviewer_email = EXCLUDED.reviewer_email,
+                     notes = EXCLUDED.notes,
+                     id_document = EXCLUDED.id_document,
+                     selfie = EXCLUDED.selfie,
+                     phone_verification = EXCLUDED.phone_verification,
+                     bank_account = EXCLUDED.bank_account,
+                     withdrawals = EXCLUDED.withdrawals,
+                     archived_at = NOW()`,
+                  [
+                    userId,
+                    email,
+                    userResult.rows[0].first_name,
+                    userResult.rows[0].last_name,
+                    userResult.rows[0].phone,
+                    'approved',
+                    reviewerEmail,
+                    null,
+                    JSON.stringify(finalSnapshot.id_document),
+                    JSON.stringify(finalSnapshot.selfie),
+                    JSON.stringify(finalSnapshot.phone),
+                    JSON.stringify(finalSnapshot.bank_account),
+                    JSON.stringify(finalSnapshot.withdrawals),
+                  ],
+                  (archiveErr) => {
+                    if (archiveErr) console.error('Auto-archive error:', archiveErr);
+                  }
+                );
+              });
+            });
+          }
         }
       );
     });
@@ -1022,21 +1170,36 @@ function registerVerificationRoutes(app, db) {
       getVerificationBundle(userId, (bundleErr, bundle) => {
         if (bundleErr) return res.status(500).json({ error: 'Failed to build archive' });
         const snapshot = buildArchiveSnapshot(bundle);
-        db.query(
-           `INSERT INTO driver_verification_archive
-              (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-           [
-             userId, email, user.first_name, user.last_name, user.phone, decision, reviewerEmail,
-             notes || null,
-             JSON.stringify(snapshot.id_document), JSON.stringify(snapshot.selfie),
-             JSON.stringify(snapshot.phone), JSON.stringify(snapshot.bank_account),
-           ],
-          (err2) => {
-            if (err2) return res.status(500).json({ error: 'Failed to archive driver' });
-            res.json({ message: 'Driver archived', email, decision });
-          }
-        );
+        getSuccessfulWithdrawals(userId, (wErr, withdrawals) => {
+          if (wErr) return res.status(500).json({ error: 'Failed to load withdrawals' });
+          const finalSnapshot = { ...snapshot, withdrawals };
+          db.query(
+             `INSERT INTO driver_verification_archive
+                (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, withdrawals)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+              ON CONFLICT (user_id) DO UPDATE SET
+                decision = EXCLUDED.decision,
+                reviewer_email = EXCLUDED.reviewer_email,
+                notes = EXCLUDED.notes,
+                id_document = EXCLUDED.id_document,
+                selfie = EXCLUDED.selfie,
+                phone_verification = EXCLUDED.phone_verification,
+                bank_account = EXCLUDED.bank_account,
+                withdrawals = EXCLUDED.withdrawals,
+                archived_at = NOW()`,
+             [
+               userId, email, user.first_name, user.last_name, user.phone, decision, reviewerEmail,
+               notes || null,
+               JSON.stringify(finalSnapshot.id_document), JSON.stringify(finalSnapshot.selfie),
+               JSON.stringify(finalSnapshot.phone), JSON.stringify(finalSnapshot.bank_account),
+               JSON.stringify(finalSnapshot.withdrawals),
+             ],
+           (err2) => {
+             if (err2) return res.status(500).json({ error: 'Failed to archive driver' });
+             res.json({ message: 'Driver archived', email, decision });
+           }
+          );
+        });
       });
     });
   });
@@ -1064,7 +1227,7 @@ function registerVerificationRoutes(app, db) {
 
     const { id } = req.params;
     db.query(
-       `SELECT id, user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, archived_at
+       `SELECT id, user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, withdrawals, archived_at
         FROM driver_verification_archive WHERE id = $1`,
       [id],
       (err, results) => {
@@ -1077,6 +1240,7 @@ function registerVerificationRoutes(app, db) {
           selfie: row.selfie ? JSON.parse(row.selfie) : null,
           phone_verification: row.phone_verification ? JSON.parse(row.phone_verification) : null,
           bank_account: row.bank_account ? JSON.parse(row.bank_account) : null,
+          withdrawals: row.withdrawals ? JSON.parse(row.withdrawals) : [],
         });
       }
     );
