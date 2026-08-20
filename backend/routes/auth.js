@@ -291,9 +291,8 @@ function registerAuthRoutes(app, db) {
           }
 
           const driverApproved = apprResults && apprResults.rows.length > 0 && apprResults.rows[0].is_approved;
-          const userVerified = !!(user.is_verified || user.verified);
 
-          if (driverApproved || userVerified) {
+          if (driverApproved) {
             return issueDriverToken(user, res);
           }
 

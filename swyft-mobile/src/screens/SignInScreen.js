@@ -38,7 +38,11 @@ export default function SignInScreen() {
         if (role === 'admin') {
           router.replace('/(admin)/review');
         } else if (role === 'driver') {
-          router.replace('/(driver)/dashboard');
+          if (result.requiresVerification) {
+            setError(result.error || 'Your driver account is pending approval. Please complete your verification steps.');
+          } else {
+            router.replace('/(driver)/dashboard');
+          }
         } else {
           router.replace('/(passenger)/home');
         }

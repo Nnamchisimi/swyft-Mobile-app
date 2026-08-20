@@ -67,8 +67,13 @@ export default function RegisterScreen() {
       const result = await authService.register(userData);
 
       if (result.success) {
-        if (role === 'driver') {
-          router.replace('/(driver)/dashboard');
+        if (result.requiresVerification) {
+          router.replace({
+            pathname: '/(auth)/verify',
+            params: { email: result.email }
+          });
+        } else if (role === 'driver') {
+          router.replace('/(driver)/verify-id');
         } else {
           router.replace('/(passenger)/home');
         }

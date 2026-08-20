@@ -32,7 +32,17 @@ export default function DriverLayout() {
 
         const email = await authService.getUserEmail();
         if (email) {
-          setRedirect(null);
+          try {
+            const response = await driverAPI.getVerificationStatus(email);
+            if (response.data?.is_approved) {
+              setRedirect(null);
+            } else {
+              setRedirect('/(driver)/verify-summary');
+            }
+          } catch (error) {
+            console.error('Driver layout verification check error:', error);
+            setRedirect(null);
+          }
           setChecking(false);
           return;
         }

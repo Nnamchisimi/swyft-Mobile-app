@@ -51,7 +51,7 @@ export default function VerifyLinkScreen() {
         if (role === 'admin') {
           router.replace('/(admin)/review');
         } else if (role === 'driver') {
-          router.replace('/(driver)/dashboard');
+          router.replace('/(driver)/verify-summary');
         } else {
           router.replace('/(passenger)/home');
         }

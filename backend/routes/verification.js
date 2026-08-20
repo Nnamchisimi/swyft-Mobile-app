@@ -229,14 +229,14 @@ function registerVerificationRoutes(app, db) {
       `SELECT u.id AS user_id, u.email, u.first_name, u.last_name, u.phone
        FROM public.users u
        LEFT JOIN driver_verification_status dvs ON dvs.user_id = u.id
-       WHERE LOWER(u.role) = 'driver'
+       WHERE u.role = 'driver'
          AND (
            dvs.is_approved = true
            OR (
-             (SELECT is_verified FROM id_documents WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) = true
-             AND (SELECT is_verified FROM selfie_verifications WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) = true
-             AND (SELECT is_verified FROM phone_verifications WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) = true
-             AND (SELECT is_verified FROM bank_accounts WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) = true
+             COALESCE((SELECT is_verified FROM id_documents WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1), false)
+             AND COALESCE((SELECT is_verified FROM selfie_verifications WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1), false)
+             AND COALESCE((SELECT is_verified FROM phone_verifications WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1), false)
+             AND COALESCE((SELECT is_verified FROM bank_accounts WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1), false)
            )
          )
          AND NOT EXISTS (SELECT 1 FROM driver_verification_archive dva WHERE dva.user_id = u.id)`,
@@ -491,7 +491,6 @@ function registerVerificationRoutes(app, db) {
       if (userResult.rows.length === 0) return res.status(404).json({ error: 'Driver not found' });
 
       const userId = userResult.rows[0].id;
-      const userVerified = !!userResult.rows[0].is_verified;
 
       db.query('SELECT is_approved FROM driver_verification_status WHERE user_id = $1', [userId], (errAppr, apprResults) => {
         if (errAppr) {
@@ -514,8 +513,8 @@ function registerVerificationRoutes(app, db) {
                 const phoneVerified = phoneResult.rows.length > 0 && phoneResult.rows[0].is_verified;
                 const bankVerified = bankResult.rows.length > 0 && bankResult.rows[0].is_verified;
 
-                const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
-                const isApproved = driverApproved || userVerified || allVerified;
+                 const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
+                 const isApproved = driverApproved || allVerified;
 
                 res.json({
                   is_approved: isApproved,

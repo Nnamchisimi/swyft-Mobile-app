@@ -308,15 +308,6 @@ export default function DriverVerifySummaryScreen() {
           </View>
         </View>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.completeButton}
-          onPress={() => router.replace('/(driver)/dashboard')}
-        >
-          <Text style={styles.completeButtonText}>Continue</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
