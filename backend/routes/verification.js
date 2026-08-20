@@ -287,6 +287,8 @@ function registerVerificationRoutes(app, db) {
     );
   };
 
+  backfillArchive();
+
   // Upload government-issued ID
   app.post('/api/drivers/:email/id-document', (req, res) => {
     const { email } = req.params;
@@ -1246,5 +1248,4 @@ function registerVerificationRoutes(app, db) {
   });
 }
 
-  backfillArchive();
 module.exports = { registerVerificationRoutes };
