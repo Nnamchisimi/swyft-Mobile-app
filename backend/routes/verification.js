@@ -233,10 +233,10 @@ function registerVerificationRoutes(app, db) {
          AND (
            dvs.is_approved = true
            OR (
-             EXISTS (SELECT 1 FROM id_documents id WHERE id.user_id = u.id AND id.is_verified = true)
-             AND EXISTS (SELECT 1 FROM selfie_verifications sv WHERE sv.user_id = u.id AND sv.is_verified = true)
-             AND EXISTS (SELECT 1 FROM phone_verifications pv WHERE pv.user_id = u.id AND pv.is_verified = true)
-             AND EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.user_id = u.id AND ba.is_verified = true)
+             (SELECT is_verified FROM id_documents WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) = true
+             AND (SELECT is_verified FROM selfie_verifications WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) = true
+             AND (SELECT is_verified FROM phone_verifications WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) = true
+             AND (SELECT is_verified FROM bank_accounts WHERE user_id = u.id ORDER BY created_at DESC LIMIT 1) = true
            )
          )
          AND NOT EXISTS (SELECT 1 FROM driver_verification_archive dva WHERE dva.user_id = u.id)`,
