@@ -226,11 +226,20 @@ function registerVerificationRoutes(app, db) {
 
   const backfillArchive = () => {
     db.query(
-      `SELECT dvs.user_id, u.email, u.first_name, u.last_name, u.phone
-       FROM driver_verification_status dvs
-       JOIN public.users u ON u.id = dvs.user_id
-       WHERE dvs.is_approved = true
-       AND NOT EXISTS (SELECT 1 FROM driver_verification_archive dva WHERE dva.user_id = dvs.user_id)`,
+      `SELECT u.id AS user_id, u.email, u.first_name, u.last_name, u.phone
+       FROM public.users u
+       LEFT JOIN driver_verification_status dvs ON dvs.user_id = u.id
+       WHERE LOWER(u.role) = 'driver'
+         AND (
+           dvs.is_approved = true
+           OR (
+             EXISTS (SELECT 1 FROM id_documents id WHERE id.user_id = u.id AND id.is_verified = true)
+             AND EXISTS (SELECT 1 FROM selfie_verifications sv WHERE sv.user_id = u.id AND sv.is_verified = true)
+             AND EXISTS (SELECT 1 FROM phone_verifications pv WHERE pv.user_id = u.id AND pv.is_verified = true)
+             AND EXISTS (SELECT 1 FROM bank_accounts ba WHERE ba.user_id = u.id AND ba.is_verified = true)
+           )
+         )
+         AND NOT EXISTS (SELECT 1 FROM driver_verification_archive dva WHERE dva.user_id = u.id)`,
       [],
       (err, results) => {
         if (err) {
