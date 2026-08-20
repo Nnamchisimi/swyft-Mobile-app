@@ -18,4 +18,9 @@ export const uploadDriverImage = async (base64, path, bucket = 'casyft') => {
   return json.url;
 };
 
+export const uploadVehicleImage = async (base64, email, bucket = 'casyft') => {
+  const path = `vehicle-images/${email || 'driver'}-${Date.now()}.jpg`;
+  return uploadDriverImage(base64, path, bucket);
+};
+
 export const uploadBase64AsDataUri = (base64) => `data:image/jpeg;base64,${base64}`;

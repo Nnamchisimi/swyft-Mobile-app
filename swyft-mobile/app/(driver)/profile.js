@@ -68,7 +68,7 @@ export default function DriverProfileScreen() {
     } finally {
       setUploading(false);
     }
-  };
+   };
 
   useEffect(() => {
     loadDriverData();

@@ -44,42 +44,35 @@ export default function SignInScreen() {
       console.log('Login result:', JSON.stringify(result, null, 2));
       setDebugInfo(`URL: ${API_URL}\nResult: ${JSON.stringify(result, null, 2)}`);
 
-      if (result.success) {
+      if (result.requiresVerification) {
+        const role = (result.role || result.user?.role || 'passenger').toLowerCase();
+
+        if (result.email) {
+          await authService.saveVerificationEmail(result.email);
+        }
+
+        if (role === 'driver') {
+          router.replace('/(driver)/verify-summary');
+        } else {
+          router.replace({
+            pathname: '/(auth)/verify',
+            params: { email: result.email || email.trim() }
+          });
+        }
+      } else if (result.success) {
         console.log('Login successful, user role:', result.user.role);
 
         const role = (result.user.role || 'passenger').toLowerCase();
         if (role === 'admin') {
           router.replace('/(admin)/review');
         } else if (role === 'driver') {
-          if (result.requiresVerification) {
-            setError(result.error || 'Your driver account is pending approval. Please complete your verification steps.');
-          } else {
-            router.replace('/(driver)/dashboard');
-          }
+          router.replace('/(driver)/dashboard');
         } else {
           router.replace('/(passenger)/home');
         }
       } else {
         console.log('Login failed with error:', result.error);
-
-        if (result.requiresVerification || /verify your email/i.test(result.error || '')) {
-          const role = (result.role || 'passenger').toLowerCase();
-
-          if (result.email) {
-            await authService.saveVerificationEmail(result.email);
-          }
-
-          if (role === 'driver') {
-            setError(result.error || 'Your driver account is pending approval. Please complete your verification steps.');
-          } else {
-            router.replace({
-              pathname: '/(auth)/verify',
-              params: { email: result.email || email.trim() }
-            });
-          }
-        } else {
-          setError(result.error);
-        }
+        setError(result.error);
       }
     } catch (err) {
       console.log('Login exception caught:', err);

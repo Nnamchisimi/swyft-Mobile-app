@@ -70,7 +70,7 @@ export default function DriverProfileScreen() {
     } finally {
       setUploading(false);
     }
-  };
+   };
 
   useEffect(() => {
     loadDriverData();
@@ -376,8 +376,13 @@ export default function DriverProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Vehicle</Text>
           <View style={styles.vehicleCard}>
-            {driverInfo?.vehicleImage && (
+            {driverInfo?.vehicleImage ? (
               <Image source={{ uri: driverInfo.vehicleImage }} style={styles.vehicleImage} />
+            ) : (
+              <View style={[styles.vehicleImage, styles.vehicleImagePlaceholder]}>
+                <Ionicons name="car-outline" size={48} color={COLORS.textSecondary} />
+                <Text style={styles.vehicleImagePlaceholderText}>No vehicle photo uploaded</Text>
+              </View>
             )}
             <View style={styles.vehicleHeader}>
               <View style={styles.vehicleIconContainer}>
@@ -787,12 +792,38 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
+    position: 'relative',
   },
   vehicleImage: {
     width: '100%',
     height: 180,
     borderRadius: 12,
     marginBottom: 12,
+  },
+  vehicleImagePlaceholder: {
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+  },
+  vehicleImagePlaceholderText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  vehicleImageOverlay: {
+    position: 'absolute',
+    top: 24,
+    right: 24,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   vehicleHeader: {
     flexDirection: 'row',

@@ -33,16 +33,22 @@ export default function SignInScreen() {
     try {
       const result = await authService.login(email.trim(), password);
 
-      if (result.success) {
+      if (result.requiresVerification) {
+        const role = (result.role || result.user?.role || 'passenger').toLowerCase();
+        if (role === 'driver') {
+          router.replace('/(driver)/verify-summary');
+        } else {
+          router.replace({
+            pathname: '/(auth)/verify',
+            params: { email: result.email || email.trim() }
+          });
+        }
+      } else if (result.success) {
         const role = result.user.role || 'passenger';
         if (role === 'admin') {
           router.replace('/(admin)/review');
         } else if (role === 'driver') {
-          if (result.requiresVerification) {
-            setError(result.error || 'Your driver account is pending approval. Please complete your verification steps.');
-          } else {
-            router.replace('/(driver)/dashboard');
-          }
+          router.replace('/(driver)/dashboard');
         } else {
           router.replace('/(passenger)/home');
         }
