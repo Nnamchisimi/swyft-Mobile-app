@@ -54,6 +54,12 @@ app.use(express.urlencoded({ limit: '25mb', extended: true }));
 // Admin guard: every /api/admin/* request must carry a valid JWT with role = 'admin'
 app.use('/api/admin', adminGuard);
 
+// Migrate: ensure profile_picture column exists on users
+db.query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS profile_picture TEXT`, (err) => {
+  if (err) console.error('[MIGRATION] users.profile_picture:', err.message);
+  else console.log('[MIGRATION] users.profile_picture ensured');
+});
+
 app.post('/api/upload', async (req, res) => {
   try {
     const { base64, path, bucket = 'casyft' } = req.body;

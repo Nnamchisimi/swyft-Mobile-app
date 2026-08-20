@@ -7,13 +7,16 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { authService } from '../../src/services/auth';
 import { driverAPI, ridesAPI } from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
+import { uploadDriverImage } from '../../src/services/supabaseStorage';
 
 export default function DriverProfileScreen() {
   const router = useRouter();
@@ -28,6 +31,44 @@ export default function DriverProfileScreen() {
   });
   const [loading, setLoading] = useState(true);
   const [completedRides, setCompletedRides] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
+  const pickAndUploadProfilePicture = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Please allow access to your photo library.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    if (!asset.base64) {
+      Alert.alert('Error', 'Could not read selected image.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const path = `profile-pictures/${userEmail || 'driver'}-${Date.now()}.jpg`;
+      const url = await uploadDriverImage(asset.base64, path);
+      await driverAPI.updateProfilePicture(userEmail, { profile_picture: url });
+      setDriverInfo(prev => ({ ...prev, profilePicture: url }));
+      await authService.saveProfilePicture(url);
+    } catch (error) {
+      console.error('Profile picture upload error:', error);
+      Alert.alert('Upload failed', 'Could not update profile picture. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     loadDriverData();
@@ -55,6 +96,7 @@ export default function DriverProfileScreen() {
               email: driver.email,
               rating: driver.rating,
               isOnline: driver.is_online,
+              profilePicture: driver.profile_picture,
               // Vehicle info from cars table
               vehicleMake: driver.make,
               vehicleModel: driver.model,
@@ -230,16 +272,22 @@ export default function DriverProfileScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {(driverInfo?.firstName || 'D').charAt(0).toUpperCase()}
-              </Text>
+          <TouchableOpacity onPress={pickAndUploadProfilePicture} disabled={uploading}>
+            <View style={styles.avatarContainer}>
+              {driverInfo?.profilePicture ? (
+                <Image source={{ uri: driverInfo.profilePicture }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {(driverInfo?.firstName || 'D').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.onlineBadge}>
+                <Text style={styles.onlineBadgeText}>✓</Text>
+              </View>
             </View>
-            <View style={styles.onlineBadge}>
-              <Text style={styles.onlineBadgeText}>✓</Text>
-            </View>
-          </View>
+          </TouchableOpacity>
           <Text style={styles.driverName}>
             {driverInfo?.firstName ? `${driverInfo.firstName} ${driverInfo.lastName || ''}`.trim() : 'Driver'}
           </Text>

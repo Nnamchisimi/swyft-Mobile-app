@@ -1,3 +1,6 @@
+const jwt = require('jsonwebtoken');
+const { verifyToken } = require('../utils/helpers');
+
 // Register driver, passenger, earnings, stats and pricing endpoints
 function registerDriversRoutes(app, db) {
   // Set driver online/offline status
@@ -202,7 +205,7 @@ function registerDriversRoutes(app, db) {
 
     db.query(`
       SELECT
-        u.id, u.first_name, u.last_name, u.email, u.phone, dp.rating, dp.is_online,
+        u.id, u.first_name, u.last_name, u.email, u.phone, u.profile_picture, dp.rating, dp.is_online,
         c.make, c.model, c.year, c.color, c.plate_number
       FROM public.users u
       LEFT JOIN driver_profiles dp ON u.id = dp.user_id
@@ -228,6 +231,26 @@ function registerDriversRoutes(app, db) {
       }
     });
     });
+  });
+
+  // Update driver profile picture
+  app.patch('/api/drivers/:email/profile-picture', (req, res) => {
+    const { email } = req.params;
+    const { profile_picture } = req.body;
+
+    if (!profile_picture) {
+      return res.status(400).json({ error: 'profile_picture is required' });
+    }
+
+    db.query(
+      'UPDATE public.users SET profile_picture = $1 WHERE email = $2 RETURNING id, first_name, last_name, email, phone, profile_picture',
+      [profile_picture, email],
+      (err, results) => {
+        if (err) return res.status(500).json({ error: 'Failed to update profile picture', details: err.message });
+        if (results.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ user: results.rows[0] });
+      }
+    );
   });
 
   // Get passenger info

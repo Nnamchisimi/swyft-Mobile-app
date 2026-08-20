@@ -35,6 +35,7 @@ CREATE TABLE users (
   current_lng DECIMAL(11, 8) DEFAULT NULL,
   rating DECIMAL(2, 1) DEFAULT 5.0,
   vehicle_id INTEGER,
+  profile_picture TEXT,
   last_active TIMESTAMPTZ DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

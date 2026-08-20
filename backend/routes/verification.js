@@ -106,10 +106,13 @@ function registerVerificationRoutes(app, db) {
         driver_email VARCHAR(255),
         rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
         comment TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
       )`,
       `CREATE INDEX IF NOT EXISTS idx_ratings_ride_id ON ratings(ride_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_ratings_driver_email ON ratings(driver_email)`
+      `CREATE INDEX IF NOT EXISTS idx_ratings_driver_email ON ratings(driver_email)`,
+      `CREATE INDEX IF NOT EXISTS idx_ratings_user_email ON ratings(user_email)`,
+      `CREATE INDEX IF NOT EXISTS idx_ratings_created_at ON ratings(created_at)`
     ];
 
     let completed = 0;
@@ -163,6 +166,11 @@ function registerVerificationRoutes(app, db) {
       // driver_verification_status
       `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`,
       `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`,
+      // ratings
+      `ALTER TABLE ratings ADD COLUMN IF NOT EXISTS ride_id INTEGER`,
+      `ALTER TABLE ratings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+      `ALTER TABLE ratings ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at::TIMESTAMPTZ`,
+      `ALTER TABLE ratings ALTER COLUMN rating TYPE SMALLINT USING rating::SMALLINT`,
       // Widen image columns to TEXT so base64 image data fits
       `ALTER TABLE id_documents ALTER COLUMN front_image_url TYPE TEXT`,
       `ALTER TABLE id_documents ALTER COLUMN back_image_url TYPE TEXT`,

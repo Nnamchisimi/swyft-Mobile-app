@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   StatusBar,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -105,11 +106,15 @@ export default function DriverDashboard() {
           style={styles.profileButton}
           onPress={() => router.push('/(driver)/account')}
         >
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>
-              {(state.driverInfo?.firstName || 'D').charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          {state.driverInfo?.profilePicture ? (
+            <Image source={{ uri: state.driverInfo.profilePicture }} style={styles.profileAvatar} />
+          ) : (
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileAvatarText}>
+                {(state.driverInfo?.firstName || 'D').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
       <ScrollView

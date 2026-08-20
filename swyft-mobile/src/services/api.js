@@ -92,6 +92,7 @@ export const driverAPI = {
   getVerificationStatus: (email) => api.get(`/api/drivers/${encodeURIComponent(email)}/verification-status`),
   submitForReview: (email) => api.post(`/api/drivers/${encodeURIComponent(email)}/submit-for-review`),
   approveDriver: (email, approvalData) => api.patch(`/api/drivers/${encodeURIComponent(email)}/approve`, approvalData),
+  updateProfilePicture: (email, data) => api.patch(`/api/drivers/${encodeURIComponent(email)}/profile-picture`, data),
 };
 
 export const adminAPI = {

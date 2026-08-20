@@ -94,6 +94,14 @@ export default function TrackRideScreen() {
       socketService.joinRoom(email);
     }
 
+    const handleReconnect = () => {
+      const currentEmail = authService.getUserEmail();
+      if (currentEmail) {
+        socketService.joinRoom(currentEmail);
+      }
+    };
+    socketService.socket?.on('reconnect', handleReconnect);
+
     const handleRideUpdated = (updatedRide) => {
       const matchesRide = updatedRide.id === rideId || updatedRide.id === ride?.id || String(updatedRide.id) === String(rideId);
       if (matchesRide) {
@@ -153,6 +161,7 @@ export default function TrackRideScreen() {
     socketService.on('driverLocationUpdated', handleDriverLocation);
 
     return () => {
+      socketService.socket?.off('reconnect', handleReconnect);
       socketService.off('rideUpdated', handleRideUpdated);
       socketService.off('driverLocationUpdated', handleDriverLocation);
     };

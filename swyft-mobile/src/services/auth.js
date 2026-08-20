@@ -145,6 +145,7 @@ class AuthService {
         lastName: user.last_name || '',
         email: user.email || '',
         phone: user.phone || '',
+        profilePicture: user.profile_picture || user.profilePicture || '',
         vehicle: user.vehicle || '',
         vehicleMake: user.vehicle_make || '',
         vehicleModel: user.vehicle_model || '',
@@ -179,6 +180,19 @@ class AuthService {
   async getDriverInfo() {
     const info = await AsyncStorage.getItem(STORAGE_KEYS.DRIVER_INFO);
     return info ? JSON.parse(info) : null;
+  }
+
+  async saveProfilePicture(url) {
+    const info = await this.getDriverInfo();
+    if (info) {
+      info.profilePicture = url;
+      await AsyncStorage.setItem(STORAGE_KEYS.DRIVER_INFO, JSON.stringify(info));
+    }
+  }
+
+  async getProfilePicture() {
+    const info = await this.getDriverInfo();
+    return info?.profilePicture || null;
   }
 
   // Check if user is authenticated (without token)
