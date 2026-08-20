@@ -197,7 +197,6 @@ function registerVerificationRoutes(app, db) {
 
   ensureVerificationTables();
   migrateVerificationTables();
-  backfillArchive();
 
   const getSuccessfulWithdrawals = (userId, callback) => {
     db.query(
@@ -1247,4 +1246,5 @@ function registerVerificationRoutes(app, db) {
   });
 }
 
+  backfillArchive();
 module.exports = { registerVerificationRoutes };
