@@ -105,6 +105,7 @@ export default function DriverProfileScreen() {
               vehicleYear: driver.year,
               vehicleColor: driver.color,
               vehiclePlate: driver.plate_number,
+              vehicleImage: driver.vehicle?.image_url || driver.image_url,
             });
             console.log('[Profile] Vehicle data:', {
               make: driver.make,
@@ -298,6 +299,9 @@ export default function DriverProfileScreen() {
               <View style={styles.onlineBadge}>
                 <Text style={styles.onlineBadgeText}>✓</Text>
               </View>
+              <View style={styles.editIconContainer}>
+                <Ionicons name="camera" size={14} color={COLORS.white} />
+              </View>
             </View>
           </TouchableOpacity>
           <Text style={styles.driverName}>
@@ -372,6 +376,9 @@ export default function DriverProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Vehicle</Text>
           <View style={styles.vehicleCard}>
+            {driverInfo?.vehicleImage && (
+              <Image source={{ uri: driverInfo.vehicleImage }} style={styles.vehicleImage} />
+            )}
             <View style={styles.vehicleHeader}>
               <View style={styles.vehicleIconContainer}>
                 <Ionicons name="car" size={24} color={COLORS.primary} />
@@ -601,6 +608,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
+  editIconContainer: {
+    position: 'absolute',
+    bottom: -6,
+    right: -6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.white,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
   driverName: {
     fontSize: 22,
     fontWeight: 'bold',
@@ -762,6 +787,12 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  vehicleImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    marginBottom: 12,
   },
   vehicleHeader: {
     flexDirection: 'row',

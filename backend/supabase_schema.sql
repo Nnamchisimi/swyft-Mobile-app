@@ -50,6 +50,7 @@ CREATE TABLE cars (
   year VARCHAR(4) NOT NULL,
   color VARCHAR(50) NOT NULL,
   plate_number VARCHAR(20) NOT NULL,
+  image_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,

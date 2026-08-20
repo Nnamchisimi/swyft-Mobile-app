@@ -206,7 +206,7 @@ function registerDriversRoutes(app, db) {
     db.query(`
       SELECT
         u.id, u.first_name, u.last_name, u.email, u.phone, u.profile_picture, dp.rating, dp.is_online,
-        c.make, c.model, c.year, c.color, c.plate_number
+        c.make, c.model, c.year, c.color, c.plate_number, c.image_url
       FROM public.users u
       LEFT JOIN driver_profiles dp ON u.id = dp.user_id
       LEFT JOIN cars c ON c.user_id = u.id
@@ -227,7 +227,8 @@ function registerDriversRoutes(app, db) {
         model: driver.model,
         year: driver.year,
         color: driver.color,
-        plate: driver.plate_number
+        plate: driver.plate_number,
+        image_url: driver.image_url,
       }
     });
     });
@@ -249,6 +250,30 @@ function registerDriversRoutes(app, db) {
         if (err) return res.status(500).json({ error: 'Failed to update profile picture', details: err.message });
         if (results.rows.length === 0) return res.status(404).json({ error: 'User not found' });
         res.json({ user: results.rows[0] });
+      }
+    );
+  });
+
+  // Update driver vehicle image
+  app.patch('/api/drivers/:email/vehicle-image', (req, res) => {
+    const { email } = req.params;
+    const { image_url } = req.body;
+
+    if (!image_url) {
+      return res.status(400).json({ error: 'image_url is required' });
+    }
+
+    db.query(
+      `UPDATE cars c
+       SET image_url = $1, updated_at = NOW()
+       FROM public.users u
+       WHERE c.user_id = u.id AND u.email = $2
+       RETURNING c.id, c.image_url`,
+      [image_url, email],
+      (err, results) => {
+        if (err) return res.status(500).json({ error: 'Failed to update vehicle image', details: err.message });
+        if (results.rows.length === 0) return res.status(404).json({ error: 'Car not found for user' });
+        res.json({ car: results.rows[0] });
       }
     );
   });

@@ -93,6 +93,7 @@ export const driverAPI = {
   submitForReview: (email) => api.post(`/api/drivers/${encodeURIComponent(email)}/submit-for-review`),
   approveDriver: (email, approvalData) => api.patch(`/api/drivers/${encodeURIComponent(email)}/approve`, approvalData),
   updateProfilePicture: (email, data) => api.patch(`/api/drivers/${encodeURIComponent(email)}/profile-picture`, data),
+  updateVehicleImage: (email, data) => api.patch(`/api/drivers/${encodeURIComponent(email)}/vehicle-image`, data),
 };
 
 export const adminAPI = {

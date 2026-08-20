@@ -60,6 +60,12 @@ db.query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS profile_picture TEXT
   else console.log('[MIGRATION] users.profile_picture ensured');
 });
 
+// Migrate: ensure image_url column exists on cars
+db.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS image_url TEXT`, (err) => {
+  if (err) console.error('[MIGRATION] cars.image_url:', err.message);
+  else console.log('[MIGRATION] cars.image_url ensured');
+});
+
 app.post('/api/upload', async (req, res) => {
   try {
     const { base64, path, bucket = 'casyft' } = req.body;
