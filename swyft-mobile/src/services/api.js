@@ -6,11 +6,17 @@ console.log('API initialized with baseURL:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 60000, // 60 seconds - Render free tier has slow cold starts
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+let verificationRedirectHandler = null;
+
+export const setVerificationRedirectHandler = (handler) => {
+  verificationRedirectHandler = handler;
+};
 
 api.interceptors.request.use(
   async (config) => {
@@ -27,12 +33,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized - clear storage
       AsyncStorage.multiRemove([
         STORAGE_KEYS.AUTH_TOKEN,
         STORAGE_KEYS.USER_EMAIL,
         STORAGE_KEYS.USER_ROLE,
       ]);
+    }
+    if (error.response?.status === 403 && error.response?.data?.requiresVerification) {
+      if (verificationRedirectHandler) {
+        verificationRedirectHandler();
+      }
     }
     return Promise.reject(error);
   }

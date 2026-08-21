@@ -2,7 +2,7 @@ import { Stack, Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { authService } from '../../src/services/auth';
-import { driverAPI } from '../../src/services/api';
+import { driverAPI, setVerificationRedirectHandler } from '../../src/services/api';
 import { COLORS } from '../../src/constants/config';
 
 export default function DriverLayout() {
@@ -41,7 +41,7 @@ export default function DriverLayout() {
             }
           } catch (error) {
             console.error('Driver layout verification check error:', error);
-            setRedirect(null);
+            setRedirect('/(driver)/verify-summary');
           }
           setChecking(false);
           return;
@@ -54,6 +54,13 @@ export default function DriverLayout() {
     };
 
     checkRole();
+  }, []);
+
+  useEffect(() => {
+    setVerificationRedirectHandler(() => () => {
+      setRedirect('/(driver)/verify-summary');
+    });
+    return () => setVerificationRedirectHandler(null);
   }, []);
 
   if (checking) {
