@@ -39,8 +39,18 @@ export default function VerifyLinkScreen() {
         [STORAGE_KEYS.USER_EMAIL, email],
         [STORAGE_KEYS.USER_ROLE, (decoded.role || 'passenger').toLowerCase()],
         [STORAGE_KEYS.DRIVER_INFO, JSON.stringify({
-          email: email,
           name: `${decoded.first_name || ''} ${decoded.last_name || ''}`.trim(),
+          firstName: decoded.first_name || '',
+          lastName: decoded.last_name || '',
+          email: email,
+          phone: decoded.phone || '',
+          profilePicture: decoded.profile_picture || decoded.profilePicture || '',
+          vehicle: decoded.vehicle || '',
+          vehicleMake: decoded.vehicle_make || '',
+          vehicleModel: decoded.vehicle_model || '',
+          vehicleYear: decoded.vehicle_year || '',
+          vehicleColor: decoded.vehicle_color || '',
+          vehiclePlate: decoded.vehicle_plate || '',
         })],
       ]);
 
