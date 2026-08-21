@@ -13,9 +13,14 @@ const api = axios.create({
 });
 
 let verificationRedirectHandler = null;
+let signOutHandler = null;
 
 export const setVerificationRedirectHandler = (handler) => {
   verificationRedirectHandler = handler;
+};
+
+export const setSignOutHandler = (handler) => {
+  signOutHandler = handler;
 };
 
 api.interceptors.request.use(
@@ -38,10 +43,16 @@ api.interceptors.response.use(
         STORAGE_KEYS.USER_EMAIL,
         STORAGE_KEYS.USER_ROLE,
       ]);
+      if (signOutHandler) {
+        signOutHandler();
+      }
     }
-    if (error.response?.status === 403 && error.response?.data?.requiresVerification) {
-      if (verificationRedirectHandler) {
-        verificationRedirectHandler();
+    if (error.response?.status === 403) {
+      const data = error.response.data || {};
+      if (data.requiresVerification) {
+        if (verificationRedirectHandler) {
+          verificationRedirectHandler();
+        }
       }
     }
     return Promise.reject(error);
@@ -80,7 +91,7 @@ export const ridesAPI = {
 export const driverAPI = {
   getPendingRides: () => api.get('/api/rides'),
   acceptRide: (rideId, driverData) => api.post(`/api/rides/${rideId}/accept`, driverData),
-  completeRide: (rideId, finalPrice) => api.post(`/api/rides/${rideId}/complete`, { final_price: finalPrice }),
+  completeRide: (rideId, driverData) => api.post(`/api/rides/${rideId}/complete`, driverData),
   getNearbyDrivers: (lat, lng, radius) => api.get('/api/drivers/nearby', { params: { lat, lng, radius } }),
   getDriverInfo: (email) => api.get(`/api/drivers/${encodeURIComponent(email)}`),
   
@@ -93,7 +104,6 @@ export const driverAPI = {
   requestWithdrawal: (data) => api.post('/api/drivers/wallet/withdraw', data),
   getWithdrawals: (email) => api.get('/api/drivers/withdrawals', { params: { email } }),
   
-  // Driver verification endpoints
   submitIdDocument: (email, document) => api.post(`/api/drivers/${encodeURIComponent(email)}/id-document`, document),
   submitSelfie: (email, selfieData) => api.post(`/api/drivers/${encodeURIComponent(email)}/selfie`, selfieData),
   requestPhoneVerification: (email, phoneData) => api.post(`/api/drivers/${encodeURIComponent(email)}/phone-request-code`, phoneData),

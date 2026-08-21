@@ -1,6 +1,19 @@
 const jwt = require('jsonwebtoken');
 const { verifyToken } = require('../utils/helpers');
 
+function authenticateToken(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const decoded = verifyToken(token);
+    req.user = decoded;
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
 function requireDriverApproval(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -120,7 +133,7 @@ function registerDriversRoutes(app, db) {
   });
 
   // Get driver earnings - must be defined BEFORE /api/drivers/:email to avoid route conflicts
-  app.get('/api/drivers/earnings', requireDriverApproval, (req, res) => {
+  app.get('/api/drivers/earnings', authenticateToken, (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 

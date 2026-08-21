@@ -2,7 +2,7 @@ import { Stack, Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { authService } from '../../src/services/auth';
-import { driverAPI, setVerificationRedirectHandler } from '../../src/services/api';
+import { driverAPI, setVerificationRedirectHandler, setSignOutHandler } from '../../src/services/api';
 import { COLORS } from '../../src/constants/config';
 
 export default function DriverLayout() {
@@ -60,7 +60,13 @@ export default function DriverLayout() {
     setVerificationRedirectHandler(() => () => {
       setRedirect('/(driver)/verify-summary');
     });
-    return () => setVerificationRedirectHandler(null);
+    setSignOutHandler(() => () => {
+      setRedirect('/(auth)/signin');
+    });
+    return () => {
+      setVerificationRedirectHandler(null);
+      setSignOutHandler(null);
+    };
   }, []);
 
   if (checking) {
