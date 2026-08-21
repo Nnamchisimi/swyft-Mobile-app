@@ -28,7 +28,7 @@ export default function DriverOtpScreen() {
 
   useEffect(() => {
     if (!rideId) {
-      router.back();
+      router.replace('/(driver)/dashboard');
     }
   }, [rideId]);
 

@@ -9,21 +9,26 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Image,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 import { authService } from '../../src/services/auth';
 import { driverAPI } from '../../src/services/api';
+import { uploadDriverImage } from '../../src/services/supabaseStorage';
 
 export default function DriverVerifySummaryScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
+  const [uploadingVehicle, setUploadingVehicle] = useState(false);
   const redirectTimerRef = useRef(null);
 
   const verifications = verificationStatus?.verifications || {};
+  const car = verificationStatus?.car || null;
 
   const getState = (key) => {
     const v = verifications[key];
@@ -80,6 +85,44 @@ export default function DriverVerifySummaryScreen() {
       console.error('Error loading verification status:', error);
     } finally {
       setLoadingStatus(false);
+    }
+  };
+
+  const pickAndUploadVehicleImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Please allow access to your photo library.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    if (!asset.base64) {
+      Alert.alert('Error', 'Could not read selected image.');
+      return;
+    }
+
+    setUploadingVehicle(true);
+    try {
+      const email = await authService.getUserEmail();
+      const path = `vehicle-images/${email || 'driver'}-${Date.now()}.jpg`;
+      const url = await uploadDriverImage(asset.base64, path);
+      await driverAPI.updateVehicleImage(email, { image_url: url });
+      setVerificationStatus(prev => prev ? { ...prev, car: { ...prev.car, image_url: url } } : prev);
+      Alert.alert('Success', 'Vehicle image uploaded successfully.');
+    } catch (error) {
+      console.error('Vehicle image upload error:', error);
+      Alert.alert('Upload failed', 'Could not update vehicle image. Please try again.');
+    } finally {
+      setUploadingVehicle(false);
     }
   };
 
@@ -255,6 +298,27 @@ export default function DriverVerifySummaryScreen() {
               </View>
             );
           })}
+
+          <View style={styles.vehicleSection}>
+            <Text style={styles.sectionTitle}>Vehicle Image</Text>
+            <TouchableOpacity
+              style={styles.vehicleUploadCard}
+              onPress={pickAndUploadVehicleImage}
+              disabled={uploadingVehicle}
+            >
+              {car?.image_url ? (
+                <Image source={{ uri: car.image_url }} style={styles.vehiclePreview} resizeMode="cover" />
+              ) : (
+                <View style={styles.vehiclePlaceholder}>
+                  <Ionicons name="car-outline" size={40} color={COLORS.textSecondary} />
+                  <Text style={styles.vehiclePlaceholderText}>Tap to upload vehicle image</Text>
+                </View>
+              )}
+              <View style={styles.vehicleEditBadge}>
+                <Ionicons name="camera" size={14} color={COLORS.white} />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -371,6 +435,47 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   verifyButtonText: { fontSize: 14, color: COLORS.white, fontWeight: '600' },
+  
+  vehicleSection: { marginBottom: 16 },
+  vehicleUploadCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  vehiclePreview: {
+    width: '100%',
+    height: 180,
+  },
+  vehiclePlaceholder: {
+    width: '100%',
+    height: 180,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  vehiclePlaceholderText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  vehicleEditBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.white,
+  },
   
   approvalCard: {
     backgroundColor: COLORS.white,

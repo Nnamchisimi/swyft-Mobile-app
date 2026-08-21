@@ -20,12 +20,13 @@ import { adminAPI } from '../../src/services/api';
 import authService from '../../src/services/auth';
 import { COLORS } from '../../src/constants/config';
 
-const SECTIONS = [
-  { key: 'id-document', label: 'ID Document' },
-  { key: 'selfie', label: 'Selfie Verification' },
-  { key: 'phone', label: 'Phone Number' },
-  { key: 'bank', label: 'Bank Account' },
-];
+  const SECTIONS = [
+    { key: 'id-document', label: 'ID Document' },
+    { key: 'selfie', label: 'Selfie Verification' },
+    { key: 'phone', label: 'Phone Number' },
+    { key: 'bank', label: 'Bank Account' },
+    { key: 'car', label: 'Vehicle' },
+  ];
 
 const statusColor = (status) => {
   if (status === 'verified' || status === 'approved') return '#4CAF50';
@@ -44,6 +45,7 @@ const getStatus = (bundle, key) => {
   const node = bundle[key];
   if (!node) return 'pending';
   if (key === 'phone') return node.is_verified ? 'verified' : 'pending';
+  if (key === 'car') return node.make ? 'verified' : 'pending';
   return node.verification_status || 'pending';
 };
 
@@ -214,12 +216,21 @@ export default function AdminReviewScreen() {
       else if (kind === 'selfie') await adminAPI.reviewSelfie(selected.email, decision, rejectReason);
       else if (kind === 'phone') await adminAPI.reviewPhone(selected.email, decision);
       else if (kind === 'bank') await adminAPI.reviewBank(selected.email, decision, rejectReason);
+      else if (kind === 'car') {
+        if (decision === 'approve') {
+          await adminAPI.archiveDriver(selected.email, 'approved');
+        } else {
+          await adminAPI.archiveDriver(selected.email, 'rejected');
+        }
+      }
       const label = SECTIONS.find((s) => s.key === kind)?.label || kind;
       setBanner({
         text: `${label} ${decision === 'approve' ? 'approved' : 'rejected'}`,
         type: decision === 'approve' ? 'success' : 'error',
       });
-      await archiveDriver(decision === 'approve' ? 'approved' : 'rejected');
+      if (kind !== 'car') {
+        await archiveDriver(decision === 'approve' ? 'approved' : 'rejected');
+      }
       setRejectFor('');
       setRejectReason('');
       await openDriver(selected);
@@ -583,6 +594,7 @@ export default function AdminReviewScreen() {
                   selfie: a.selfie,
                   phone: a.phone,
                   bank_account: a.bank_account,
+                  car: a.car,
                   decision: a.decision,
                   reviewer_email: a.reviewer_email,
                   notes: a.notes,
@@ -758,9 +770,35 @@ export default function AdminReviewScreen() {
                 ) : (
                   <Text style={styles.notSubmitted}>Not submitted</Text>
                 )}
-              </SectionBlock>
+               </SectionBlock>
 
-              <TouchableOpacity style={[styles.approveAllBtn, acting && styles.disabled]} disabled={acting} onPress={approveAll}>
+               <SectionBlock
+                 title="Vehicle"
+                 status={bundle.car ? 'verified' : 'pending'}
+                 hasData={!!bundle.car}
+                 acting={acting}
+                 onApprove={() => review('car', 'approve')}
+                 onReject={() => confirmReject('car')}
+               >
+                 {bundle.car ? (
+                   <>
+                     <DetailRow label="Make" value={bundle.car.make} />
+                     <DetailRow label="Model" value={bundle.car.model} />
+                     <DetailRow label="Year" value={bundle.car.year} />
+                     <DetailRow label="Color" value={bundle.car.color} />
+                     <DetailRow label="Plate" value={bundle.car.plate_number} />
+                     {bundle.car.image_url ? (
+                       <View style={styles.imgRow}>
+                         <Img img={{ url: bundle.car.image_url, type: 'url' }} label="Vehicle Image" />
+                       </View>
+                     ) : null}
+                   </>
+                 ) : (
+                   <Text style={styles.notSubmitted}>Not submitted</Text>
+                 )}
+               </SectionBlock>
+
+               <TouchableOpacity style={[styles.approveAllBtn, acting && styles.disabled]} disabled={acting} onPress={approveAll}>
                 <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
                 <Text style={styles.approveAllText}>Approve All</Text>
               </TouchableOpacity>
@@ -863,6 +901,21 @@ export default function AdminReviewScreen() {
               ) : null}
               {archiveDetail.bank_account.rejection_reason ? (
                 <Text style={styles.reasonText}>Reason: {archiveDetail.bank_account.rejection_reason}</Text>
+              ) : null}
+            </SectionBlock>
+          ) : null}
+
+          {archiveDetail.car ? (
+            <SectionBlock title="Vehicle" status="verified" hasData={false} acting={false}>
+              <DetailRow label="Make" value={archiveDetail.car.make} />
+              <DetailRow label="Model" value={archiveDetail.car.model} />
+              <DetailRow label="Year" value={archiveDetail.car.year} />
+              <DetailRow label="Color" value={archiveDetail.car.color} />
+              <DetailRow label="Plate" value={archiveDetail.car.plate_number} />
+              {archiveDetail.car.image_url ? (
+                <View style={styles.imgRow}>
+                  <Img img={{ url: archiveDetail.car.image_url, type: 'url' }} label="Vehicle Image" />
+                </View>
               ) : null}
             </SectionBlock>
           ) : null}

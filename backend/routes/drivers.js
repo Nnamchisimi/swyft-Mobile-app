@@ -1,10 +1,74 @@
 const jwt = require('jsonwebtoken');
 const { verifyToken } = require('../utils/helpers');
 
+function requireDriverApproval(req, res, next) {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    const decoded = verifyToken(token);
+    req.user = decoded;
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+
+  db.query('SELECT id, role FROM public.users WHERE id = $1', [decoded.id], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Server error' });
+    if (results.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+    const user = results.rows[0];
+    if (user.role && user.role.toLowerCase() !== 'driver') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const userId = user.id;
+    const approvalChecks = [
+      (cb) => db.query('SELECT is_approved FROM driver_verification_status WHERE user_id = $1', [userId], (e, r) => cb(e, r)),
+      (cb) => db.query('SELECT is_verified FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (e, r) => cb(e, r)),
+      (cb) => db.query('SELECT is_verified FROM selfie_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (e, r) => cb(e, r)),
+      (cb) => db.query('SELECT is_verified FROM phone_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (e, r) => cb(e, r)),
+      (cb) => db.query('SELECT is_verified FROM bank_accounts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (e, r) => cb(e, r)),
+    ];
+
+    const checkResults = [];
+    let step = 0;
+    const nextCheck = (err) => {
+      checkResults.push(err);
+      if (checkResults.length === approvalChecks.length) {
+        const apprRes = checkResults[0];
+        const idRes = checkResults[1];
+        const selfieRes = checkResults[2];
+        const phoneRes = checkResults[3];
+        const bankRes = checkResults[4];
+
+        const isApproved = !apprRes && apprRes.rows && apprRes.rows.length > 0 && apprRes.rows[0].is_approved;
+        if (isApproved) return next();
+
+        const idVerified = !idRes && idRes.rows && idRes.rows.length > 0 && idRes.rows[0].is_verified;
+        const selfieVerified = !selfieRes && selfieRes.rows && selfieRes.rows.length > 0 && selfieRes.rows[0].is_verified;
+        const phoneVerified = !phoneRes && phoneRes.rows && phoneRes.rows.length > 0 && phoneRes.rows[0].is_verified;
+        const bankVerified = !bankRes && bankRes.rows && bankRes.rows.length > 0 && bankRes.rows[0].is_verified;
+
+        if (idVerified && selfieVerified && phoneVerified && bankVerified) return next();
+
+        return res.status(403).json({
+          error: 'Your driver account is pending approval. Please complete your verification steps.',
+          requiresVerification: true,
+        });
+      }
+
+      step++;
+      approvalChecks[step](nextCheck);
+    };
+
+    approvalChecks[0](nextCheck);
+  });
+}
+
 // Register driver, passenger, earnings, stats and pricing endpoints
 function registerDriversRoutes(app, db) {
   // Set driver online/offline status
-  app.post('/api/drivers/status', (req, res) => {
+  app.post('/api/drivers/status', requireDriverApproval, (req, res) => {
     const { email, is_online, lat, lng } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
@@ -56,7 +120,7 @@ function registerDriversRoutes(app, db) {
   });
 
   // Get driver earnings - must be defined BEFORE /api/drivers/:email to avoid route conflicts
-  app.get('/api/drivers/earnings', (req, res) => {
+  app.get('/api/drivers/earnings', requireDriverApproval, (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
@@ -165,7 +229,7 @@ function registerDriversRoutes(app, db) {
   });
 
   // Get driver stats (today's trips and earnings) - must be defined BEFORE /api/drivers/:email
-  app.get('/api/drivers/stats', (req, res) => {
+   app.get('/api/drivers/stats', requireDriverApproval, (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
@@ -199,7 +263,7 @@ function registerDriversRoutes(app, db) {
   });
 
   // Get driver info by email
-  app.get('/api/drivers/:email', (req, res) => {
+  app.get('/api/drivers/:email', requireDriverApproval, (req, res) => {
     const { email } = req.params;
     console.log(`[DEBUG] Fetching driver info for email: ${email}`);
 
@@ -235,7 +299,7 @@ function registerDriversRoutes(app, db) {
   });
 
   // Update driver profile picture
-  app.patch('/api/drivers/:email/profile-picture', (req, res) => {
+  app.patch('/api/drivers/:email/profile-picture', requireDriverApproval, (req, res) => {
     const { email } = req.params;
     const { profile_picture } = req.body;
 
@@ -255,7 +319,7 @@ function registerDriversRoutes(app, db) {
   });
 
   // Update driver vehicle image
-  app.patch('/api/drivers/:email/vehicle-image', (req, res) => {
+  app.patch('/api/drivers/:email/vehicle-image', requireDriverApproval, (req, res) => {
     const { email } = req.params;
     const { image_url } = req.body;
 

@@ -169,6 +169,7 @@ function registerVerificationRoutes(app, db) {
        `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`,
        // driver_verification_archive
        `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS withdrawals JSONB`,
+       `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS car JSONB`,
       // ratings
       `ALTER TABLE ratings ADD COLUMN IF NOT EXISTS ride_id INTEGER`,
       `ALTER TABLE ratings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
@@ -260,25 +261,26 @@ function registerVerificationRoutes(app, db) {
                   console.error(`[ARCHIVE_BACKFILL] Withdrawals error for ${driver.email}:`, wErr.message);
                 } else {
                   const finalSnapshot = { ...snapshot, withdrawals: withdrawals || [] };
-                  db.query(
-                    `INSERT INTO driver_verification_archive
-                      (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, withdrawals)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-                    [
-                      driver.user_id,
-                      driver.email,
-                      driver.first_name,
-                      driver.last_name,
-                      driver.phone,
-                      'approved',
-                      null,
-                      null,
-                      JSON.stringify(finalSnapshot.id_document),
-                      JSON.stringify(finalSnapshot.selfie),
-                      JSON.stringify(finalSnapshot.phone),
-                      JSON.stringify(finalSnapshot.bank_account),
-                      JSON.stringify(finalSnapshot.withdrawals),
-                    ],
+                   db.query(
+                     `INSERT INTO driver_verification_archive
+                       (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals)
+                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                     [
+                       driver.user_id,
+                       driver.email,
+                       driver.first_name,
+                       driver.last_name,
+                       driver.phone,
+                       'approved',
+                       null,
+                       null,
+                       JSON.stringify(finalSnapshot.id_document),
+                       JSON.stringify(finalSnapshot.selfie),
+                       JSON.stringify(finalSnapshot.phone),
+                       JSON.stringify(finalSnapshot.bank_account),
+                       JSON.stringify(finalSnapshot.car),
+                       JSON.stringify(finalSnapshot.withdrawals),
+                     ],
                     (archiveErr) => {
                       if (archiveErr) {
                         console.error(`[ARCHIVE_BACKFILL] Insert error for ${driver.email}:`, archiveErr.message);
@@ -507,35 +509,40 @@ function registerVerificationRoutes(app, db) {
             db.query('SELECT is_verified FROM phone_verifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err3, phoneResult) => {
               // Get bank account status
               db.query('SELECT verification_status, is_verified FROM bank_accounts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err4, bankResult) => {
+                // Get car info
+                db.query('SELECT make, model, year, color, plate_number, image_url FROM cars WHERE user_id = $1', [userId], (err5, carResult) => {
+                  const car = carResult.rows.length > 0 ? carResult.rows[0] : null;
 
-                const idVerified = idResult.rows.length > 0 && idResult.rows[0].is_verified;
-                const selfieVerified = selfieResult.rows.length > 0 && selfieResult.rows[0].is_verified;
-                const phoneVerified = phoneResult.rows.length > 0 && phoneResult.rows[0].is_verified;
-                const bankVerified = bankResult.rows.length > 0 && bankResult.rows[0].is_verified;
+                  const idVerified = idResult.rows.length > 0 && idResult.rows[0].is_verified;
+                  const selfieVerified = selfieResult.rows.length > 0 && selfieResult.rows[0].is_verified;
+                  const phoneVerified = phoneResult.rows.length > 0 && phoneResult.rows[0].is_verified;
+                  const bankVerified = bankResult.rows.length > 0 && bankResult.rows[0].is_verified;
 
-                 const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
-                 const isApproved = driverApproved || allVerified;
+                   const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
+                   const isApproved = driverApproved || allVerified;
 
-                res.json({
-                  is_approved: isApproved,
-                  verifications: {
-                    id_document: {
-                      is_verified: idVerified,
-                      status: idResult.rows.length > 0 ? idResult.rows[0].verification_status : 'not_submitted'
+                  res.json({
+                    is_approved: isApproved,
+                    verifications: {
+                      id_document: {
+                        is_verified: idVerified,
+                        status: idResult.rows.length > 0 ? idResult.rows[0].verification_status : 'not_submitted'
+                      },
+                      selfie: {
+                        is_verified: selfieVerified,
+                        status: selfieResult.rows.length > 0 ? selfieResult.rows[0].verification_status : 'not_submitted'
+                      },
+                      phone: {
+                        is_verified: phoneVerified,
+                        status: phoneResult.rows.length > 0 ? 'pending' : 'not_submitted'
+                      },
+                      bank_account: {
+                        is_verified: bankVerified,
+                        status: bankResult.rows.length > 0 ? bankResult.rows[0].verification_status : 'not_submitted'
+                      }
                     },
-                    selfie: {
-                      is_verified: selfieVerified,
-                      status: selfieResult.rows.length > 0 ? selfieResult.rows[0].verification_status : 'not_submitted'
-                    },
-                    phone: {
-                      is_verified: phoneVerified,
-                      status: phoneResult.rows.length > 0 ? 'pending' : 'not_submitted'
-                    },
-                    bank_account: {
-                      is_verified: bankVerified,
-                      status: bankResult.rows.length > 0 ? bankResult.rows[0].verification_status : 'not_submitted'
-                    }
-                  }
+                    car: car
+                  });
                 });
               });
             });
@@ -903,7 +910,7 @@ function registerVerificationRoutes(app, db) {
     });
   });
 
-  // Build a driver's full verification bundle (ID doc + images, selfie + image, phone, bank)
+  // Build a driver's full verification bundle (ID doc + images, selfie + image, phone, bank, car)
   const getVerificationBundle = (userId, callback) => {
     db.query(
       `SELECT * FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
@@ -921,53 +928,68 @@ function registerVerificationRoutes(app, db) {
                   `SELECT * FROM bank_accounts WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
                   [userId],
                   (e4, bankResult) => {
-                    const id = idResult.rows[0] || null;
-                    const selfie = selfieResult.rows[0] || null;
-                    const phone = phoneResult.rows[0] || null;
-                    const bank = bankResult.rows[0] || null;
+                    db.query(
+                      `SELECT c.make, c.model, c.year, c.color, c.plate_number, c.image_url FROM cars c WHERE c.user_id = $1`,
+                      [userId],
+                      (e5, carResult) => {
+                        const id = idResult.rows[0] || null;
+                        const selfie = selfieResult.rows[0] || null;
+                        const phone = phoneResult.rows[0] || null;
+                        const bank = bankResult.rows[0] || null;
+                        const car = carResult.rows[0] || null;
 
-                    const bundle = {
-                      id_document: id ? {
-                        id: id.id,
-                        document_type: id.document_type,
-                        document_number: id.document_number,
-                        expiry_date: id.expiry_date,
-                        front_image: resolveImageRef(id.front_image_url),
-                        back_image: resolveImageRef(id.back_image_url),
-                        is_verified: id.is_verified,
-                        verification_status: id.verification_status,
-                        rejection_reason: id.rejection_reason,
-                      } : null,
-                      selfie: selfie ? {
-                        id: selfie.id,
-                        selfie_image: resolveImageRef(selfie.selfie_image_url),
-                        id_document_image: resolveImageRef(selfie.id_document_image_url),
-                        match_confidence: selfie.match_confidence,
-                        is_verified: selfie.is_verified,
-                        verification_status: selfie.verification_status,
-                        rejection_reason: selfie.rejection_reason,
-                        created_at: selfie.created_at,
-                      } : null,
-                      phone: phone ? {
-                        id: phone.id,
-                        phone_number: phone.phone_number,
-                        is_verified: phone.is_verified,
-                        verified_at: phone.verified_at,
-                      } : null,
-                      bank_account: bank ? {
-                        id: bank.id,
-                        bank_name: bank.bank_name,
-                        account_holder_name: bank.account_holder_name,
-                        account_number: bank.account_number,
-                        routing_number: bank.routing_number,
-                        iban: bank.iban,
-                        swift_code: bank.swift_code,
-                        is_verified: bank.is_verified,
-                        verification_status: bank.verification_status,
-                        rejection_reason: bank.rejection_reason,
-                      } : null,
-                    };
-                    callback(null, bundle);
+                        const bundle = {
+                          id_document: id ? {
+                            id: id.id,
+                            document_type: id.document_type,
+                            document_number: id.document_number,
+                            expiry_date: id.expiry_date,
+                            front_image: resolveImageRef(id.front_image_url),
+                            back_image: resolveImageRef(id.back_image_url),
+                            is_verified: id.is_verified,
+                            verification_status: id.verification_status,
+                            rejection_reason: id.rejection_reason,
+                          } : null,
+                          selfie: selfie ? {
+                            id: selfie.id,
+                            selfie_image: resolveImageRef(selfie.selfie_image_url),
+                            id_document_image: resolveImageRef(selfie.id_document_image_url),
+                            match_confidence: selfie.match_confidence,
+                            is_verified: selfie.is_verified,
+                            verification_status: selfie.verification_status,
+                            rejection_reason: selfie.rejection_reason,
+                            created_at: selfie.created_at,
+                          } : null,
+                          phone: phone ? {
+                            id: phone.id,
+                            phone_number: phone.phone_number,
+                            is_verified: phone.is_verified,
+                            verified_at: phone.verified_at,
+                          } : null,
+                          bank_account: bank ? {
+                            id: bank.id,
+                            bank_name: bank.bank_name,
+                            account_holder_name: bank.account_holder_name,
+                            account_number: bank.account_number,
+                            routing_number: bank.routing_number,
+                            iban: bank.iban,
+                            swift_code: bank.swift_code,
+                            is_verified: bank.is_verified,
+                            verification_status: bank.verification_status,
+                            rejection_reason: bank.rejection_reason,
+                          } : null,
+                          car: car ? {
+                            make: car.make,
+                            model: car.model,
+                            year: car.year,
+                            color: car.color,
+                            plate_number: car.plate_number,
+                            image_url: car.image_url,
+                          } : null,
+                        };
+                        callback(null, bundle);
+                      }
+                    );
                   }
                 );
               }
@@ -1147,6 +1169,16 @@ function registerVerificationRoutes(app, db) {
         rejection_reason: bundle.bank_account.rejection_reason,
       }
       : null,
+    car: bundle.car
+      ? {
+        make: bundle.car.make,
+        model: bundle.car.model,
+        year: bundle.car.year,
+        color: bundle.car.color,
+        plate_number: bundle.car.plate_number,
+        image_url: bundle.car.image_url,
+      }
+      : null,
   });
 
   // Archive a driver's verification details for future reference (called after review actions)
@@ -1184,8 +1216,8 @@ function registerVerificationRoutes(app, db) {
           const finalSnapshot = { ...snapshot, withdrawals };
           db.query(
              `INSERT INTO driver_verification_archive
-                (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, withdrawals)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
               ON CONFLICT (user_id) DO UPDATE SET
                 decision = EXCLUDED.decision,
                 reviewer_email = EXCLUDED.reviewer_email,
@@ -1194,15 +1226,17 @@ function registerVerificationRoutes(app, db) {
                 selfie = EXCLUDED.selfie,
                 phone_verification = EXCLUDED.phone_verification,
                 bank_account = EXCLUDED.bank_account,
+                car = EXCLUDED.car,
                 withdrawals = EXCLUDED.withdrawals,
                 archived_at = NOW()`,
-             [
-               userId, email, user.first_name, user.last_name, user.phone, decision, reviewerEmail,
-               notes || null,
-               JSON.stringify(finalSnapshot.id_document), JSON.stringify(finalSnapshot.selfie),
-               JSON.stringify(finalSnapshot.phone), JSON.stringify(finalSnapshot.bank_account),
-               JSON.stringify(finalSnapshot.withdrawals),
-             ],
+              [
+                userId, email, user.first_name, user.last_name, user.phone, decision, reviewerEmail,
+                notes || null,
+                JSON.stringify(finalSnapshot.id_document), JSON.stringify(finalSnapshot.selfie),
+                JSON.stringify(finalSnapshot.phone), JSON.stringify(finalSnapshot.bank_account),
+                JSON.stringify(finalSnapshot.car),
+                JSON.stringify(finalSnapshot.withdrawals),
+              ],
            (err2) => {
              if (err2) return res.status(500).json({ error: 'Failed to archive driver' });
              res.json({ message: 'Driver archived', email, decision });
@@ -1219,7 +1253,7 @@ function registerVerificationRoutes(app, db) {
     if (!guard.ok) return guard.res;
 
     db.query(
-      `SELECT id, email, first_name, last_name, phone, decision, reviewer_email, notes, archived_at
+      `SELECT id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals, archived_at
        FROM driver_verification_archive ORDER BY archived_at DESC`,
       [],
       (err, results) => {
@@ -1236,7 +1270,7 @@ function registerVerificationRoutes(app, db) {
 
     const { id } = req.params;
     db.query(
-       `SELECT id, user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, withdrawals, archived_at
+       `SELECT id, user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals, archived_at
         FROM driver_verification_archive WHERE id = $1`,
       [id],
       (err, results) => {
@@ -1249,6 +1283,7 @@ function registerVerificationRoutes(app, db) {
           selfie: row.selfie ? JSON.parse(row.selfie) : null,
           phone_verification: row.phone_verification ? JSON.parse(row.phone_verification) : null,
           bank_account: row.bank_account ? JSON.parse(row.bank_account) : null,
+          car: row.car ? JSON.parse(row.car) : null,
           withdrawals: row.withdrawals ? JSON.parse(row.withdrawals) : [],
         });
       }

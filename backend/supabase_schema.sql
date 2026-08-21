@@ -392,6 +392,7 @@ CREATE TABLE IF NOT EXISTS driver_verification_archive (
    selfie JSONB,
    phone_verification JSONB,
    bank_account JSONB,
+   car JSONB,
    withdrawals JSONB,
   archived_at TIMESTAMPTZ DEFAULT NOW()
 );

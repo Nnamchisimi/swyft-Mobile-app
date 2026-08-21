@@ -33,7 +33,7 @@ export default function DriverProfileScreen() {
   const [completedRides, setCompletedRides] = useState([]);
   const [uploading, setUploading] = useState(false);
 
-  const pickAndUploadProfilePicture = async () => {
+   const pickAndUploadProfilePicture = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission required', 'Please allow access to your photo library.');
@@ -68,7 +68,43 @@ export default function DriverProfileScreen() {
     } finally {
       setUploading(false);
     }
-   };
+  };
+
+  const pickAndUploadVehicleImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Please allow access to your photo library.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    if (!asset.base64) {
+      Alert.alert('Error', 'Could not read selected image.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const path = `vehicle-images/${userEmail || 'driver'}-${Date.now()}.jpg`;
+      const url = await uploadDriverImage(asset.base64, path);
+      await driverAPI.updateVehicleImage(userEmail, { image_url: url });
+      setDriverInfo(prev => ({ ...prev, vehicleImage: url }));
+    } catch (error) {
+      console.error('Vehicle image upload error:', error);
+      Alert.alert('Upload failed', 'Could not update vehicle image. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     loadDriverData();
@@ -364,9 +400,19 @@ export default function DriverProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Vehicle</Text>
           <View style={styles.vehicleCard}>
-            {driverInfo?.vehicleImage && (
-              <Image source={{ uri: driverInfo.vehicleImage }} style={styles.vehicleImage} />
-            )}
+            <TouchableOpacity onPress={pickAndUploadVehicleImage} disabled={uploading}>
+              {driverInfo?.vehicleImage ? (
+                <Image source={{ uri: driverInfo.vehicleImage }} style={styles.vehicleImage} />
+              ) : (
+                <View style={styles.vehicleImagePlaceholder}>
+                  <Ionicons name="car-outline" size={32} color={COLORS.textSecondary} />
+                  <Text style={styles.vehicleImagePlaceholderText}>Tap to add vehicle image</Text>
+                </View>
+              )}
+              <View style={styles.vehicleImageEditBadge}>
+                <Ionicons name="camera" size={14} color={COLORS.white} />
+              </View>
+            </TouchableOpacity>
             <View style={styles.vehicleHeader}>
               <View style={styles.vehicleIconContainer}>
                 <Ionicons name="car" size={24} color={COLORS.primary} />
@@ -763,6 +809,37 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: 12,
     marginBottom: 12,
+  },
+  vehicleImagePlaceholder: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  vehicleImagePlaceholderText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  vehicleImageEditBadge: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.white,
   },
   vehicleHeader: {
     flexDirection: 'row',

@@ -66,6 +66,12 @@ db.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS image_url TEXT`, (err) => {
   else console.log('[MIGRATION] cars.image_url ensured');
 });
 
+// Migrate: ensure car column exists on driver_verification_archive
+db.query(`ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS car JSONB`, (err) => {
+  if (err) console.error('[MIGRATION] driver_verification_archive.car:', err.message);
+  else console.log('[MIGRATION] driver_verification_archive.car ensured');
+});
+
 app.post('/api/upload', async (req, res) => {
   try {
     const { base64, path, bucket = 'casyft' } = req.body;
