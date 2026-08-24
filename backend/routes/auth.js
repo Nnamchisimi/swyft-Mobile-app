@@ -232,7 +232,7 @@ function registerAuthRoutes(app, db) {
   });
 
   // === LOGIN ===
-  function issueDriverToken(user, res) {
+  function issueDriverToken(user, res, requiresVerification = false) {
     const token = signToken({ id: user.id, email: user.email, role: user.role });
     db.query('SELECT * FROM cars WHERE user_id = $1', [user.id], (err2, carResults) => {
       const car = carResults && carResults.rows.length > 0 ? carResults.rows[0] : null;
@@ -249,7 +249,8 @@ function registerAuthRoutes(app, db) {
         vehicle_model: car ? car.model : null,
         vehicle_year: car ? car.year : null,
         vehicle_color: car ? car.color : null,
-        vehicle_plate: car ? car.plate_number : null
+        vehicle_plate: car ? car.plate_number : null,
+        requiresVerification,
       });
     });
   }
@@ -293,7 +294,7 @@ function registerAuthRoutes(app, db) {
           const driverApproved = apprResults && apprResults.rows.length > 0 && apprResults.rows[0].is_approved;
 
           if (driverApproved) {
-            return issueDriverToken(user, res);
+            return issueDriverToken(user, res, false);
           }
 
           db.query('SELECT is_verified FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [user.id], (err1, idResult) => {
@@ -324,15 +325,10 @@ function registerAuthRoutes(app, db) {
                   const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
 
                   if (allVerified) {
-                    return issueDriverToken(user, res);
+                    return issueDriverToken(user, res, false);
                   }
 
-                  return res.status(403).json({
-                    error: 'Your driver account is pending approval. Please complete your verification steps.',
-                    requiresVerification: true,
-                    email: email,
-                    role: user.role
-                  });
+                  return issueDriverToken(user, res, true);
                 });
               });
             });

@@ -52,7 +52,7 @@ export default function SignInScreen() {
         }
 
         if (role === 'driver') {
-          router.replace('/(driver)/dashboard');
+          router.replace('/(driver)/verify-summary');
         } else {
           router.replace({
             pathname: '/(auth)/verify',

@@ -14,7 +14,11 @@ class AuthService {
       const user = response.data;
 
       await this.saveAuthData(user);
-      return { success: true, user };
+      return { 
+        success: true, 
+        user, 
+        requiresVerification: user.requiresVerification || false 
+      };
     } catch (error) {
       console.log('API call failed!');
       console.log('Error type:', error.constructor.name);

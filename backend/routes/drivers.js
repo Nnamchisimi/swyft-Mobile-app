@@ -276,8 +276,8 @@ function registerDriversRoutes(app, db) {
     }
   });
 
-  // Get driver info by email
-  app.get('/api/drivers/:email', requireDriverApproval, (req, res) => {
+  // Get driver info by email - accessible without auth for unapproved drivers
+  app.get('/api/drivers/:email', (req, res) => {
     const { email } = req.params;
     console.log(`[DEBUG] Fetching driver info for email: ${email}`);
 
