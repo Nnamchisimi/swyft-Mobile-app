@@ -26,8 +26,12 @@ export const setSignOutHandler = (handler) => {
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    console.log('[API] Request to', config.url, 'token present:', !!token);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('[API] Authorization header set');
+    } else {
+      console.warn('[API] No auth token found in storage');
     }
     return config;
   },
@@ -37,7 +41,9 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.log('[API] Response error:', error.response?.status, error.message);
     if (error.response?.status === 401) {
+      console.log('[API] 401 Unauthorized, clearing auth token');
       AsyncStorage.multiRemove([
         STORAGE_KEYS.AUTH_TOKEN,
         STORAGE_KEYS.USER_EMAIL,
@@ -49,6 +55,7 @@ api.interceptors.response.use(
     }
     if (error.response?.status === 403) {
       const data = error.response.data || {};
+      console.log('[API] 403 Forbidden:', data);
       if (data.requiresVerification) {
         if (verificationRedirectHandler) {
           verificationRedirectHandler();

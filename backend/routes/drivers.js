@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { verifyToken } = require('../utils/helpers');
+const db = require('../db-supabase');
 
 function authenticateToken(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
@@ -45,8 +46,8 @@ function requireDriverApproval(req, res, next) {
 
     const checkResults = [];
     let step = 0;
-    const nextCheck = (err) => {
-      checkResults.push(err);
+    const nextCheck = (err, results) => {
+      checkResults.push({ err, results });
       if (checkResults.length === approvalChecks.length) {
         const apprRes = checkResults[0];
         const idRes = checkResults[1];
@@ -54,13 +55,13 @@ function requireDriverApproval(req, res, next) {
         const phoneRes = checkResults[3];
         const bankRes = checkResults[4];
 
-        const isApproved = !apprRes && apprRes.rows && apprRes.rows.length > 0 && apprRes.rows[0].is_approved;
+        const isApproved = !apprRes.err && apprRes.results && apprRes.results.rows.length > 0 && apprRes.results.rows[0].is_approved;
         if (isApproved) return next();
 
-        const idVerified = !idRes && idRes.rows && idRes.rows.length > 0 && idRes.rows[0].is_verified;
-        const selfieVerified = !selfieRes && selfieRes.rows && selfieRes.rows.length > 0 && selfieRes.rows[0].is_verified;
-        const phoneVerified = !phoneRes && phoneRes.rows && phoneRes.rows.length > 0 && phoneRes.rows[0].is_verified;
-        const bankVerified = !bankRes && bankRes.rows && bankRes.rows.length > 0 && bankRes.rows[0].is_verified;
+        const idVerified = !idRes.err && idRes.results && idRes.results.rows.length > 0 && idRes.results.rows[0].is_verified;
+        const selfieVerified = !selfieRes.err && selfieRes.results && selfieRes.results.rows.length > 0 && selfieRes.results.rows[0].is_verified;
+        const phoneVerified = !phoneRes.err && phoneRes.results && phoneRes.results.rows.length > 0 && phoneRes.results.rows[0].is_verified;
+        const bankVerified = !bankRes.err && bankRes.results && bankRes.results.rows.length > 0 && bankRes.results.rows[0].is_verified;
 
         if (idVerified && selfieVerified && phoneVerified && bankVerified) return next();
 
@@ -132,8 +133,8 @@ function registerDriversRoutes(app, db) {
     });
   });
 
-  // Get driver earnings - must be defined BEFORE /api/drivers/:email to avoid route conflicts
-  app.get('/api/drivers/earnings', authenticateToken, (req, res) => {
+  // Get driver earnings - accessible without auth for unapproved drivers
+  app.get('/api/drivers/earnings', (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 

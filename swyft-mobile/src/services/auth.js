@@ -132,11 +132,14 @@ class AuthService {
     }
   }
 
-  async saveAuthData(user) {
+  async saveAuthData(user, token = null) {
     const normalizedRole = (user.role || 'passenger').toLowerCase();
+    const authToken = token || user.token || '';
+    console.log('[AUTH] Saving auth token:', authToken ? 'present' : 'empty');
+    console.log('[AUTH] User role:', normalizedRole);
     
     await AsyncStorage.multiSet([
-      [STORAGE_KEYS.AUTH_TOKEN, user.token || ''],
+      [STORAGE_KEYS.AUTH_TOKEN, authToken],
       [STORAGE_KEYS.USER_EMAIL, user.email || ''],
       [STORAGE_KEYS.USER_ROLE, normalizedRole],
       [STORAGE_KEYS.DRIVER_INFO, JSON.stringify({
@@ -159,10 +162,13 @@ class AuthService {
         vehiclePlate: user.vehicle_plate || '',
       })],
     ]);
+    console.log('[AUTH] Auth data saved');
   }
 
   async getToken() {
-    return AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    console.log('[AUTH] Retrieved token from storage:', token ? 'present' : 'empty');
+    return token;
   }
 
   async saveVerificationEmail(email) {

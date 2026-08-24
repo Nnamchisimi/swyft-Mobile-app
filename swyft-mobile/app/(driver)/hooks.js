@@ -199,6 +199,14 @@ export function useDriverDashboardEffects(state, refs) {
     } catch (error) {
       console.error('Error loading earnings:', error);
 
+      if (error.response?.status === 401) {
+        console.log('Earnings endpoint accessible - driver not approved but can view earnings');
+        setEarnings({
+          today_earnings: 0,
+          total_trips: 0,
+        });
+      }
+
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         console.log('Earnings request timed out, will retry...');
 

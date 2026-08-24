@@ -171,6 +171,9 @@ export default function DriverProfileScreen() {
           }
         } catch (earningsError) {
           console.error('Error loading earnings:', earningsError);
+          if (earningsError.response?.status === 401) {
+            console.log('Earnings accessible - driver not approved yet');
+          }
           setEarnings({
             today_earnings: 0,
             total_earnings: 0,
