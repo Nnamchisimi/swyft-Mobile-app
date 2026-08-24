@@ -499,7 +499,9 @@ function registerVerificationRoutes(app, db) {
           console.error('Approval check error in getVerificationStatus:', errAppr.message);
         }
 
-        const driverApproved = apprResults && apprResults.rows.length > 0 && apprResults.rows[0].is_approved;
+        const hasSubmissionRecord = apprResults && apprResults.rows.length > 0;
+        const driverApproved = hasSubmissionRecord && apprResults.rows[0].is_approved;
+        const submittedForReview = hasSubmissionRecord && !apprResults.rows[0].is_approved;
 
         // Get ID document status
         db.query('SELECT verification_status, is_verified FROM id_documents WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1', [userId], (err1, idResult) => {
@@ -521,9 +523,10 @@ function registerVerificationRoutes(app, db) {
                    const allVerified = idVerified && selfieVerified && phoneVerified && bankVerified;
                    const isApproved = driverApproved || allVerified;
 
-                  res.json({
-                    is_approved: isApproved,
-                    verifications: {
+                   res.json({
+                     is_approved: isApproved,
+                     submitted_for_review: submittedForReview,
+                     verifications: {
                       id_document: {
                         is_verified: idVerified,
                         status: idResult.rows.length > 0 ? idResult.rows[0].verification_status : 'not_submitted'

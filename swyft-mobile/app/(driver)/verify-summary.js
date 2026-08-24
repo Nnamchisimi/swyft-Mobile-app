@@ -25,10 +25,12 @@ export default function DriverVerifySummaryScreen() {
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [uploadingVehicle, setUploadingVehicle] = useState(false);
+  const [hasSubmittedForReview, setHasSubmittedForReview] = useState(false);
   const redirectTimerRef = useRef(null);
 
   const verifications = verificationStatus?.verifications || {};
   const car = verificationStatus?.car || null;
+  const submittedForReview = hasSubmittedForReview || verificationStatus?.submitted_for_review || false;
 
   const getState = (key) => {
     const v = verifications[key];
@@ -153,6 +155,7 @@ export default function DriverVerifySummaryScreen() {
             onPress: async () => {
               const email = await authService.getUserEmail();
               const response = await driverAPI.submitForReview(email);
+              setHasSubmittedForReview(true);
               
       Alert.alert(
         'Submitted!',
@@ -240,9 +243,61 @@ export default function DriverVerifySummaryScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Verification Summary</Text>
-          <Text style={styles.subtitle}>Review your verification status</Text>
+          <Text style={styles.subtitle}>
+            {isApproved ? 'Account approved!' : submittedForReview ? 'Application under review' : 'Review your verification status'}
+          </Text>
         </View>
 
+        {submittedForReview && !isApproved ? (
+          <View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Verification Requirements</Text>
+              
+              {[
+                { label: 'Government-Issued ID', key: 'id_document' },
+                { label: 'Live Selfie', key: 'selfie' },
+                { label: 'Phone Number', key: 'phone' },
+                { label: 'Bank Account', key: 'bank_account' },
+              ].map((item) => {
+                const state = getState(item.key);
+                const done = state === 'verified' || state === 'submitted';
+                return (
+                  <View key={item.key} style={styles.verificationItem}>
+                    <View style={styles.verificationInfo}>
+                      <Ionicons
+                        name={getStatusIcon(state)}
+                        size={24}
+                        color={getStatusColor(state)}
+                      />
+                      <Text style={styles.verificationLabel}>{item.label}</Text>
+                    </View>
+                    <View style={styles.verificationStatus}>
+                      <Text style={[styles.verifiedText, { color: getStatusColor(state) }]}>
+                        {getStatusLabel(state)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Approval Status</Text>
+              <View style={styles.approvalCard}>
+                <View style={styles.approvalInfo}>
+                  <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
+                  <View style={styles.approvalText}>
+                    <Text style={styles.approvalTitle}>Under Review</Text>
+                    <Text style={styles.approvalDesc}>
+                      Your documents are being reviewed by our team.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Verification Requirements</Text>
           
@@ -340,17 +395,19 @@ export default function DriverVerifySummaryScreen() {
               </View>
             </View>
             
-            <TouchableOpacity
-              style={[styles.reviewButton, loading && styles.buttonDisabled]}
-              onPress={handleSubmitForReview}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.reviewButtonText}>Submit for Review</Text>
-              )}
-            </TouchableOpacity>
+            {!submittedForReview && (
+              <TouchableOpacity
+                style={[styles.reviewButton, loading && styles.buttonDisabled]}
+                onPress={handleSubmitForReview}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color={COLORS.white} />
+                ) : (
+                  <Text style={styles.reviewButtonText}>Submit for Review</Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -363,7 +420,7 @@ export default function DriverVerifySummaryScreen() {
             </View>
             <View style={styles.infoItem}>
               <Ionicons name="mail-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.infoText}>You'll receive an email when approved</Text>
+              <Text style={styles.infoText}>You will receive an email when approved</Text>
             </View>
             <View style={styles.infoItem}>
               <Ionicons name="car-outline" size={20} color={COLORS.primary} />
@@ -371,6 +428,8 @@ export default function DriverVerifySummaryScreen() {
             </View>
           </View>
         </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -510,6 +569,17 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   goOnlineButtonText: { color: COLORS.success, fontSize: 16, fontWeight: '600' },
+  
+  pendingCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pendingTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginTop: 12 },
+  pendingDesc: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20 },
+  pendingNote: { fontSize: 13, color: COLORS.primary, fontWeight: '600', marginTop: 12 },
   
   infoCard: {
     backgroundColor: COLORS.white,
