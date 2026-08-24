@@ -43,14 +43,17 @@ api.interceptors.response.use(
   (error) => {
     console.log('[API] Response error:', error.response?.status, error.message);
     if (error.response?.status === 401) {
-      console.log('[API] 401 Unauthorized, clearing auth token');
-      AsyncStorage.multiRemove([
-        STORAGE_KEYS.AUTH_TOKEN,
-        STORAGE_KEYS.USER_EMAIL,
-        STORAGE_KEYS.USER_ROLE,
-      ]);
-      if (signOutHandler) {
-        signOutHandler();
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      if (token) {
+        console.log('[API] 401 Unauthorized, clearing auth token');
+        AsyncStorage.multiRemove([
+          STORAGE_KEYS.AUTH_TOKEN,
+          STORAGE_KEYS.USER_EMAIL,
+          STORAGE_KEYS.USER_ROLE,
+        ]);
+        if (signOutHandler) {
+          signOutHandler();
+        }
       }
     }
     if (error.response?.status === 403) {
