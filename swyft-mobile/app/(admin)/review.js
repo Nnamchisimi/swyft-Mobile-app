@@ -45,7 +45,7 @@ const getStatus = (bundle, key) => {
   const node = bundle[key];
   if (!node) return 'pending';
   if (key === 'phone') return node.is_verified ? 'verified' : 'pending';
-  if (key === 'car') return node.make ? 'verified' : 'pending';
+  if (key === 'car') return node ? 'verified' : 'pending';
   return node.verification_status || 'pending';
 };
 
