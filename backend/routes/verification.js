@@ -167,9 +167,13 @@ function registerVerificationRoutes(app, db) {
        // driver_verification_status
        `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS is_approved BOOLEAN DEFAULT FALSE`,
        `ALTER TABLE driver_verification_status ADD COLUMN IF NOT EXISTS approval_date TIMESTAMP`,
-       // driver_verification_archive
-       `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS withdrawals JSONB`,
-       `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS car JSONB`,
+        // driver_verification_archive
+        `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS withdrawals JSONB`,
+        `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS car JSONB`,
+        `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS id_document_history JSONB`,
+        `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS selfie_history JSONB`,
+        `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS phone_history JSONB`,
+        `ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS bank_history JSONB`,
       // ratings
       `ALTER TABLE ratings ADD COLUMN IF NOT EXISTS ride_id INTEGER`,
       `ALTER TABLE ratings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
@@ -199,11 +203,11 @@ function registerVerificationRoutes(app, db) {
   ensureVerificationTables();
   migrateVerificationTables();
 
-  const getSuccessfulWithdrawals = (userId, callback) => {
+  const getWithdrawalHistory = (userId, callback) => {
     db.query(
       `SELECT id, amount, status, bank_name, iban, account_holder_name, admin_notes, transfer_reference, processed_at, created_at
        FROM withdrawal_requests
-       WHERE driver_id = $1 AND status = 'PAID'
+       WHERE driver_id = $1
        ORDER BY created_at DESC`,
       [userId],
       (err, results) => {
@@ -221,6 +225,55 @@ function registerVerificationRoutes(app, db) {
           created_at: w.created_at,
         }));
         callback(null, withdrawals);
+      }
+    );
+  };
+
+  const getDocumentHistory = (userId, callback) => {
+    db.query(
+      `SELECT id, document_type, document_number, expiry_date, front_image_url, back_image_url, is_verified, verification_status, rejection_reason, created_at, updated_at
+       FROM id_documents
+       WHERE user_id = $1
+       ORDER BY created_at ASC`,
+      [userId],
+      (e1, idDocs) => {
+        if (e1) return callback(e1, null);
+        db.query(
+          `SELECT id, selfie_image_url, id_document_image_url, match_confidence, is_verified, verification_status, rejection_reason, created_at, updated_at
+           FROM selfie_verifications
+           WHERE user_id = $1
+           ORDER BY created_at ASC`,
+          [userId],
+          (e2, selfies) => {
+            if (e2) return callback(e2, null);
+            db.query(
+              `SELECT id, phone_number, is_verified, verified_at, created_at, updated_at
+               FROM phone_verifications
+               WHERE user_id = $1
+               ORDER BY created_at ASC`,
+              [userId],
+              (e3, phones) => {
+                if (e3) return callback(e3, null);
+                db.query(
+                  `SELECT id, bank_name, account_holder_name, account_number, routing_number, iban, swift_code, is_verified, verification_status, rejection_reason, created_at, updated_at
+                   FROM bank_accounts
+                   WHERE user_id = $1
+                   ORDER BY created_at ASC`,
+                  [userId],
+                  (e4, banks) => {
+                    if (e4) return callback(e4, null);
+                    callback(null, {
+                      id_documents: (idDocs.rows || []).map(r => ({ ...r, front_image: resolveImageRef(r.front_image_url), back_image: resolveImageRef(r.back_image_url) })),
+                      selfie_verifications: (selfies.rows || []).map(r => ({ ...r, selfie_image: resolveImageRef(r.selfie_image_url), id_document_image: resolveImageRef(r.id_document_image_url) })),
+                      phone_verifications: (phones.rows || []).map(r => ({ ...r })),
+                      bank_accounts: (banks.rows || []).map(r => ({ ...r })),
+                    });
+                  }
+                );
+              }
+            );
+          }
+        );
       }
     );
   };
@@ -255,41 +308,50 @@ function registerVerificationRoutes(app, db) {
             if (bundleErr) {
               console.error(`[ARCHIVE_BACKFILL] Bundle error for ${driver.email}:`, bundleErr.message);
             } else {
-              const snapshot = buildArchiveSnapshot(bundle);
-              getSuccessfulWithdrawals(driver.user_id, (wErr, withdrawals) => {
-                if (wErr) {
-                  console.error(`[ARCHIVE_BACKFILL] Withdrawals error for ${driver.email}:`, wErr.message);
-                } else {
-                  const finalSnapshot = { ...snapshot, withdrawals: withdrawals || [] };
-                   db.query(
-                     `INSERT INTO driver_verification_archive
-                       (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals)
-                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-                     [
-                       driver.user_id,
-                       driver.email,
-                       driver.first_name,
-                       driver.last_name,
-                       driver.phone,
-                       'approved',
-                       null,
-                       null,
-                       JSON.stringify(finalSnapshot.id_document),
-                       JSON.stringify(finalSnapshot.selfie),
-                       JSON.stringify(finalSnapshot.phone),
-                       JSON.stringify(finalSnapshot.bank_account),
-                       JSON.stringify(finalSnapshot.car),
-                       JSON.stringify(finalSnapshot.withdrawals),
-                     ],
-                    (archiveErr) => {
-                      if (archiveErr) {
-                        console.error(`[ARCHIVE_BACKFILL] Insert error for ${driver.email}:`, archiveErr.message);
-                      } else {
-                        console.log(`[ARCHIVE_BACKFILL] Archived ${driver.email}`);
-                      }
-                    }
-                  );
+              getDocumentHistory(driver.user_id, (histErr, history) => {
+                if (histErr) {
+                  console.error(`[ARCHIVE_BACKFILL] History error for ${driver.email}:`, histErr.message);
                 }
+                const snapshot = buildArchiveSnapshot(bundle, history);
+                getWithdrawalHistory(driver.user_id, (wErr, withdrawals) => {
+                  if (wErr) {
+                    console.error(`[ARCHIVE_BACKFILL] Withdrawals error for ${driver.email}:`, wErr.message);
+                  } else {
+                    const finalSnapshot = { ...snapshot, withdrawals: withdrawals || [] };
+                     db.query(
+                       `INSERT INTO driver_verification_archive
+                         (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals, id_document_history, selfie_history, phone_history, bank_history)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+                       [
+                         driver.user_id,
+                         driver.email,
+                         driver.first_name,
+                         driver.last_name,
+                         driver.phone,
+                         'approved',
+                         null,
+                         null,
+                         JSON.stringify(finalSnapshot.id_document),
+                         JSON.stringify(finalSnapshot.selfie),
+                         JSON.stringify(finalSnapshot.phone),
+                         JSON.stringify(finalSnapshot.bank_account),
+                         JSON.stringify(finalSnapshot.car),
+                         JSON.stringify(finalSnapshot.withdrawals),
+                         JSON.stringify(finalSnapshot.id_document_history || []),
+                         JSON.stringify(finalSnapshot.selfie_history || []),
+                         JSON.stringify(finalSnapshot.phone_history || []),
+                         JSON.stringify(finalSnapshot.bank_history || []),
+                       ],
+                      (archiveErr) => {
+                        if (archiveErr) {
+                          console.error(`[ARCHIVE_BACKFILL] Insert error for ${driver.email}:`, archiveErr.message);
+                        } else {
+                          console.log(`[ARCHIVE_BACKFILL] Archived ${driver.email}`);
+                        }
+                      }
+                    );
+                  }
+                });
               });
             }
           });
@@ -1084,43 +1146,54 @@ function registerVerificationRoutes(app, db) {
 
             getVerificationBundle(userId, (bundleErr, bundle) => {
               if (bundleErr) return;
-              const snapshot = buildArchiveSnapshot(bundle);
-              getSuccessfulWithdrawals(userId, (wErr, withdrawals) => {
-                if (wErr) return;
-                const finalSnapshot = { ...snapshot, withdrawals };
-                db.query(
-                  `INSERT INTO driver_verification_archive
-                    (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, withdrawals)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                   ON CONFLICT (user_id) DO UPDATE SET
-                     decision = EXCLUDED.decision,
-                     reviewer_email = EXCLUDED.reviewer_email,
-                     notes = EXCLUDED.notes,
-                     id_document = EXCLUDED.id_document,
-                     selfie = EXCLUDED.selfie,
-                     phone_verification = EXCLUDED.phone_verification,
-                     bank_account = EXCLUDED.bank_account,
-                     withdrawals = EXCLUDED.withdrawals,
-                     archived_at = NOW()`,
-                  [
-                    userId,
-                    email,
-                    userResult.rows[0].first_name,
-                    userResult.rows[0].last_name,
-                    userResult.rows[0].phone,
-                    'approved',
-                    reviewerEmail,
-                    null,
-                    JSON.stringify(finalSnapshot.id_document),
-                    JSON.stringify(finalSnapshot.selfie),
-                    JSON.stringify(finalSnapshot.phone),
-                    JSON.stringify(finalSnapshot.bank_account),
-                    JSON.stringify(finalSnapshot.withdrawals),
-                  ],
-                  (archiveErr) => {
-                    if (archiveErr) console.error('Auto-archive error:', archiveErr);
-                  }
-                );
+              getDocumentHistory(userId, (histErr, history) => {
+                if (histErr) return;
+                const snapshot = buildArchiveSnapshot(bundle, history);
+                getWithdrawalHistory(userId, (wErr, withdrawals) => {
+                  if (wErr) return;
+                  const finalSnapshot = { ...snapshot, withdrawals };
+                  db.query(
+                    `INSERT INTO driver_verification_archive
+                      (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, withdrawals, id_document_history, selfie_history, phone_history, bank_history)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                     ON CONFLICT (user_id) DO UPDATE SET
+                       decision = EXCLUDED.decision,
+                       reviewer_email = EXCLUDED.reviewer_email,
+                       notes = EXCLUDED.notes,
+                       id_document = EXCLUDED.id_document,
+                       selfie = EXCLUDED.selfie,
+                       phone_verification = EXCLUDED.phone_verification,
+                       bank_account = EXCLUDED.bank_account,
+                       withdrawals = EXCLUDED.withdrawals,
+                       id_document_history = EXCLUDED.id_document_history,
+                       selfie_history = EXCLUDED.selfie_history,
+                       phone_history = EXCLUDED.phone_history,
+                       bank_history = EXCLUDED.bank_history,
+                       archived_at = NOW()`,
+                    [
+                      userId,
+                      email,
+                      userResult.rows[0].first_name,
+                      userResult.rows[0].last_name,
+                      userResult.rows[0].phone,
+                      'approved',
+                      reviewerEmail,
+                      null,
+                      JSON.stringify(finalSnapshot.id_document),
+                      JSON.stringify(finalSnapshot.selfie),
+                      JSON.stringify(finalSnapshot.phone),
+                      JSON.stringify(finalSnapshot.bank_account),
+                      JSON.stringify(finalSnapshot.withdrawals),
+                      JSON.stringify(finalSnapshot.id_document_history || []),
+                      JSON.stringify(finalSnapshot.selfie_history || []),
+                      JSON.stringify(finalSnapshot.phone_history || []),
+                      JSON.stringify(finalSnapshot.bank_history || []),
+                    ],
+                    (archiveErr) => {
+                      if (archiveErr) console.error('Auto-archive error:', archiveErr);
+                    }
+                  );
+                });
               });
             });
           }
@@ -1130,7 +1203,7 @@ function registerVerificationRoutes(app, db) {
   });
 
   // Snapshot a driver's full verification bundle for archival reference
-  const buildArchiveSnapshot = (bundle) => ({
+  const buildArchiveSnapshot = (bundle, history) => ({
     id_document: bundle.id_document
       ? {
         document_type: bundle.id_document.document_type,
@@ -1183,6 +1256,7 @@ function registerVerificationRoutes(app, db) {
         image_url: bundle.car.image_url,
       }
       : null,
+    ...(history || {}),
   });
 
   // Reject all verifications for a driver and reset their status
@@ -1239,41 +1313,52 @@ function registerVerificationRoutes(app, db) {
                         (err5) => {
                           if (err5) return res.status(500).json({ error: 'Failed to update approval status' });
 
-                          getVerificationBundle(userId, (bundleErr, bundle) => {
-                            if (bundleErr) return res.status(500).json({ error: 'Failed to build archive' });
-                            const snapshot = buildArchiveSnapshot(bundle);
-                            getSuccessfulWithdrawals(userId, (wErr, withdrawals) => {
-                              if (wErr) return res.status(500).json({ error: 'Failed to load withdrawals' });
-                              const finalSnapshot = { ...snapshot, withdrawals };
-                              db.query(
-                                `INSERT INTO driver_verification_archive
-                                  (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals)
-                                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-                                ON CONFLICT (user_id) DO UPDATE SET
-                                  decision = EXCLUDED.decision,
-                                  reviewer_email = EXCLUDED.reviewer_email,
-                                  notes = EXCLUDED.notes,
-                                  id_document = EXCLUDED.id_document,
-                                  selfie = EXCLUDED.selfie,
-                                  phone_verification = EXCLUDED.phone_verification,
-                                  bank_account = EXCLUDED.bank_account,
-                                  car = EXCLUDED.car,
-                                  withdrawals = EXCLUDED.withdrawals,
-                                  archived_at = NOW()`,
-                                [
-                                  userId, email, userResult.rows[0].first_name, userResult.rows[0].last_name, userResult.rows[0].phone,
-                                  'rejected', reviewerEmail, notes || 'Rejected by moderator',
-                                  JSON.stringify(finalSnapshot.id_document), JSON.stringify(finalSnapshot.selfie),
-                                  JSON.stringify(finalSnapshot.phone), JSON.stringify(finalSnapshot.bank_account),
-                                  JSON.stringify(finalSnapshot.car), JSON.stringify(finalSnapshot.withdrawals),
-                                ],
-                                (archiveErr) => {
-                                  if (archiveErr) return res.status(500).json({ error: 'Failed to archive driver' });
-                                  res.json({ message: 'All verifications rejected', email, is_approved: false });
-                                }
-                              );
-                            });
-                          });
+                           getVerificationBundle(userId, (bundleErr, bundle) => {
+                             if (bundleErr) return res.status(500).json({ error: 'Failed to build archive' });
+                             getDocumentHistory(userId, (histErr, history) => {
+                               if (histErr) return res.status(500).json({ error: 'Failed to load history' });
+                               const snapshot = buildArchiveSnapshot(bundle, history);
+                               getWithdrawalHistory(userId, (wErr, withdrawals) => {
+                                 if (wErr) return res.status(500).json({ error: 'Failed to load withdrawals' });
+                                 const finalSnapshot = { ...snapshot, withdrawals };
+                                 db.query(
+                                   `INSERT INTO driver_verification_archive
+                                     (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals, id_document_history, selfie_history, phone_history, bank_history)
+                                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                                   ON CONFLICT (user_id) DO UPDATE SET
+                                     decision = EXCLUDED.decision,
+                                     reviewer_email = EXCLUDED.reviewer_email,
+                                     notes = EXCLUDED.notes,
+                                     id_document = EXCLUDED.id_document,
+                                     selfie = EXCLUDED.selfie,
+                                     phone_verification = EXCLUDED.phone_verification,
+                                     bank_account = EXCLUDED.bank_account,
+                                     car = EXCLUDED.car,
+                                     withdrawals = EXCLUDED.withdrawals,
+                                     id_document_history = EXCLUDED.id_document_history,
+                                     selfie_history = EXCLUDED.selfie_history,
+                                     phone_history = EXCLUDED.phone_history,
+                                     bank_history = EXCLUDED.bank_history,
+                                     archived_at = NOW()`,
+                                   [
+                                     userId, email, userResult.rows[0].first_name, userResult.rows[0].last_name, userResult.rows[0].phone,
+                                     'rejected', reviewerEmail, notes || 'Rejected by moderator',
+                                     JSON.stringify(finalSnapshot.id_document), JSON.stringify(finalSnapshot.selfie),
+                                     JSON.stringify(finalSnapshot.phone), JSON.stringify(finalSnapshot.bank_account),
+                                     JSON.stringify(finalSnapshot.car), JSON.stringify(finalSnapshot.withdrawals),
+                                     JSON.stringify(finalSnapshot.id_document_history || []),
+                                     JSON.stringify(finalSnapshot.selfie_history || []),
+                                     JSON.stringify(finalSnapshot.phone_history || []),
+                                     JSON.stringify(finalSnapshot.bank_history || []),
+                                   ],
+                                   (archiveErr) => {
+                                     if (archiveErr) return res.status(500).json({ error: 'Failed to archive driver' });
+                                     res.json({ message: 'All verifications rejected', email, is_approved: false });
+                                   }
+                                 );
+                               });
+                             });
+                           });
                         }
                       );
                     }
@@ -1316,25 +1401,31 @@ function registerVerificationRoutes(app, db) {
       // Reuse the verification bundle builder
       getVerificationBundle(userId, (bundleErr, bundle) => {
         if (bundleErr) return res.status(500).json({ error: 'Failed to build archive' });
-        const snapshot = buildArchiveSnapshot(bundle);
-        getSuccessfulWithdrawals(userId, (wErr, withdrawals) => {
-          if (wErr) return res.status(500).json({ error: 'Failed to load withdrawals' });
-          const finalSnapshot = { ...snapshot, withdrawals };
-          db.query(
-             `INSERT INTO driver_verification_archive
-                (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals)
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-              ON CONFLICT (user_id) DO UPDATE SET
-                decision = EXCLUDED.decision,
-                reviewer_email = EXCLUDED.reviewer_email,
-                notes = EXCLUDED.notes,
-                id_document = EXCLUDED.id_document,
-                selfie = EXCLUDED.selfie,
-                phone_verification = EXCLUDED.phone_verification,
-                bank_account = EXCLUDED.bank_account,
-                car = EXCLUDED.car,
-                withdrawals = EXCLUDED.withdrawals,
-                archived_at = NOW()`,
+        getDocumentHistory(userId, (histErr, history) => {
+          if (histErr) return res.status(500).json({ error: 'Failed to load history' });
+          const snapshot = buildArchiveSnapshot(bundle, history);
+          getWithdrawalHistory(userId, (wErr, withdrawals) => {
+            if (wErr) return res.status(500).json({ error: 'Failed to load withdrawals' });
+            const finalSnapshot = { ...snapshot, withdrawals };
+            db.query(
+               `INSERT INTO driver_verification_archive
+                  (user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals, id_document_history, selfie_history, phone_history, bank_history)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                ON CONFLICT (user_id) DO UPDATE SET
+                  decision = EXCLUDED.decision,
+                  reviewer_email = EXCLUDED.reviewer_email,
+                  notes = EXCLUDED.notes,
+                  id_document = EXCLUDED.id_document,
+                  selfie = EXCLUDED.selfie,
+                  phone_verification = EXCLUDED.phone_verification,
+                  bank_account = EXCLUDED.bank_account,
+                  car = EXCLUDED.car,
+                  withdrawals = EXCLUDED.withdrawals,
+                  id_document_history = EXCLUDED.id_document_history,
+                  selfie_history = EXCLUDED.selfie_history,
+                  phone_history = EXCLUDED.phone_history,
+                  bank_history = EXCLUDED.bank_history,
+                  archived_at = NOW()`,
               [
                 userId, email, user.first_name, user.last_name, user.phone, decision, reviewerEmail,
                 notes || null,
@@ -1342,11 +1433,15 @@ function registerVerificationRoutes(app, db) {
                 JSON.stringify(finalSnapshot.phone), JSON.stringify(finalSnapshot.bank_account),
                 JSON.stringify(finalSnapshot.car),
                 JSON.stringify(finalSnapshot.withdrawals),
+                JSON.stringify(finalSnapshot.id_document_history || []),
+                JSON.stringify(finalSnapshot.selfie_history || []),
+                JSON.stringify(finalSnapshot.phone_history || []),
+                JSON.stringify(finalSnapshot.bank_history || []),
               ],
            (err2) => {
-             if (err2) return res.status(500).json({ error: 'Failed to archive driver' });
-             res.json({ message: 'Driver archived', email, decision });
-           }
+              if (err2) return res.status(500).json({ error: 'Failed to archive driver' });
+              res.json({ message: 'Driver archived', email, decision });
+            }
           );
         });
       });
@@ -1359,7 +1454,7 @@ function registerVerificationRoutes(app, db) {
     if (!guard.ok) return guard.res;
 
     db.query(
-      `SELECT id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals, archived_at
+      `SELECT id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals, id_document_history, selfie_history, phone_history, bank_history, archived_at
        FROM driver_verification_archive ORDER BY archived_at DESC`,
       [],
       (err, results) => {
@@ -1375,9 +1470,9 @@ function registerVerificationRoutes(app, db) {
     if (!guard.ok) return guard.res;
 
     const { id } = req.params;
-    db.query(
-       `SELECT id, user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals, archived_at
-        FROM driver_verification_archive WHERE id = $1`,
+     db.query(
+        `SELECT id, user_id, email, first_name, last_name, phone, decision, reviewer_email, notes, id_document, selfie, phone_verification, bank_account, car, withdrawals, id_document_history, selfie_history, phone_history, bank_history, archived_at
+         FROM driver_verification_archive WHERE id = $1`,
       [id],
       (err, results) => {
         if (err) return res.status(500).json({ error: 'Failed to load archived driver' });
@@ -1391,6 +1486,10 @@ function registerVerificationRoutes(app, db) {
           bank_account: row.bank_account ? JSON.parse(row.bank_account) : null,
           car: row.car ? JSON.parse(row.car) : null,
           withdrawals: row.withdrawals ? JSON.parse(row.withdrawals) : [],
+          id_document_history: row.id_document_history ? JSON.parse(row.id_document_history) : [],
+          selfie_history: row.selfie_history ? JSON.parse(row.selfie_history) : [],
+          phone_history: row.phone_history ? JSON.parse(row.phone_history) : [],
+          bank_history: row.bank_history ? JSON.parse(row.bank_history) : [],
         });
       }
     );
