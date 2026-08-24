@@ -27,6 +27,7 @@ export default function DriverVerifySummaryScreen() {
   const [uploadingVehicle, setUploadingVehicle] = useState(false);
   const [hasSubmittedForReview, setHasSubmittedForReview] = useState(false);
   const redirectTimerRef = useRef(null);
+  const loadingStatusRef = useRef(false);
 
   const verifications = verificationStatus?.verifications || {};
   const car = verificationStatus?.car || null;
@@ -56,15 +57,21 @@ export default function DriverVerifySummaryScreen() {
 
   const isApproved = verificationStatus?.is_approved || false;
 
-  useEffect(() => {
-    loadVerificationStatus();
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadVerificationStatus();
-    }, [])
-  );
+  const loadVerificationStatus = async () => {
+    if (loadingStatusRef.current) return;
+    loadingStatusRef.current = true;
+    setLoadingStatus(true);
+    try {
+      const email = await authService.getUserEmail();
+      const response = await driverAPI.getVerificationStatus(email);
+      setVerificationStatus(response.data);
+    } catch (error) {
+      console.error('Error loading verification status:', error);
+    } finally {
+      loadingStatusRef.current = false;
+      setLoadingStatus(false);
+    }
+  };
 
   useEffect(() => {
     if (isApproved) {
@@ -78,17 +85,11 @@ export default function DriverVerifySummaryScreen() {
     };
   }, [isApproved, router]);
 
-  const loadVerificationStatus = async () => {
-    try {
-      const email = await authService.getUserEmail();
-      const response = await driverAPI.getVerificationStatus(email);
-      setVerificationStatus(response.data);
-    } catch (error) {
-      console.error('Error loading verification status:', error);
-    } finally {
-      setLoadingStatus(false);
-    }
-  };
+  useFocusEffect(
+    useCallback(() => {
+      loadVerificationStatus();
+    }, [])
+  );
 
   const pickAndUploadVehicleImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
