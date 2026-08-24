@@ -40,7 +40,7 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     console.log('[API] Response error:', error.response?.status, error.message);
     if (error.response?.status === 401) {
       const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
