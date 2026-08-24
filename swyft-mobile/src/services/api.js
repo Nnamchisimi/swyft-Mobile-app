@@ -139,6 +139,8 @@ export const adminAPI = {
     api.post(`/api/admin/drivers/${encodeURIComponent(email)}/bank/review`, { decision, rejection_reason }),
   archiveDriver: (email, decision, notes) =>
     api.post(`/api/admin/drivers/${encodeURIComponent(email)}/archive`, { decision, notes }),
+  rejectAllVerifications: (email, notes) =>
+    api.post(`/api/admin/drivers/${encodeURIComponent(email)}/reject-all`, { notes }),
   getArchivedDrivers: () => api.get('/api/admin/drivers/archived'),
   getWithdrawals: (params = {}) => api.get('/api/admin/withdrawals', { params }),
   processWithdrawal: (id, data) => api.post(`/api/admin/withdrawals/${id}/process`, data),

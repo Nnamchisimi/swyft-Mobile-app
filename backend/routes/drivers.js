@@ -332,8 +332,8 @@ function registerDriversRoutes(app, db) {
     );
   });
 
-  // Update driver vehicle image
-  app.patch('/api/drivers/:email/vehicle-image', requireDriverApproval, (req, res) => {
+  // Update driver vehicle image - allowed during verification
+  app.patch('/api/drivers/:email/vehicle-image', authenticateToken, (req, res) => {
     const { email } = req.params;
     const { image_url } = req.body;
 

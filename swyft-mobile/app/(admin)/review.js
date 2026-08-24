@@ -21,10 +21,10 @@ import authService from '../../src/services/auth';
 import { COLORS } from '../../src/constants/config';
 
   const SECTIONS = [
-    { key: 'id-document', label: 'ID Document' },
+    { key: 'id_document', label: 'ID Document' },
     { key: 'selfie', label: 'Selfie Verification' },
     { key: 'phone', label: 'Phone Number' },
-    { key: 'bank', label: 'Bank Account' },
+    { key: 'bank_account_account', label: 'Bank Account' },
     { key: 'car', label: 'Vehicle' },
   ];
 
@@ -212,10 +212,10 @@ export default function AdminReviewScreen() {
     setActing(true);
     setBanner({ text: '', type: '' });
     try {
-      if (kind === 'id-document') await adminAPI.reviewIdDocument(selected.email, decision, rejectReason);
+      if (kind === 'id_document') await adminAPI.reviewIdDocument(selected.email, decision, rejectReason);
       else if (kind === 'selfie') await adminAPI.reviewSelfie(selected.email, decision, rejectReason);
       else if (kind === 'phone') await adminAPI.reviewPhone(selected.email, decision);
-      else if (kind === 'bank') await adminAPI.reviewBank(selected.email, decision, rejectReason);
+      else if (kind === 'bank_account') await adminAPI.reviewBank(selected.email, decision, rejectReason);
       else if (kind === 'car') {
         if (decision === 'approve') {
           await adminAPI.archiveDriver(selected.email, 'approved');
@@ -252,6 +252,21 @@ export default function AdminReviewScreen() {
       await adminAPI.reviewBank(selected.email, 'approve');
       setBanner({ text: 'All sections approved', type: 'success' });
       await archiveDriver('approved');
+      await openDriver(selected);
+    } catch (e) {
+      setBanner({ text: e.response?.data?.error || e.message || 'Action failed', type: 'error' });
+    } finally {
+      setActing(false);
+    }
+  };
+
+  const rejectAll = async () => {
+    if (!selected) return;
+    setActing(true);
+    setBanner({ text: '', type: '' });
+    try {
+      await adminAPI.rejectAllVerifications(selected.email, 'Rejected by moderator');
+      setBanner({ text: 'All verifications rejected. Driver must resubmit all documents.', type: 'error' });
       await openDriver(selected);
     } catch (e) {
       setBanner({ text: e.response?.data?.error || e.message || 'Action failed', type: 'error' });
@@ -389,7 +404,7 @@ export default function AdminReviewScreen() {
               </View>
               <View style={styles.cardBody}>
                 <DetailRow label="Driver" value={`${w.driver_name || ''} ${w.driver_email ? `(${w.driver_email})` : ''}`} />
-                <DetailRow label="Bank" value={w.bank_name || '—'} />
+                <DetailRow label="Bank" value={w.bank_account_name || '—'} />
                 <DetailRow label="IBAN" value={w.iban || '—'} />
                 <DetailRow label="Holder" value={w.account_holder_name || '—'} />
                 <DetailRow label="Requested" value={w.created_at ? new Date(w.created_at).toLocaleString() : '—'} />
@@ -465,7 +480,7 @@ export default function AdminReviewScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Bank Details</Text>
             <View style={styles.cardBody}>
-              <DetailRow label="Bank" value={selectedWithdrawal.bank_name || '—'} />
+              <DetailRow label="Bank" value={selectedWithdrawal.bank_account_name || '—'} />
               <DetailRow label="IBAN" value={selectedWithdrawal.iban || '—'} />
               <DetailRow label="Account Holder" value={selectedWithdrawal.account_holder_name || '—'} />
             </View>
@@ -532,7 +547,7 @@ export default function AdminReviewScreen() {
           {selectedWithdrawal.status === 'PROCESSING' && (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Mark as Paid</Text>
-              <Text style={styles.reasonText}>Use this after the bank transfer is completed.</Text>
+              <Text style={styles.reasonText}>Use this after the bank_account transfer is completed.</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Transfer reference (optional)"
@@ -593,7 +608,7 @@ export default function AdminReviewScreen() {
                   id_document: a.id_document,
                   selfie: a.selfie,
                   phone: a.phone,
-                  bank_account: a.bank_account,
+                  bank_account_account: a.bank_account_account,
                   car: a.car,
                   decision: a.decision,
                   reviewer_email: a.reviewer_email,
@@ -673,19 +688,19 @@ export default function AdminReviewScreen() {
 
               <SectionBlock
                 title="ID Document"
-                status={getStatus(bundle, 'id-document')}
+                status={getStatus(bundle, 'id_document')}
                 hasData={!!bundle.id_document}
                 acting={acting}
-                onApprove={() => review('id-document', 'approve')}
-                onReject={() => confirmReject('id-document')}
+                onApprove={() => review('id_document', 'approve')}
+                onReject={() => confirmReject('id_document')}
               >
                 {bundle.id_document ? (
                   <>
                     <DetailRow label="Type" value={bundle.id_document.document_type} />
                     <DetailRow label="Number" value={bundle.id_document.document_number} />
                     <DetailRow label="Expiry" value={bundle.id_document.expiry_date} />
-                    {getReason(bundle, 'id-document') ? (
-                      <Text style={styles.reasonText}>Reason: {getReason(bundle, 'id-document')}</Text>
+                    {getReason(bundle, 'id_document') ? (
+                      <Text style={styles.reasonText}>Reason: {getReason(bundle, 'id_document')}</Text>
                     ) : null}
                     <View style={styles.imgRow}>
                       <Img img={bundle.id_document.front_image} label="Front" />
@@ -743,28 +758,28 @@ export default function AdminReviewScreen() {
 
               <SectionBlock
                 title="Bank Account"
-                status={getStatus(bundle, 'bank')}
-                hasData={!!bundle.bank_account}
+                status={getStatus(bundle, 'bank_account')}
+                hasData={!!bundle.bank_account_account}
                 acting={acting}
-                onApprove={() => review('bank', 'approve')}
-                onReject={() => confirmReject('bank')}
+                onApprove={() => review('bank_account', 'approve')}
+                onReject={() => confirmReject('bank_account')}
               >
-                {bundle.bank_account ? (
+                {bundle.bank_account_account ? (
                   <>
-                    <DetailRow label="Bank" value={bundle.bank_account.bank_name} />
-                    <DetailRow label="Holder" value={bundle.bank_account.account_holder_name} />
-                    <DetailRow label="Account" value={bundle.bank_account.account_number} />
-                    {bundle.bank_account.routing_number ? (
-                      <DetailRow label="Routing" value={bundle.bank_account.routing_number} />
+                    <DetailRow label="Bank" value={bundle.bank_account_account.bank_account_name} />
+                    <DetailRow label="Holder" value={bundle.bank_account_account.account_holder_name} />
+                    <DetailRow label="Account" value={bundle.bank_account_account.account_number} />
+                    {bundle.bank_account_account.routing_number ? (
+                      <DetailRow label="Routing" value={bundle.bank_account_account.routing_number} />
                     ) : null}
-                    {bundle.bank_account.iban ? (
-                      <DetailRow label="IBAN" value={bundle.bank_account.iban} />
+                    {bundle.bank_account_account.iban ? (
+                      <DetailRow label="IBAN" value={bundle.bank_account_account.iban} />
                     ) : null}
-                    {bundle.bank_account.swift_code ? (
-                      <DetailRow label="Swift" value={bundle.bank_account.swift_code} />
+                    {bundle.bank_account_account.swift_code ? (
+                      <DetailRow label="Swift" value={bundle.bank_account_account.swift_code} />
                     ) : null}
-                    {getReason(bundle, 'bank') ? (
-                      <Text style={styles.reasonText}>Reason: {getReason(bundle, 'bank')}</Text>
+                    {getReason(bundle, 'bank_account') ? (
+                      <Text style={styles.reasonText}>Reason: {getReason(bundle, 'bank_account')}</Text>
                     ) : null}
                   </>
                 ) : (
@@ -799,13 +814,18 @@ export default function AdminReviewScreen() {
                </SectionBlock>
 
                <TouchableOpacity style={[styles.approveAllBtn, acting && styles.disabled]} disabled={acting} onPress={approveAll}>
-                <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
-                <Text style={styles.approveAllText}>Approve All</Text>
-              </TouchableOpacity>
+                 <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
+                 <Text style={styles.approveAllText}>Approve All</Text>
+               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.closeBtn} onPress={closeDetail}>
-                <Text style={styles.closeText}>Back to list</Text>
-              </TouchableOpacity>
+               <TouchableOpacity style={[styles.rejectAllBtn, acting && styles.disabled]} disabled={acting} onPress={rejectAll}>
+                 <Ionicons name="close-circle-outline" size={18} color="#fff" />
+                 <Text style={styles.rejectAllText}>Reject All</Text>
+               </TouchableOpacity>
+
+               <TouchableOpacity style={styles.closeBtn} onPress={closeDetail}>
+                 <Text style={styles.closeText}>Back to list</Text>
+               </TouchableOpacity>
             </>
           )}
         </ScrollView>
@@ -849,7 +869,7 @@ export default function AdminReviewScreen() {
           </View>
 
           {archiveDetail.id_document ? (
-            <SectionBlock title="ID Document" status={getStatus(archiveDetail, 'id-document')} hasData={false} acting={false}>
+            <SectionBlock title="ID Document" status={getStatus(archiveDetail, 'id_document')} hasData={false} acting={false}>
               <DetailRow label="Type" value={archiveDetail.id_document.document_type} />
               <DetailRow label="Number" value={archiveDetail.id_document.document_number} />
               <DetailRow label="Expiry" value={archiveDetail.id_document.expiry_date} />
@@ -885,22 +905,22 @@ export default function AdminReviewScreen() {
             </SectionBlock>
           ) : null}
 
-          {archiveDetail.bank_account ? (
-            <SectionBlock title="Bank Account" status={getStatus(archiveDetail, 'bank')} hasData={false} acting={false}>
-              <DetailRow label="Bank" value={archiveDetail.bank_account.bank_name} />
-              <DetailRow label="Holder" value={archiveDetail.bank_account.account_holder_name} />
-              <DetailRow label="Account" value={archiveDetail.bank_account.account_number} />
-              {archiveDetail.bank_account.routing_number ? (
-                <DetailRow label="Routing" value={archiveDetail.bank_account.routing_number} />
+          {archiveDetail.bank_account_account ? (
+            <SectionBlock title="Bank Account" status={getStatus(archiveDetail, 'bank_account')} hasData={false} acting={false}>
+              <DetailRow label="Bank" value={archiveDetail.bank_account_account.bank_account_name} />
+              <DetailRow label="Holder" value={archiveDetail.bank_account_account.account_holder_name} />
+              <DetailRow label="Account" value={archiveDetail.bank_account_account.account_number} />
+              {archiveDetail.bank_account_account.routing_number ? (
+                <DetailRow label="Routing" value={archiveDetail.bank_account_account.routing_number} />
               ) : null}
-              {archiveDetail.bank_account.iban ? (
-                <DetailRow label="IBAN" value={archiveDetail.bank_account.iban} />
+              {archiveDetail.bank_account_account.iban ? (
+                <DetailRow label="IBAN" value={archiveDetail.bank_account_account.iban} />
               ) : null}
-              {archiveDetail.bank_account.swift_code ? (
-                <DetailRow label="Swift" value={archiveDetail.bank_account.swift_code} />
+              {archiveDetail.bank_account_account.swift_code ? (
+                <DetailRow label="Swift" value={archiveDetail.bank_account_account.swift_code} />
               ) : null}
-              {archiveDetail.bank_account.rejection_reason ? (
-                <Text style={styles.reasonText}>Reason: {archiveDetail.bank_account.rejection_reason}</Text>
+              {archiveDetail.bank_account_account.rejection_reason ? (
+                <Text style={styles.reasonText}>Reason: {archiveDetail.bank_account_account.rejection_reason}</Text>
               ) : null}
             </SectionBlock>
           ) : null}
@@ -1198,6 +1218,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   approveAllText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  rejectAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F44336',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  rejectAllText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
   disabled: { opacity: 0.6 },
   closeBtn: {
     alignItems: 'center',
