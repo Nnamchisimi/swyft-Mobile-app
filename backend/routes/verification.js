@@ -1035,6 +1035,7 @@ function registerVerificationRoutes(app, db) {
             selfie: bundle.selfie,
             phone: bundle.phone,
             bank_account: bundle.bank_account,
+            car: bundle.car,
           });
         });
       }

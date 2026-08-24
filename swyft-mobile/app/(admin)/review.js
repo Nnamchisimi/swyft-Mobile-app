@@ -756,36 +756,36 @@ export default function AdminReviewScreen() {
                 )}
               </SectionBlock>
 
-              <SectionBlock
-                title="Bank Account"
-                status={getStatus(bundle, 'bank_account')}
-                hasData={!!bundle.bank_account_account}
-                acting={acting}
-                onApprove={() => review('bank_account', 'approve')}
-                onReject={() => confirmReject('bank_account')}
-              >
-                {bundle.bank_account_account ? (
-                  <>
-                    <DetailRow label="Bank" value={bundle.bank_account_account.bank_account_name} />
-                    <DetailRow label="Holder" value={bundle.bank_account_account.account_holder_name} />
-                    <DetailRow label="Account" value={bundle.bank_account_account.account_number} />
-                    {bundle.bank_account_account.routing_number ? (
-                      <DetailRow label="Routing" value={bundle.bank_account_account.routing_number} />
-                    ) : null}
-                    {bundle.bank_account_account.iban ? (
-                      <DetailRow label="IBAN" value={bundle.bank_account_account.iban} />
-                    ) : null}
-                    {bundle.bank_account_account.swift_code ? (
-                      <DetailRow label="Swift" value={bundle.bank_account_account.swift_code} />
-                    ) : null}
-                    {getReason(bundle, 'bank_account') ? (
-                      <Text style={styles.reasonText}>Reason: {getReason(bundle, 'bank_account')}</Text>
-                    ) : null}
-                  </>
-                ) : (
-                  <Text style={styles.notSubmitted}>Not submitted</Text>
-                )}
-               </SectionBlock>
+               <SectionBlock
+                 title="Bank Account"
+                 status={getStatus(bundle, 'bank_account')}
+                 hasData={!!bundle.bank_account}
+                 acting={acting}
+                 onApprove={() => review('bank_account', 'approve')}
+                 onReject={() => confirmReject('bank_account')}
+               >
+                 {bundle.bank_account ? (
+                   <>
+                     <DetailRow label="Bank" value={bundle.bank_account.bank_name} />
+                     <DetailRow label="Holder" value={bundle.bank_account.account_holder_name} />
+                     <DetailRow label="Account" value={bundle.bank_account.account_number} />
+                     {bundle.bank_account.routing_number ? (
+                       <DetailRow label="Routing" value={bundle.bank_account.routing_number} />
+                     ) : null}
+                     {bundle.bank_account.iban ? (
+                       <DetailRow label="IBAN" value={bundle.bank_account.iban} />
+                     ) : null}
+                     {bundle.bank_account.swift_code ? (
+                       <DetailRow label="Swift" value={bundle.bank_account.swift_code} />
+                     ) : null}
+                     {getReason(bundle, 'bank_account') ? (
+                       <Text style={styles.reasonText}>Reason: {getReason(bundle, 'bank_account')}</Text>
+                     ) : null}
+                   </>
+                 ) : (
+                   <Text style={styles.notSubmitted}>Not submitted</Text>
+                 )}
+                </SectionBlock>
 
                <SectionBlock
                  title="Vehicle"
@@ -905,22 +905,22 @@ export default function AdminReviewScreen() {
             </SectionBlock>
           ) : null}
 
-          {archiveDetail.bank_account_account ? (
+          {archiveDetail.bank_account ? (
             <SectionBlock title="Bank Account" status={getStatus(archiveDetail, 'bank_account')} hasData={false} acting={false}>
-              <DetailRow label="Bank" value={archiveDetail.bank_account_account.bank_account_name} />
-              <DetailRow label="Holder" value={archiveDetail.bank_account_account.account_holder_name} />
-              <DetailRow label="Account" value={archiveDetail.bank_account_account.account_number} />
-              {archiveDetail.bank_account_account.routing_number ? (
-                <DetailRow label="Routing" value={archiveDetail.bank_account_account.routing_number} />
+              <DetailRow label="Bank" value={archiveDetail.bank_account.bank_name} />
+              <DetailRow label="Holder" value={archiveDetail.bank_account.account_holder_name} />
+              <DetailRow label="Account" value={archiveDetail.bank_account.account_number} />
+              {archiveDetail.bank_account.routing_number ? (
+                <DetailRow label="Routing" value={archiveDetail.bank_account.routing_number} />
               ) : null}
-              {archiveDetail.bank_account_account.iban ? (
-                <DetailRow label="IBAN" value={archiveDetail.bank_account_account.iban} />
+              {archiveDetail.bank_account.iban ? (
+                <DetailRow label="IBAN" value={archiveDetail.bank_account.iban} />
               ) : null}
-              {archiveDetail.bank_account_account.swift_code ? (
-                <DetailRow label="Swift" value={archiveDetail.bank_account_account.swift_code} />
+              {archiveDetail.bank_account.swift_code ? (
+                <DetailRow label="Swift" value={archiveDetail.bank_account.swift_code} />
               ) : null}
-              {archiveDetail.bank_account_account.rejection_reason ? (
-                <Text style={styles.reasonText}>Reason: {archiveDetail.bank_account_account.rejection_reason}</Text>
+              {archiveDetail.bank_account.rejection_reason ? (
+                <Text style={styles.reasonText}>Reason: {archiveDetail.bank_account.rejection_reason}</Text>
               ) : null}
             </SectionBlock>
           ) : null}
