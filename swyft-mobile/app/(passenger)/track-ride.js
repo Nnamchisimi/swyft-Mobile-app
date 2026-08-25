@@ -408,7 +408,16 @@ export default function TrackRideScreen() {
                   <Text style={styles.ratingStar}>⭐</Text>
                   <Text style={styles.ratingText}>{ride.driver_rating ? Number(ride.driver_rating).toFixed(1) : '5.0'}</Text>
                 </Text>
-                <Text style={styles.driverVehicle}>🚗 {ride.driver_vehicle || ride.vehicle_type || 'Vehicle'}</Text>
+                {ride.vehicle ? (
+                  <Text style={styles.driverVehicle}>
+                    🚗 {ride.vehicle.year} {ride.vehicle.make} {ride.vehicle.model} · {ride.vehicle.plate}
+                  </Text>
+                ) : (
+                  <Text style={styles.driverVehicle}>🚗 {ride.driver_vehicle || ride.vehicle_type || 'Vehicle'}</Text>
+                )}
+                {ride.vehicle && ride.vehicle.color && (
+                  <Text style={styles.driverVehicle}>Color: {ride.vehicle.color}</Text>
+                )}
                 <Text style={styles.driverPhone}>{ride.driver_phone || 'Phone not available'}</Text>
               </View>
             </View>
