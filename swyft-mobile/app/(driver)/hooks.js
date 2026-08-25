@@ -293,13 +293,21 @@ export function useDriverDashboardEffects(state, refs) {
           const currentLng = loc.coords.longitude;
 
           if ((ride.status === 'accepted' || ride.status === 'picked_up') && ride.pickup_lat && ride.pickup_lng) {
-            const distanceToPickup = calculateDistance(currentLat, currentLng, parseFloat(ride.pickup_lat), parseFloat(ride.pickup_lng));
-            setEta(calculateETA(distanceToPickup));
+            const pickupLat = parseFloat(ride.pickup_lat);
+            const pickupLng = parseFloat(ride.pickup_lng);
+            if (isFinite(currentLat) && isFinite(currentLng) && isFinite(pickupLat) && isFinite(pickupLng)) {
+              const distanceToPickup = calculateDistance(currentLat, currentLng, pickupLat, pickupLng);
+              setEta(calculateETA(distanceToPickup));
+            }
           }
 
           if (ride.status === 'picked_up' || ride.status === 'arrived_dropoff') {
-            const distanceToDropoff = calculateDistance(currentLat, currentLng, parseFloat(ride.dropoff_lat), parseFloat(ride.dropoff_lng));
-            setEtaDropoff(calculateETA(distanceToDropoff));
+            const dropoffLat = parseFloat(ride.dropoff_lat);
+            const dropoffLng = parseFloat(ride.dropoff_lng);
+            if (isFinite(currentLat) && isFinite(currentLng) && isFinite(dropoffLat) && isFinite(dropoffLng)) {
+              const distanceToDropoff = calculateDistance(currentLat, currentLng, dropoffLat, dropoffLng);
+              setEtaDropoff(calculateETA(distanceToDropoff));
+            }
           }
         }
       }

@@ -86,7 +86,7 @@ export default function CurrentRide({ ride, eta, etaDropoff, onStartRide, onComp
             </Text>
           </View>
           {etaDropoff && (
-            <Text style={styles.etaText}>ETA: {etaDropoff} min</Text>
+            <Text style={styles.etaText}>ETA: {etaDropoff}</Text>
           )}
         </View>
       )}

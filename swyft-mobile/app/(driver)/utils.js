@@ -2,6 +2,7 @@ import { Alert, Linking, Platform } from 'react-native';
 import { COLORS } from '../../src/constants/config';
 
 export const calculateDistance = (lat1, lng1, lat2, lng2) => {
+  if (!isFinite(lat1) || !isFinite(lng1) || !isFinite(lat2) || !isFinite(lng2)) return NaN;
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;
@@ -13,6 +14,7 @@ export const calculateDistance = (lat1, lng1, lat2, lng2) => {
 };
 
 export const calculateETA = (distanceKm, avgSpeedKmh = 30) => {
+  if (!isFinite(distanceKm) || distanceKm < 0) return 'Calculating...';
   const timeHours = distanceKm / avgSpeedKmh;
   const timeMinutes = Math.round(timeHours * 60);
   if (timeMinutes < 1) return 'Less than 1 min';
