@@ -136,8 +136,30 @@ export function useDriverDashboardEffects(state, refs) {
       loadEarnings(email);
       loadActiveRide(email);
       loadVerificationStatus(email);
+      await refreshDriverInfo(email);
     }
   }
+
+  const refreshDriverInfo = async (email) => {
+    try {
+      const response = await driverAPI.getDriverInfo(email);
+      const driver = response.data;
+      if (driver) {
+        setDriverInfo(prev => ({
+          ...prev,
+          name: `${driver.first_name || prev?.firstName || ''} ${driver.last_name || prev?.lastName || ''}`.trim(),
+          email: driver.email || prev?.email || '',
+          phone: driver.phone || prev?.phone || '',
+          vehicle: driver.vehicle || prev?.vehicle || '',
+          profilePicture: driver.profile_picture || prev?.profilePicture || '',
+          firstName: driver.first_name || prev?.firstName || '',
+          lastName: driver.last_name || prev?.lastName || '',
+        }));
+      }
+    } catch (error) {
+      console.error('Error refreshing driver info:', error);
+    }
+  };
 
   const loadVerificationStatus = async (email) => {
     try {

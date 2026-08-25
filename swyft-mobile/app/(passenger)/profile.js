@@ -173,7 +173,7 @@ export default function ProfileScreen() {
             </View>
             <View style={[styles.roleBadge, userRole === 'passenger' && styles.roleActive]}>
               <Text style={[styles.roleText, userRole === 'passenger' && styles.roleTextActive]}>
-                {userRole}
+                Customer
               </Text>
             </View>
           </View>

@@ -501,7 +501,7 @@ function registerAuthRoutes(app, db) {
 
   // GET all drivers
   app.get('/api/drivers', (req, res) => {
-    db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate FROM public.users WHERE role = $1', ['driver'], (err, results) => {
+    db.query('SELECT id, first_name, last_name, email, phone, vehicle_plate, profile_picture FROM public.users WHERE role = $1', ['driver'], (err, results) => {
       if (err) return res.status(500).json({ error: 'Failed to fetch drivers' });
       res.json(results.rows);
     });
