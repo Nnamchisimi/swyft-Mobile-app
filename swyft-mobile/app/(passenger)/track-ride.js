@@ -143,7 +143,9 @@ export default function TrackRideScreen() {
         const loc = { latitude: data.lat, longitude: data.lng };
         setDriverLocation(loc);
 
-        if (ride?.dropoff_lat && ride?.dropoff_lng) {
+        if (data.eta) {
+          setEta(data.eta);
+        } else if (ride?.dropoff_lat && ride?.dropoff_lng) {
           const distanceKm = geoService.calculateDistance(
             data.lat,
             data.lng,
@@ -152,7 +154,6 @@ export default function TrackRideScreen() {
           );
           const mins = Math.max(1, Math.round(distanceKm * 3));
           setEta(mins);
-          setNearDestination(distanceKm < 1 || mins < 10);
         }
       }
     };
@@ -452,7 +453,7 @@ export default function TrackRideScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Estimated arrival</Text>
-              <Text style={styles.infoValue}>{eta ? `${eta} min` : 'Calculating...'}</Text>
+              <Text style={styles.infoValue}>{eta || 'Calculating...'}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.infoRow}>

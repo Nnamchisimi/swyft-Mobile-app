@@ -13,6 +13,27 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+function calculateEtaString(driverLat, driverLng, dropoffLat, dropoffLng) {
+  if (!isFinite(driverLat) || !isFinite(driverLng) || !isFinite(dropoffLat) || !isFinite(dropoffLng)) return null;
+  const R = 6371;
+  const dLat = (dropoffLat - driverLat) * Math.PI / 180;
+  const dLng = (dropoffLng - driverLng) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(driverLat * Math.PI / 180) * Math.cos(dropoffLat * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distanceKm = R * c;
+  const avgSpeedKmh = 30;
+  const timeHours = distanceKm / avgSpeedKmh;
+  const timeMinutes = Math.round(timeHours * 60);
+  if (timeMinutes < 1) return 'Less than 1 min';
+  if (timeMinutes === 1) return '1 min away';
+  if (timeMinutes < 60) return `${timeMinutes} mins away`;
+  const hours = Math.floor(timeMinutes / 60);
+  const mins = timeMinutes % 60;
+  return `${hours}h ${mins}m away`;
+}
+
 // Route modules
 const { registerAuthRoutes } = require('./routes/auth');
 const { registerRidesRoutes } = require('./routes/rides');
@@ -190,16 +211,19 @@ io.on('connection', (socket) => {
 
     // Also emit to specific passenger if they have an active ride
     if (data.rideId) {
-      // Get passenger email for this ride
-      db.query('SELECT passenger_email FROM rides WHERE id = $1', [data.rideId], (err, results) => {
+      // Get passenger email and dropoff location for this ride
+      db.query('SELECT passenger_email, dropoff_lat, dropoff_lng FROM rides WHERE id = $1', [data.rideId], (err, results) => {
         if (results && results.rows.length > 0) {
           const passengerEmail = results.rows[0].passenger_email;
+          const ride = results.rows[0];
+          const eta = calculateEtaString(data.location.lat, data.location.lng, ride.dropoff_lat, ride.dropoff_lng);
           // Send to specific passenger room
           io.to(passengerEmail).emit('driverLocationUpdated', {
             rideId: data.rideId,
             lat: data.location.lat,
             lng: data.location.lng,
-            status: data.status
+            status: data.status,
+            eta
           });
         }
       });

@@ -1,3 +1,24 @@
+function calculateEtaString(driverLat, driverLng, dropoffLat, dropoffLng) {
+  if (!isFinite(driverLat) || !isFinite(driverLng) || !isFinite(dropoffLat) || !isFinite(dropoffLng)) return null;
+  const R = 6371;
+  const dLat = (dropoffLat - driverLat) * Math.PI / 180;
+  const dLng = (dropoffLng - driverLng) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(driverLat * Math.PI / 180) * Math.cos(dropoffLat * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distanceKm = R * c;
+  const avgSpeedKmh = 30;
+  const timeHours = distanceKm / avgSpeedKmh;
+  const timeMinutes = Math.round(timeHours * 60);
+  if (timeMinutes < 1) return 'Less than 1 min';
+  if (timeMinutes === 1) return '1 min away';
+  if (timeMinutes < 60) return `${timeMinutes} mins away`;
+  const hours = Math.floor(timeMinutes / 60);
+  const mins = timeMinutes % 60;
+  return `${hours}h ${mins}m away`;
+}
+
 function registerStatusRoutes(app, io, db) {
   app.post('/api/rides/:id/confirm-pickup', (req, res) => {
     const rideId = req.params.id;
@@ -48,10 +69,12 @@ function registerStatusRoutes(app, io, db) {
     const { lat, lng } = req.body;
     if (lat == null || lng == null) return res.status(400).json({ error: "Latitude and longitude required" });
 
-     db.query('UPDATE rides SET driver_lat=$1, driver_lng=$2 WHERE id=$3 AND driver_assigned=true AND status IN ($4,$5)', [lat, lng, rideId, 'accepted', 'picked_up'], (err, result) => {
+     db.query('UPDATE rides SET driver_lat=$1, driver_lng=$2 WHERE id=$3 AND driver_assigned=true AND status IN ($4,$5) RETURNING dropoff_lat, dropoff_lng', [lat, lng, rideId, 'accepted', 'picked_up'], (err, result) => {
       if (err) return res.status(500).json({ error: "Server error" });
       if (result.rowCount === 0) return res.status(400).json({ error: "Cannot update location" });
-      io.emit('driverLocationUpdated', { rideId, lat, lng });
+      const ride = result.rows[0];
+      const eta = calculateEtaString(lat, lng, ride.dropoff_lat, ride.dropoff_lng);
+      io.emit('driverLocationUpdated', { rideId, lat, lng, eta });
       res.json({ message: "Driver location updated", rideId });
     });
   });
