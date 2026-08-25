@@ -50,9 +50,11 @@ function registerCreateRoutes(app, io, db) {
         r.vehicle_type, r.receiver_name, r.receiver_phone, r.receiver_email,
         r.created_at, r.updated_at, r.delivery_id, r.delivery_otp_plain, r.delivery_otp_expires_at,
         r.driver_id, r.driver_name, r.driver_phone, r.driver_vehicle, r.driver_lat, r.driver_lng,
-        c.make, c.model, c.year, c.color, c.plate_number, c.image_url AS vehicle_image_url
+        c.make, c.model, c.year, c.color, c.plate_number, c.image_url AS vehicle_image_url,
+        u.profile_picture AS driver_profile_picture
       FROM rides r
       LEFT JOIN cars c ON c.user_id = r.driver_id
+      LEFT JOIN public.users u ON u.id = r.driver_id
       WHERE r.id = $1`, [rideId], (err, results) => {
       if (err) return res.status(500).json({ error: 'Server error' });
       if (results.rows.length === 0) return res.status(404).json({ error: 'Ride not found' });

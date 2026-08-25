@@ -11,6 +11,7 @@ import {
   Platform,
   Dimensions,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -400,7 +401,11 @@ export default function TrackRideScreen() {
           <View style={styles.driverCard}>
             <View style={styles.driverInfo}>
               <View style={styles.driverAvatar}>
-                <Text style={styles.driverAvatarText}>{(ride.driver_name || 'D').charAt(0).toUpperCase()}</Text>
+                {ride.driver_profile_picture ? (
+                  <Image source={{ uri: ride.driver_profile_picture }} style={styles.driverAvatarImage} />
+                ) : (
+                  <Text style={styles.driverAvatarText}>{(ride.driver_name || 'D').charAt(0).toUpperCase()}</Text>
+                )}
               </View>
               <View style={styles.driverDetails}>
                 <Text style={styles.driverName}>{ride.driver_name || 'Your Courier'}</Text>
@@ -657,6 +662,11 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  driverAvatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
   driverDetails: {
     flex: 1,
