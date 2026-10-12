@@ -8,6 +8,8 @@ import { calculateDistance, calculateETA } from './_utils';
 
 let lastKnownOnlineStatus = false;
 
+let lastKnownOnlineStatus = false;
+
 export function useDriverDashboardState() {
   const [driverInfo, setDriverInfo] = useState(null);
   const [isOnline, setIsOnline] = useState(() => lastKnownOnlineStatus);
