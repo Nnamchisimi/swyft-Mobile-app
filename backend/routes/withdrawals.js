@@ -1,5 +1,3 @@
-const QRCode = require('qrcode');
-
 function registerWithdrawalRoutes(app, io, db) {
   // Driver: get wallet balance
   app.get('/api/drivers/wallet', (req, res) => {
@@ -64,6 +62,7 @@ function registerWithdrawalRoutes(app, io, db) {
           });
         }
 
+        const now = new Date().toISOString();
         const createWalletIfNotExists = () => {
           const now = new Date().toISOString();
           if (!wallet) {

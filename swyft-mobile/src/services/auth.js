@@ -14,7 +14,11 @@ class AuthService {
       const user = response.data;
 
       await this.saveAuthData(user);
-      return { success: true, user };
+      return { 
+        success: true, 
+        user, 
+        requiresVerification: user.requiresVerification || false 
+      };
     } catch (error) {
       console.log('API call failed!');
       console.log('Error type:', error.constructor.name);
@@ -31,7 +35,8 @@ class AuthService {
           success: false,
           requiresVerification: true,
           email: errorData.email || email,
-          error: 'Please verify your email first'
+          error: errorMessage,
+          role: errorData.role || null
         };
       }
       
@@ -106,11 +111,39 @@ class AuthService {
     }
   }
 
-  async saveAuthData(user) {
+  async forgotPassword(email) {
+    try {
+      const response = await authAPI.forgotPassword(email);
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to send reset email',
+      };
+    }
+  }
+
+  async resetPassword(email, code, password) {
+    try {
+      const response = await authAPI.resetPassword(email, code, password);
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      console.error('Reset password API error:', error.response?.status, error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to reset password',
+      };
+    }
+  }
+
+  async saveAuthData(user, token = null) {
     const normalizedRole = (user.role || 'passenger').toLowerCase();
+    const authToken = token || user.token || '';
+    console.log('[AUTH] Saving auth token:', authToken ? 'present' : 'empty');
+    console.log('[AUTH] User role:', normalizedRole);
     
     await AsyncStorage.multiSet([
-      [STORAGE_KEYS.AUTH_TOKEN, user.token || ''],
+      [STORAGE_KEYS.AUTH_TOKEN, authToken],
       [STORAGE_KEYS.USER_EMAIL, user.email || ''],
       [STORAGE_KEYS.USER_ROLE, normalizedRole],
       [STORAGE_KEYS.DRIVER_INFO, JSON.stringify({
@@ -119,6 +152,7 @@ class AuthService {
         lastName: user.last_name || '',
         email: user.email || '',
         phone: user.phone || '',
+        profilePicture: user.profile_picture || user.profilePicture || '',
         vehicle: user.vehicle || '',
         vehicleMake: user.vehicle_make || '',
         vehicleModel: user.vehicle_model || '',
@@ -132,10 +166,17 @@ class AuthService {
         vehiclePlate: user.vehicle_plate || '',
       })],
     ]);
+    console.log('[AUTH] Auth data saved');
   }
 
   async getToken() {
-    return AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    console.log('[AUTH] Retrieved token from storage:', token ? 'present' : 'empty');
+    return token;
+  }
+
+  async saveVerificationEmail(email) {
+    await AsyncStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
   }
 
   async getUserEmail() {
@@ -149,6 +190,19 @@ class AuthService {
   async getDriverInfo() {
     const info = await AsyncStorage.getItem(STORAGE_KEYS.DRIVER_INFO);
     return info ? JSON.parse(info) : null;
+  }
+
+  async saveProfilePicture(url) {
+    const info = await this.getDriverInfo();
+    if (info) {
+      info.profilePicture = url;
+      await AsyncStorage.setItem(STORAGE_KEYS.DRIVER_INFO, JSON.stringify(info));
+    }
+  }
+
+  async getProfilePicture() {
+    const info = await this.getDriverInfo();
+    return info?.profilePicture || null;
   }
 
   // Check if user is authenticated (without token)

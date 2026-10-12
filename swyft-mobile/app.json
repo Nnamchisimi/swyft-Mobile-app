@@ -7,16 +7,10 @@
     "icon": "./assets/images/icon.png",
     "scheme": "swyftmobile",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/swyftmobilelogo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.swyftinc.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "Swyft needs access to your location to find rides near you and track your driver.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Swyft needs access to your location to track your delivery in the background.",
         "ITSAppUsesNonExemptEncryption": false
@@ -30,7 +24,6 @@
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "edgeToEdgeEnabled": true,
       "package": "com.swyft.rideshare",
       "permissions": [
         "ACCESS_FINE_LOCATION",
@@ -57,7 +50,7 @@
           "image": "./assets/images/swyftmobilelogo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#2196F3"
         }
       ],
       [

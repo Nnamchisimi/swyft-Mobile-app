@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { authService } from '../../src/services/auth';
@@ -29,6 +30,7 @@ export default function DriverEarningsScreen() {
   });
   const [recentRides, setRecentRides] = useState([]);
   const [ridesExpanded, setRidesExpanded] = useState(false);
+  const [recentWithdrawals, setRecentWithdrawals] = useState([]);
 
   useEffect(() => {
     loadEarningsData();
@@ -54,6 +56,7 @@ export default function DriverEarningsScreen() {
           month_earnings: parseFloat(data.month_earnings) || 0,
           withdrawn: parseFloat(data.withdrawn) || 0,
         });
+        setRecentWithdrawals(data.recent_withdrawals || []);
       }
 
       const ridesResponse = await ridesAPI.getRides({ driver_email: email });
@@ -76,11 +79,42 @@ export default function DriverEarningsScreen() {
     return new Date(dateStr).toLocaleDateString();
   };
 
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleString();
+  };
+
   const displayedRides = ridesExpanded ? recentRides : recentRides.slice(0, 8);
   const hasMoreRides = recentRides.length > 8;
 
+  const activities = [
+    ...recentRides.map((ride) => ({
+      id: `ride-${ride.id}`,
+      type: 'ride',
+      title: ride.pickup_location ? `Delivery: ${ride.pickup_location.substring(0, 28)}${ride.pickup_location.length > 28 ? '...' : ''}` : 'Delivery',
+      subtitle: ride.dropoff_location ? `To: ${ride.dropoff_location.substring(0, 30)}${ride.dropoff_location.length > 30 ? '...' : ''}` : '',
+      amount: Number(ride.price || 0),
+      date: ride.created_at,
+      status: ride.status,
+      icon: 'cube',
+      color: COLORS.success,
+    })),
+    ...recentWithdrawals.map((w) => ({
+      id: `withdrawal-${w.id}`,
+      type: 'withdrawal',
+      title: `Withdrawal ${w.status}`,
+      subtitle: w.bank_name || 'Bank transfer',
+      amount: -Number(w.amount),
+      date: w.created_at,
+      status: w.status,
+      icon: 'cash-outline',
+      color: w.status === 'PAID' ? COLORS.success : w.status === 'REJECTED' ? COLORS.error : '#FF9800',
+    })),
+  ].sort((a, b) => new Date(b.date) - new Date(a.date));
+
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backButton}>← Back</Text>
@@ -155,38 +189,47 @@ export default function DriverEarningsScreen() {
                 ₺{currentBalance.toFixed(2)}
               </Text>
             </View>
+            {currentBalance > 0 && (
+              <TouchableOpacity style={styles.withdrawButton} onPress={() => router.push('/(driver)/withdraw')}>
+                <Ionicons name="cash-outline" size={18} color={COLORS.white} />
+                <Text style={styles.withdrawButtonText}>Request Withdrawal</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {}
-          <View style={styles.ridesSection}>
-            <Text style={styles.sectionTitle}>Recent Completed Deliveries</Text>
-          {recentRides.length > 0 ? (
-            <View style={styles.ridesList}>
-              {displayedRides.map((ride, index) => (
-                <View key={ride.id || index} style={styles.rideItem}>
-                  <View style={styles.rideInfo}>
-                    <Text style={styles.rideLocation}>
-                      {ride.pickup_location ? `${ride.pickup_location.substring(0, 30)}...` : 'N/A'}
+          <View style={styles.activitySection}>
+            <Text style={styles.sectionTitle}>Activity</Text>
+            {activities.length > 0 ? (
+              <View style={styles.activitiesList}>
+                {activities.slice(0, ridesExpanded ? 20 : 8).map((item) => (
+                  <View key={item.id} style={styles.activityItem}>
+                    <View style={[styles.activityIcon, { backgroundColor: item.color + '18' }]}>
+                      <Ionicons name={item.icon} size={18} color={item.color} />
+                    </View>
+                    <View style={styles.activityInfo}>
+                      <Text style={styles.activityTitle}>{item.title}</Text>
+                      {item.subtitle ? <Text style={styles.activitySubtitle}>{item.subtitle}</Text> : null}
+                      <Text style={styles.activityDate}>{formatDateTime(item.date)}</Text>
+                    </View>
+                    <Text style={[styles.activityAmount, { color: item.amount >= 0 ? COLORS.success : COLORS.error }]}>
+                      {item.amount >= 0 ? '+' : ''}{item.amount < 0 ? '-' : ''}₺{Math.abs(item.amount).toFixed(2)}
                     </Text>
-                    <Text style={styles.rideDate}>{formatDate(ride.created_at)}</Text>
                   </View>
-                  <Text style={styles.ridePrice}>₺{Number(ride.price || 0).toFixed(2)}</Text>
-                </View>
-              ))}
-              {hasMoreRides && (
-                <TouchableOpacity style={styles.toggleButton} onPress={() => setRidesExpanded(!ridesExpanded)}>
-                  <Text style={styles.toggleText}>
-                    {ridesExpanded ? 'Show Less' : `Show All (${recentRides.length})`}
-                  </Text>
-                  <Ionicons name={ridesExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            <View style={styles.emptyRides}>
-              <Text style={styles.emptyText}>No completed rides yet</Text>
-            </View>
-          )}
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyActivities}>
+                <Text style={styles.emptyText}>No activity yet</Text>
+              </View>
+            )}
+            {hasMoreRides && (
+              <TouchableOpacity style={styles.toggleButton} onPress={() => setRidesExpanded(!ridesExpanded)}>
+                <Text style={styles.toggleText}>
+                  {ridesExpanded ? 'Show Less' : `Show All (${recentRides.length + recentWithdrawals.length})`}
+                </Text>
+                <Ionicons name={ridesExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} />
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       )}
@@ -310,43 +353,58 @@ const styles = StyleSheet.create({
   ridesSection: {
     marginBottom: 20,
   },
+  activitySection: {
+    marginBottom: 20,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.text,
     marginBottom: 12,
   },
-  ridesList: {
+  activitiesList: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
     overflow: 'hidden',
   },
-  rideItem: {
+  activityItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    gap: 12,
   },
-  rideInfo: {
+  activityIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityInfo: {
     flex: 1,
   },
-  rideLocation: {
+  activityTitle: {
     fontSize: 14,
+    fontWeight: '600',
     color: COLORS.text,
   },
-  rideDate: {
+  activitySubtitle: {
     fontSize: 12,
     color: COLORS.textSecondary,
-    marginTop: 4,
+    marginTop: 2,
   },
-  ridePrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.success,
+  activityDate: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
-  emptyRides: {
+  activityAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  emptyActivities: {
     backgroundColor: COLORS.white,
     borderRadius: 12,
     padding: 24,
@@ -369,5 +427,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  withdrawButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.success,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  withdrawButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

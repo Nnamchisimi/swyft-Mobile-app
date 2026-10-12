@@ -114,7 +114,7 @@ export default function DriverDashboardScreen() {
       const driverData = {
         name: `${driverInfo?.first_name || ''} ${driverInfo?.last_name || ''}`.trim() || 'Driver',
         email: driverInfo?.email || await authService.getUserEmail(),
-        phone: driverInfo?.phone || 'N/A',
+        phone: driverInfo?.phone || '',
         vehicle: driverInfo?.vehicle || `${driverInfo?.vehicle_year || ''} ${driverInfo?.vehicle_make || ''} ${driverInfo?.vehicle_model || ''}`.trim(),
       };
       

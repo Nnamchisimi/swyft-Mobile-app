@@ -6,17 +6,32 @@ console.log('API initialized with baseURL:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 60000, // 60 seconds - Render free tier has slow cold starts
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
+let verificationRedirectHandler = null;
+let signOutHandler = null;
+
+export const setVerificationRedirectHandler = (handler) => {
+  verificationRedirectHandler = handler;
+};
+
+export const setSignOutHandler = (handler) => {
+  signOutHandler = handler;
+};
+
 api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    console.log('[API] Request to', config.url, 'token present:', !!token);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('[API] Authorization header set');
+    } else {
+      console.warn('[API] No auth token found in storage');
     }
     return config;
   },
@@ -25,14 +40,30 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    console.log('[API] Response error:', error.response?.status, error.message);
     if (error.response?.status === 401) {
-      // Handle unauthorized - clear storage
-      AsyncStorage.multiRemove([
-        STORAGE_KEYS.AUTH_TOKEN,
-        STORAGE_KEYS.USER_EMAIL,
-        STORAGE_KEYS.USER_ROLE,
-      ]);
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+      if (token) {
+        console.log('[API] 401 Unauthorized, clearing auth token');
+        AsyncStorage.multiRemove([
+          STORAGE_KEYS.AUTH_TOKEN,
+          STORAGE_KEYS.USER_EMAIL,
+          STORAGE_KEYS.USER_ROLE,
+        ]);
+        if (signOutHandler) {
+          signOutHandler();
+        }
+      }
+    }
+    if (error.response?.status === 403) {
+      const data = error.response.data || {};
+      console.log('[API] 403 Forbidden:', data);
+      if (data.requiresVerification) {
+        if (verificationRedirectHandler) {
+          verificationRedirectHandler();
+        }
+      }
     }
     return Promise.reject(error);
   }
@@ -43,6 +74,8 @@ export const authAPI = {
   register: (userData) => api.post('/api/users', userData),
   verifyCode: (email, code) => api.post('/api/users/verify-code', { email, code }),
   resendCode: (email) => api.post('/api/users/resend-code', { email }),
+  forgotPassword: (email) => api.post('/api/users/forgot-password', { email }),
+  resetPassword: (email, code, password) => api.post('/api/users/reset-password', { email, code, password }),
   getProfile: () => api.get('/api/user/profile'),
 };
 
@@ -68,7 +101,7 @@ export const ridesAPI = {
 export const driverAPI = {
   getPendingRides: () => api.get('/api/rides'),
   acceptRide: (rideId, driverData) => api.post(`/api/rides/${rideId}/accept`, driverData),
-  completeRide: (rideId, finalPrice) => api.post(`/api/rides/${rideId}/complete`, { final_price: finalPrice }),
+  completeRide: (rideId, driverData) => api.post(`/api/rides/${rideId}/complete`, driverData),
   getNearbyDrivers: (lat, lng, radius) => api.get('/api/drivers/nearby', { params: { lat, lng, radius } }),
   getDriverInfo: (email) => api.get(`/api/drivers/${encodeURIComponent(email)}`),
   
@@ -81,7 +114,6 @@ export const driverAPI = {
   requestWithdrawal: (data) => api.post('/api/drivers/wallet/withdraw', data),
   getWithdrawals: (email) => api.get('/api/drivers/withdrawals', { params: { email } }),
   
-  // Driver verification endpoints
   submitIdDocument: (email, document) => api.post(`/api/drivers/${encodeURIComponent(email)}/id-document`, document),
   submitSelfie: (email, selfieData) => api.post(`/api/drivers/${encodeURIComponent(email)}/selfie`, selfieData),
   requestPhoneVerification: (email, phoneData) => api.post(`/api/drivers/${encodeURIComponent(email)}/phone-request-code`, phoneData),
@@ -90,6 +122,8 @@ export const driverAPI = {
   getVerificationStatus: (email) => api.get(`/api/drivers/${encodeURIComponent(email)}/verification-status`),
   submitForReview: (email) => api.post(`/api/drivers/${encodeURIComponent(email)}/submit-for-review`),
   approveDriver: (email, approvalData) => api.patch(`/api/drivers/${encodeURIComponent(email)}/approve`, approvalData),
+  updateProfilePicture: (email, data) => api.patch(`/api/drivers/${encodeURIComponent(email)}/profile-picture`, data),
+  updateVehicleImage: (email, data) => api.patch(`/api/drivers/${encodeURIComponent(email)}/vehicle-image`, data),
 };
 
 export const adminAPI = {
@@ -105,6 +139,8 @@ export const adminAPI = {
     api.post(`/api/admin/drivers/${encodeURIComponent(email)}/bank/review`, { decision, rejection_reason }),
   archiveDriver: (email, decision, notes) =>
     api.post(`/api/admin/drivers/${encodeURIComponent(email)}/archive`, { decision, notes }),
+  rejectAllVerifications: (email, notes) =>
+    api.post(`/api/admin/drivers/${encodeURIComponent(email)}/reject-all`, { notes }),
   getArchivedDrivers: () => api.get('/api/admin/drivers/archived'),
   getWithdrawals: (params = {}) => api.get('/api/admin/withdrawals', { params }),
   processWithdrawal: (id, data) => api.post(`/api/admin/withdrawals/${id}/process`, data),

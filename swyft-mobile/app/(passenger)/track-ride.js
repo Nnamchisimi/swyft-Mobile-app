@@ -11,6 +11,7 @@ import {
   Platform,
   Dimensions,
   ScrollView,
+  Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -94,11 +95,32 @@ export default function TrackRideScreen() {
       socketService.joinRoom(email);
     }
 
+    const handleReconnect = () => {
+      const currentEmail = authService.getUserEmail();
+      if (currentEmail) {
+        socketService.joinRoom(currentEmail);
+      }
+    };
+    socketService.socket?.on('reconnect', handleReconnect);
+
     const handleRideUpdated = (updatedRide) => {
       const matchesRide = updatedRide.id === rideId || updatedRide.id === ride?.id || String(updatedRide.id) === String(rideId);
       if (matchesRide) {
-        setRide(updatedRide);
-        currentRideRef.current = updatedRide;
+        setRide((prev) => {
+          const base = prev || {};
+          const safeRide = Object.fromEntries(
+            Object.entries(updatedRide).filter(([_, v]) => v !== undefined)
+          );
+          return { ...base, ...safeRide };
+        });
+        currentRideRef.current = { ...(currentRideRef.current || {}), ...updatedRide };
+
+        if (updatedRide.driver_lat && updatedRide.driver_lng) {
+          setDriverLocation({
+            latitude: parseFloat(updatedRide.driver_lat),
+            longitude: parseFloat(updatedRide.driver_lng),
+          });
+        }
 
         if (updatedRide.status === 'cancelled') {
           Alert.alert('Ride Cancelled', 'Your ride has been cancelled.');
@@ -122,7 +144,9 @@ export default function TrackRideScreen() {
         const loc = { latitude: data.lat, longitude: data.lng };
         setDriverLocation(loc);
 
-        if (ride?.dropoff_lat && ride?.dropoff_lng) {
+        if (data.eta) {
+          setEta(data.eta);
+        } else if (ride?.dropoff_lat && ride?.dropoff_lng) {
           const distanceKm = geoService.calculateDistance(
             data.lat,
             data.lng,
@@ -131,7 +155,6 @@ export default function TrackRideScreen() {
           );
           const mins = Math.max(1, Math.round(distanceKm * 3));
           setEta(mins);
-          setNearDestination(distanceKm < 1 || mins < 10);
         }
       }
     };
@@ -140,6 +163,7 @@ export default function TrackRideScreen() {
     socketService.on('driverLocationUpdated', handleDriverLocation);
 
     return () => {
+      socketService.socket?.off('reconnect', handleReconnect);
       socketService.off('rideUpdated', handleRideUpdated);
       socketService.off('driverLocationUpdated', handleDriverLocation);
     };
@@ -197,7 +221,14 @@ export default function TrackRideScreen() {
   };
 
   const handleTrackRoute = () => {
-    if (!driverLocation || !ride?.dropoff_lat || !ride?.dropoff_lng) return;
+    if (!driverLocation) {
+      Alert.alert('Unavailable', 'Courier location not available yet. Please wait for the courier to accept the delivery.');
+      return;
+    }
+    if (!ride?.dropoff_lat || !ride?.dropoff_lng) {
+      Alert.alert('Unavailable', 'Drop-off location not available yet.');
+      return;
+    }
 
     const origin = `${driverLocation.latitude},${driverLocation.longitude}`;
     const destination = `${parseFloat(ride.dropoff_lat)},${parseFloat(ride.dropoff_lng)}`;
@@ -370,7 +401,11 @@ export default function TrackRideScreen() {
           <View style={styles.driverCard}>
             <View style={styles.driverInfo}>
               <View style={styles.driverAvatar}>
-                <Text style={styles.driverAvatarText}>{(ride.driver_name || 'D').charAt(0).toUpperCase()}</Text>
+                {ride.driver_profile_picture ? (
+                  <Image source={{ uri: ride.driver_profile_picture }} style={styles.driverAvatarImage} />
+                ) : (
+                  <Text style={styles.driverAvatarText}>{(ride.driver_name || 'D').charAt(0).toUpperCase()}</Text>
+                )}
               </View>
               <View style={styles.driverDetails}>
                 <Text style={styles.driverName}>{ride.driver_name || 'Your Courier'}</Text>
@@ -378,7 +413,16 @@ export default function TrackRideScreen() {
                   <Text style={styles.ratingStar}>⭐</Text>
                   <Text style={styles.ratingText}>{ride.driver_rating ? Number(ride.driver_rating).toFixed(1) : '5.0'}</Text>
                 </Text>
-                <Text style={styles.driverVehicle}>🚗 {ride.driver_vehicle || ride.vehicle_type || 'Vehicle'}</Text>
+                {ride.vehicle ? (
+                  <Text style={styles.driverVehicle}>
+                    🚗 {ride.vehicle.year} {ride.vehicle.make} {ride.vehicle.model} · {ride.vehicle.plate}
+                  </Text>
+                ) : (
+                  <Text style={styles.driverVehicle}>🚗 {ride.driver_vehicle || ride.vehicle_type || 'Vehicle'}</Text>
+                )}
+                {ride.vehicle && ride.vehicle.color && (
+                  <Text style={styles.driverVehicle}>Color: {ride.vehicle.color}</Text>
+                )}
                 <Text style={styles.driverPhone}>{ride.driver_phone || 'Phone not available'}</Text>
               </View>
             </View>
@@ -423,7 +467,7 @@ export default function TrackRideScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Estimated arrival</Text>
-              <Text style={styles.infoValue}>{eta ? `${eta} min` : 'Calculating...'}</Text>
+              <Text style={styles.infoValue}>{eta || 'Calculating...'}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.infoRow}>
@@ -618,6 +662,11 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  driverAvatarImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
   },
   driverDetails: {
     flex: 1,

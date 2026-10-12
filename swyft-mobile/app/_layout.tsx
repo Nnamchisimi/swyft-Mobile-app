@@ -1,25 +1,49 @@
 import { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
+import { Modal } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
-import SplashScreen from "@/components/splash-screen";
+import * as SplashScreen from "expo-splash-screen";
+import SplashScreenComponent from "@/components/splash-screen";
 import { AppReadyProvider, useAppReady } from "@/src/context/AppReadyContext";
 import { COLORS } from "@/src/constants/config";
 
 function RootLayoutContent() {
   const { isAppReady } = useAppReady();
-  const [showSplash, setShowSplash] = useState(true);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [maxTimeElapsed, setMaxTimeElapsed] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
+
+  useEffect(() => {
+    const minTimer = setTimeout(() => setMinTimeElapsed(true), 2200);
+    const maxTimer = setTimeout(() => setMaxTimeElapsed(true), 8000);
+    return () => {
+      clearTimeout(minTimer);
+      clearTimeout(maxTimer);
+    };
+  }, []);
+
+  const showSplash = !((isAppReady && minTimeElapsed) || maxTimeElapsed);
 
   useEffect(() => {
     const handleDeepLink = (url) => {
       const parsed = Linking.parse(url);
-      if (parsed.scheme === "swyftmobile" && parsed.hostname === "verify") {
+      if (parsed.scheme === "swyftmobile") {
         const token = parsed.queryParams?.token;
         const email = parsed.queryParams?.email;
-        if (token && email) {
+
+        if (parsed.hostname === "verify" && token && email) {
           router.replace({
             pathname: "/(auth)/verify-link",
+            params: { token, email }
+          });
+        } else if (parsed.hostname === "reset-password" && token && email) {
+          router.replace({
+            pathname: "/(auth)/reset-password",
             params: { token, email }
           });
         }
@@ -37,10 +61,6 @@ function RootLayoutContent() {
     return () => subscription.remove();
   }, [router]);
 
-  const handleSplashComplete = () => {
-    setShowSplash(false);
-  };
-
   return (
     <>
       <StatusBar style={showSplash ? "light" : "auto"} />
@@ -54,8 +74,11 @@ function RootLayoutContent() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(passenger)" />
         <Stack.Screen name="(driver)" />
+        <Stack.Screen name="(admin)" />
       </Stack>
-      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+      <Modal visible={showSplash} animationType="none">
+        <SplashScreenComponent />
+      </Modal>
     </>
   );
 }

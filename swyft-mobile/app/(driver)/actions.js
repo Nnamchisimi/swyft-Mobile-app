@@ -1,9 +1,10 @@
 import { Alert } from 'react-native';
 import { authService } from '../../src/services/auth';
-import { ridesAPI, driverAPI } from '../../src/services/api';
+import { ridesAPI } from '../../src/services/api';
 import { socketService } from '../../src/services/socket';
+import { setLastKnownOnlineStatus } from './hooks';
 
-export async function toggleOnline(isOnline, setIsOnline, isOnlineRef, driverInfo, socketService, fetchPendingRides, setPendingRides, location, locationRef, router) {
+export async function toggleOnline(isOnline, setIsOnline, isOnlineRef, driverInfo, socketService, fetchPendingRides, setPendingRides, location, locationRef) {
   if (!isOnline && !location && !locationRef.current) {
     Alert.alert('Error', 'Location not available. Please try again.');
     return;
@@ -14,31 +15,11 @@ export async function toggleOnline(isOnline, setIsOnline, isOnlineRef, driverInf
   const newStatus = !isOnline;
 
   if (newStatus) {
-    try {
-      const verificationResponse = await driverAPI.getVerificationStatus(email);
-      const status = verificationResponse.data;
-      const verified = status && status.is_approved;
-      if (!verified) {
-        Alert.alert(
-          'Verification Required',
-          'You must complete your identity, selfie, phone, and bank verification before you can go online. Complete all steps now.',
-          [
-            { text: 'Verify Now', onPress: () => router.push('/(driver)/verify-summary') },
-            { text: 'Later', style: 'cancel' },
-          ]
-        );
-        return;
-      }
-    } catch (error) {
-      console.error('Error checking verification status:', error);
-      if (error.response?.status !== 404) {
-        Alert.alert('Error', 'Could not verify your account status. Please try again.');
-        return;
-      }
+    if (!location && !locationRef.current) {
+      Alert.alert('Error', 'Location not available. Please try again.');
+      return;
     }
-  }
 
-  if (newStatus) {
     socketService.driverOnline(email, {
       lat: currentLocation?.latitude,
       lng: currentLocation?.longitude,
@@ -52,16 +33,17 @@ export async function toggleOnline(isOnline, setIsOnline, isOnlineRef, driverInf
 
   setIsOnline(newStatus);
   isOnlineRef.current = newStatus;
+  setLastKnownOnlineStatus(newStatus);
 }
 
 export async function handleAcceptRide(ride, driverInfo, authService, ridesAPI, setCurrentRide, setPendingRides) {
   try {
-    const driverData = {
-      name: `${driverInfo?.firstName || ''} ${driverInfo?.lastName || ''}`.trim() || 'Driver',
-      email: driverInfo?.email || await authService.getUserEmail(),
-      phone: driverInfo?.phone || 'N/A',
-      vehicle: driverInfo?.vehicle || `${driverInfo?.vehicleYear || ''} ${driverInfo?.vehicleMake || ''} ${driverInfo?.vehicleModel || ''}`.trim(),
-    };
+      const driverData = {
+        name: `${driverInfo?.firstName || ''} ${driverInfo?.lastName || ''}`.trim() || 'Driver',
+        email: driverInfo?.email || await authService.getUserEmail(),
+        phone: driverInfo?.phone || '',
+        vehicle: driverInfo?.vehicle || `${driverInfo?.vehicleYear || ''} ${driverInfo?.vehicleMake || ''} ${driverInfo?.vehicleModel || ''}`.trim(),
+      };
 
     await ridesAPI.acceptRide(ride.id, driverData);
 

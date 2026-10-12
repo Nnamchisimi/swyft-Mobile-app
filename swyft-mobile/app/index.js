@@ -45,7 +45,11 @@ export default function Index() {
   }
   
   if (userRole === 'driver') {
-    return <Redirect href="/(driver)/dashboard" />;
+    return <Redirect href="/(driver)/verify-summary" />;
+  }
+
+  if (userRole === 'admin') {
+    return <Redirect href="/(admin)/review" />;
   }
 
   return <Redirect href="/(passenger)/home" />;

@@ -167,7 +167,7 @@ function registerAcceptRoutes(app, io, db) {
         const createdAt = new Date(ride.created_at);
         const now = new Date();
         const secondsDiff = (now - createdAt) / 1000;
-        const rideExpirySeconds = parseInt(process.env.RIDE_EXPIRY_SECONDS || '600', 10);
+        const rideExpirySeconds = parseInt(process.env.RIDE_EXPIRY_SECONDS || '1800', 10);
         if (secondsDiff > rideExpirySeconds) {
           db.query('SELECT * FROM payments WHERE ride_id = $1 AND verified = true AND status = $2', [rideId, 'succeeded'], (errPay, paymentResults) => {
             const hasVerifiedPayment = !errPay && paymentResults.rows.length > 0;

@@ -7,13 +7,17 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  StatusBar,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { authService } from '../../src/services/auth';
 import { driverAPI, ridesAPI } from '../../src/services/api';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
+import { uploadDriverImage } from '../../src/services/supabaseStorage';
 import DriverBottomTabBar from './components/BottomTabBar';
 
 export default function DriverProfileScreen() {
@@ -29,6 +33,44 @@ export default function DriverProfileScreen() {
   });
   const [loading, setLoading] = useState(true);
   const [completedRides, setCompletedRides] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
+  const pickAndUploadProfilePicture = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Please allow access to your photo library.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    if (!asset.base64) {
+      Alert.alert('Error', 'Could not read selected image.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const path = `profile-pictures/${userEmail || 'driver'}-${Date.now()}.jpg`;
+      const url = await uploadDriverImage(asset.base64, path);
+      await driverAPI.updateProfilePicture(userEmail, { profile_picture: url });
+      setDriverInfo(prev => ({ ...prev, profilePicture: url }));
+      await authService.saveProfilePicture(url);
+    } catch (error) {
+      console.error('Profile picture upload error:', error);
+      Alert.alert('Upload failed', 'Could not update profile picture. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+   };
 
   useEffect(() => {
     loadDriverData();
@@ -56,12 +98,14 @@ export default function DriverProfileScreen() {
               email: driver.email,
               rating: driver.rating,
               isOnline: driver.is_online,
+              profilePicture: driver.profile_picture,
               // Vehicle info from cars table
               vehicleMake: driver.make,
               vehicleModel: driver.model,
               vehicleYear: driver.year,
               vehicleColor: driver.color,
               vehiclePlate: driver.plate_number,
+              vehicleImage: driver.vehicle?.image_url || driver.image_url,
             });
             console.log('[Profile] Vehicle data:', {
               make: driver.make,
@@ -134,6 +178,14 @@ export default function DriverProfileScreen() {
     router.push('/(driver)/earnings');
   };
 
+  const handleWithdraw = () => {
+    router.push('/(driver)/withdraw');
+  };
+
+  const handleWithdrawalHistory = () => {
+    router.push('/(driver)/withdrawal-history');
+  };
+
   const handleRideHistory = async () => {
     try {
       let email = userEmail;
@@ -198,6 +250,7 @@ export default function DriverProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Loading profile...</Text>
@@ -217,6 +270,7 @@ export default function DriverProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backButton}>← Back</Text>
@@ -231,16 +285,25 @@ export default function DriverProfileScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {(driverInfo?.firstName || 'D').charAt(0).toUpperCase()}
-              </Text>
+          <TouchableOpacity onPress={pickAndUploadProfilePicture} disabled={uploading}>
+            <View style={styles.avatarContainer}>
+              {driverInfo?.profilePicture ? (
+                <Image source={{ uri: driverInfo.profilePicture }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {(driverInfo?.firstName || 'D').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.onlineBadge}>
+                <Text style={styles.onlineBadgeText}>✓</Text>
+              </View>
+              <View style={styles.editIconContainer}>
+                <Ionicons name="camera" size={14} color={COLORS.white} />
+              </View>
             </View>
-            <View style={styles.onlineBadge}>
-              <Text style={styles.onlineBadgeText}>✓</Text>
-            </View>
-          </View>
+          </TouchableOpacity>
           <Text style={styles.driverName}>
             {driverInfo?.firstName ? `${driverInfo.firstName} ${driverInfo.lastName || ''}`.trim() : 'Driver'}
           </Text>
@@ -313,6 +376,14 @@ export default function DriverProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Vehicle</Text>
           <View style={styles.vehicleCard}>
+            {driverInfo?.vehicleImage ? (
+              <Image source={{ uri: driverInfo.vehicleImage }} style={styles.vehicleImage} />
+            ) : (
+              <View style={[styles.vehicleImage, styles.vehicleImagePlaceholder]}>
+                <Ionicons name="car-outline" size={48} color={COLORS.textSecondary} />
+                <Text style={styles.vehicleImagePlaceholderText}>No vehicle photo uploaded</Text>
+              </View>
+            )}
             <View style={styles.vehicleHeader}>
               <View style={styles.vehicleIconContainer}>
                 <Ionicons name="car" size={24} color={COLORS.primary} />
@@ -388,7 +459,23 @@ export default function DriverProfileScreen() {
           </View>
         </View>
 
-        {}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Wallet</Text>
+          <View style={styles.menuCard}>
+            <TouchableOpacity style={styles.menuItem} onPress={handleWithdraw}>
+              <Ionicons name="wallet" size={24} color={COLORS.primary} />
+              <Text style={styles.menuText}>Withdraw Funds</Text>
+              <Text style={styles.menuArrow}>{'>'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleWithdrawalHistory}>
+              <Ionicons name="time" size={24} color={COLORS.primary} />
+              <Text style={styles.menuText}>Withdrawal History</Text>
+              <Text style={styles.menuArrow}>{'>'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
           <View style={styles.menuCard}>
@@ -525,6 +612,24 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  editIconContainer: {
+    position: 'absolute',
+    bottom: -6,
+    right: -6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.white,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   driverName: {
     fontSize: 22,
@@ -687,6 +792,38 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: COLORS.border,
+    position: 'relative',
+  },
+  vehicleImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  vehicleImagePlaceholder: {
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+  },
+  vehicleImagePlaceholderText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  vehicleImageOverlay: {
+    position: 'absolute',
+    top: 24,
+    right: 24,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   vehicleHeader: {
     flexDirection: 'row',

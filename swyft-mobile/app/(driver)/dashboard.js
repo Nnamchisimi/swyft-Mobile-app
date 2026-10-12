@@ -7,13 +7,15 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
+  StatusBar,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useDriverDashboardState } from './hooks';
 import { useDriverDashboardEffects } from './hooks';
 import { toggleOnline, handleAcceptRide, handleDeclineRide, handleStartRide, handleArrived, handleCompleteRide, handleCancelCurrentRide, handleLogout } from './actions';
-import { openNavigation } from './utils';
+import { openNavigation } from './_utils';
 import { socketService } from '../../src/services/socket';
 import { authService } from '../../src/services/auth';
 import { ridesAPI } from '../../src/services/api';
@@ -51,8 +53,7 @@ export default function DriverDashboard() {
       effects.fetchPendingRides,
       state.setPendingRides,
       state.location,
-      locationRef,
-      router
+      locationRef
     );
   };
 
@@ -94,6 +95,7 @@ export default function DriverDashboard() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.brandName}>SWYFTinc</Text>
@@ -104,11 +106,15 @@ export default function DriverDashboard() {
           style={styles.profileButton}
           onPress={() => router.push('/(driver)/account')}
         >
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>
-              {(state.driverInfo?.firstName || 'D').charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          {state.driverInfo?.profilePicture ? (
+            <Image source={{ uri: state.driverInfo.profilePicture }} style={styles.profileAvatar} />
+          ) : (
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileAvatarText}>
+                {(state.driverInfo?.firstName || 'D').charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
       <ScrollView

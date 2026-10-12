@@ -28,8 +28,7 @@ function registerOtpRoutes(app, io, db) {
       }
 
       if (ride.delivery_otp_attempts >= 3) {
-        db.query('UPDATE rides SET delivery_flagged = true WHERE id = $1', [rideId]);
-        return res.status(403).json({ error: 'Too many failed attempts. Delivery flagged for review.' });
+        return res.status(403).json({ error: 'Too many failed attempts. Please request a new OTP.' });
       }
 
       verifyOtp(otp, ride.delivery_otp_hash).then(async (isValid) => {

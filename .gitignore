@@ -15,6 +15,8 @@ web/build
 
 # misc
 .DS_Store
+.env
+.expo/
 .env.local
 .env.development.local
 .env.test.local

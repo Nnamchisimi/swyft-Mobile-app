@@ -10,19 +10,23 @@ import {
   RefreshControl,
   TextInput,
   Modal,
+  StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { adminAPI } from '../../src/services/api';
+import authService from '../../src/services/auth';
 import { COLORS } from '../../src/constants/config';
 
-const SECTIONS = [
-  { key: 'id-document', label: 'ID Document' },
-  { key: 'selfie', label: 'Selfie Verification' },
-  { key: 'phone', label: 'Phone Number' },
-  { key: 'bank', label: 'Bank Account' },
-];
+  const SECTIONS = [
+    { key: 'id_document', label: 'ID Document' },
+    { key: 'selfie', label: 'Selfie Verification' },
+    { key: 'phone', label: 'Phone Number' },
+    { key: 'bank_account_account', label: 'Bank Account' },
+    { key: 'car', label: 'Vehicle' },
+  ];
 
 const statusColor = (status) => {
   if (status === 'verified' || status === 'approved') return '#4CAF50';
@@ -41,6 +45,7 @@ const getStatus = (bundle, key) => {
   const node = bundle[key];
   if (!node) return 'pending';
   if (key === 'phone') return node.is_verified ? 'verified' : 'pending';
+  if (key === 'car') return node ? 'verified' : 'pending';
   return node.verification_status || 'pending';
 };
 
@@ -100,7 +105,15 @@ export default function AdminReviewScreen() {
   const [rejectFor, setRejectFor] = useState('');
   const [rejectReason, setRejectReason] = useState('');
 
-  const [view, setView] = useState('pending'); // 'pending' | 'archive'
+  const [view, setView] = useState('pending'); // 'pending' | 'withdrawals' | 'archive'
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
+  const [withdrawalError, setWithdrawalError] = useState('');
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState(null);
+  const [processNotes, setProcessNotes] = useState('');
+  const [transferReference, setTransferReference] = useState('');
+  const [actingWithdrawal, setActingWithdrawal] = useState(false);
+
   const [archived, setArchived] = useState([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
   const [archiveDetail, setArchiveDetail] = useState(null);
@@ -133,6 +146,23 @@ export default function AdminReviewScreen() {
       setLoadingArchived(false);
     }
   }, []);
+
+  const loadWithdrawals = useCallback(async () => {
+    setLoadingWithdrawals(true);
+    setWithdrawalError('');
+    try {
+      const res = await adminAPI.getWithdrawals();
+      setWithdrawals(res.data || []);
+    } catch (e) {
+      setWithdrawalError(e.response?.data?.error || e.message || 'Failed to load withdrawals');
+    } finally {
+      setLoadingWithdrawals(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view === 'withdrawals') loadWithdrawals();
+  }, [view, loadWithdrawals]);
 
   useEffect(() => {
     if (view === 'archive') loadArchived();
@@ -182,16 +212,25 @@ export default function AdminReviewScreen() {
     setActing(true);
     setBanner({ text: '', type: '' });
     try {
-      if (kind === 'id-document') await adminAPI.reviewIdDocument(selected.email, decision, rejectReason);
+      if (kind === 'id_document') await adminAPI.reviewIdDocument(selected.email, decision, rejectReason);
       else if (kind === 'selfie') await adminAPI.reviewSelfie(selected.email, decision, rejectReason);
       else if (kind === 'phone') await adminAPI.reviewPhone(selected.email, decision);
-      else if (kind === 'bank') await adminAPI.reviewBank(selected.email, decision, rejectReason);
+      else if (kind === 'bank_account') await adminAPI.reviewBank(selected.email, decision, rejectReason);
+      else if (kind === 'car') {
+        if (decision === 'approve') {
+          await adminAPI.archiveDriver(selected.email, 'approved');
+        } else {
+          await adminAPI.archiveDriver(selected.email, 'rejected');
+        }
+      }
       const label = SECTIONS.find((s) => s.key === kind)?.label || kind;
       setBanner({
         text: `${label} ${decision === 'approve' ? 'approved' : 'rejected'}`,
         type: decision === 'approve' ? 'success' : 'error',
       });
-      await archiveDriver(decision === 'approve' ? 'approved' : 'rejected');
+      if (kind !== 'car') {
+        await archiveDriver(decision === 'approve' ? 'approved' : 'rejected');
+      }
       setRejectFor('');
       setRejectReason('');
       await openDriver(selected);
@@ -221,6 +260,21 @@ export default function AdminReviewScreen() {
     }
   };
 
+  const rejectAll = async () => {
+    if (!selected) return;
+    setActing(true);
+    setBanner({ text: '', type: '' });
+    try {
+      await adminAPI.rejectAllVerifications(selected.email, 'Rejected by moderator');
+      setBanner({ text: 'All verifications rejected. Driver must resubmit all documents.', type: 'error' });
+      await openDriver(selected);
+    } catch (e) {
+      setBanner({ text: e.response?.data?.error || e.message || 'Action failed', type: 'error' });
+    } finally {
+      setActing(false);
+    }
+  };
+
   const pendingCount = bundle
     ? SECTIONS.filter((s) => getStatus(bundle, s.key) === 'pending').length
     : 0;
@@ -239,25 +293,30 @@ export default function AdminReviewScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
       <View style={styles.header}>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.brandName}>SWYFTinc</Text>
+          <Text style={styles.headerTitle}>Moderator Review</Text>
+        </View>
         <TouchableOpacity
-          onPress={() => {
-            if (view === 'archive' && archiveDetail) {
-              setArchiveDetail(null);
-              return;
-            }
-            if (router.canGoBack && router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/(auth)/signin');
-            }
-          }}
-          style={styles.backBtn}
+          style={styles.headerLogoutBtn}
+          onPress={() =>
+            Alert.alert('Logout', 'Are you sure you want to logout?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Logout',
+                style: 'destructive',
+                onPress: async () => {
+                  await authService.logout();
+                  router.replace('/(auth)/signin');
+                },
+              },
+            ])
+          }
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="log-out-outline" size={18} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Moderator Review</Text>
-        <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.tabBar}>
@@ -266,6 +325,12 @@ export default function AdminReviewScreen() {
           onPress={() => { setView('pending'); setSelected(null); setBundle(null); }}
         >
           <Text style={[styles.tabText, view === 'pending' && styles.tabTextActive]}>Pending</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, view === 'withdrawals' && styles.tabActive]}
+          onPress={() => { setView('withdrawals'); setSelected(null); setBundle(null); }}
+        >
+          <Text style={[styles.tabText, view === 'withdrawals' && styles.tabTextActive]}>Withdrawals</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, view === 'archive' && styles.tabActive]}
@@ -283,13 +348,13 @@ export default function AdminReviewScreen() {
           <Text style={styles.sectionHint}>Drivers awaiting verification</Text>
           {loading && <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.primary} />}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {!loading && !error && drivers.length === 0 && (
+          {!loading && !error && Array.isArray(drivers) && drivers.length === 0 && (
             <View style={styles.emptyWrap}>
               <Ionicons name="checkmark-done-circle-outline" size={48} color="#4CAF50" />
               <Text style={styles.emptyText}>All caught up. No drivers pending review.</Text>
             </View>
           )}
-          {drivers.map((d) => (
+          {Array.isArray(drivers) && drivers.map((d) => (
             <TouchableOpacity key={d.id} style={styles.driverRow} onPress={() => openDriver(d)}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
@@ -302,19 +367,224 @@ export default function AdminReviewScreen() {
                 </Text>
                 <Text style={styles.driverSub}>{d.email}</Text>
                 <Text style={styles.driverSub}>{d.phone || ''}</Text>
+                {d.is_approved ? (
+                  <View style={[styles.badge, { backgroundColor: '#4CAF50' }]}>
+                    <Text style={styles.badgeText}>Approved</Text>
+                  </View>
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color="#999" />
+                )}
               </View>
-              {d.is_approved ? (
-                <View style={[styles.badge, { backgroundColor: '#4CAF50' }]}>
-                  <Text style={styles.badgeText}>Approved</Text>
-                </View>
-              ) : (
-                <Ionicons name="chevron-forward" size={20} color="#999" />
-              )}
             </TouchableOpacity>
           ))}
         </ScrollView>
       )}
 
+      {!selected && !archiveDetail && view === 'withdrawals' && (
+        <ScrollView
+          style={styles.list}
+          refreshControl={<RefreshControl refreshing={loadingWithdrawals} onRefresh={loadWithdrawals} />}
+        >
+          <Text style={styles.sectionHint}>Driver withdrawal requests</Text>
+          {loadingWithdrawals && <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.primary} />}
+          {withdrawalError ? <Text style={styles.errorText}>{withdrawalError}</Text> : null}
+          {!loadingWithdrawals && !withdrawalError && withdrawals.length === 0 && (
+            <View style={styles.emptyWrap}>
+              <Ionicons name="cash-outline" size={48} color="#FF9800" />
+              <Text style={styles.emptyText}>No withdrawal requests yet.</Text>
+            </View>
+          )}
+          {withdrawals.map((w) => (
+            <View key={w.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>₺{Number(w.amount).toFixed(2)}</Text>
+                <View style={[styles.badge, { backgroundColor: w.status === 'PAID' ? '#4CAF50' : w.status === 'REJECTED' ? '#F44336' : w.status === 'PROCESSING' ? '#2196F3' : '#FF9800' }]}>
+                  <Text style={styles.badgeText}>{w.status}</Text>
+                </View>
+              </View>
+              <View style={styles.cardBody}>
+                <DetailRow label="Driver" value={`${w.driver_name || ''} ${w.driver_email ? `(${w.driver_email})` : ''}`} />
+                <DetailRow label="Bank" value={w.bank_account_name || '—'} />
+                <DetailRow label="IBAN" value={w.iban || '—'} />
+                <DetailRow label="Holder" value={w.account_holder_name || '—'} />
+                <DetailRow label="Requested" value={w.created_at ? new Date(w.created_at).toLocaleString() : '—'} />
+                {w.processed_at ? <DetailRow label="Processed" value={new Date(w.processed_at).toLocaleString()} /> : null}
+                {w.admin_notes ? <DetailRow label="Notes" value={w.admin_notes} /> : null}
+                {w.transfer_reference ? <DetailRow label="Reference" value={w.transfer_reference} /> : null}
+              </View>
+              {w.status === 'PENDING' && (
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.approveBtn]}
+                    onPress={() => setSelectedWithdrawal(w)}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                    <Text style={styles.actionBtnText}>Process</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.rejectBtn]}
+                    onPress={async () => {
+                      setActingWithdrawal(true);
+                      try {
+                        await adminAPI.rejectWithdrawal(w.id, { admin_email: 'admin@swyft.com', admin_notes: 'Rejected from admin' });
+                        await loadWithdrawals();
+                      } catch (e) {
+                        Alert.alert('Error', e.response?.data?.error || e.message || 'Failed to reject');
+                      } finally {
+                        setActingWithdrawal(false);
+                      }
+                    }}
+                    disabled={actingWithdrawal}
+                  >
+                    <Ionicons name="close" size={16} color="#fff" />
+                    <Text style={styles.actionBtnText}>Reject</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {w.status === 'PROCESSING' && (
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={[styles.actionBtn, styles.approveBtn]}
+                    onPress={() => setSelectedWithdrawal(w)}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                    <Text style={styles.actionBtnText}>Mark as Paid</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      {selectedWithdrawal && (
+        <ScrollView style={styles.detail}>
+          <View style={styles.banner}>
+            <Ionicons name="cash" size={18} color="#fff" />
+            <Text style={styles.bannerText}>Withdrawal #{selectedWithdrawal.id}</Text>
+          </View>
+
+          <View style={styles.driverCard}>
+            <View style={styles.avatarLg}>
+              <Text style={styles.avatarTextLg}>₺</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.driverCardName}>₺{Number(selectedWithdrawal.amount).toFixed(2)}</Text>
+              <Text style={styles.driverCardSub}>{selectedWithdrawal.driver_name || 'Driver'} · {selectedWithdrawal.driver_email}</Text>
+            </View>
+            <View style={[styles.badge, { backgroundColor: selectedWithdrawal.status === 'PAID' ? '#4CAF50' : selectedWithdrawal.status === 'REJECTED' ? '#F44336' : selectedWithdrawal.status === 'PROCESSING' ? '#2196F3' : '#FF9800' }]}>
+              <Text style={styles.badgeText}>{selectedWithdrawal.status}</Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Bank Details</Text>
+            <View style={styles.cardBody}>
+              <DetailRow label="Bank" value={selectedWithdrawal.bank_account_name || '—'} />
+              <DetailRow label="IBAN" value={selectedWithdrawal.iban || '—'} />
+              <DetailRow label="Account Holder" value={selectedWithdrawal.account_holder_name || '—'} />
+            </View>
+          </View>
+
+          {selectedWithdrawal.status === 'PENDING' && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Process Withdrawal</Text>
+              <Text style={styles.reasonText}>Mark this request as processing before transferring.</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Admin notes (optional)"
+                placeholderTextColor="#9E9E9E"
+                value={processNotes}
+                onChangeText={setProcessNotes}
+                multiline
+                numberOfLines={2}
+              />
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.approveBtn]}
+                  disabled={actingWithdrawal}
+                  onPress={async () => {
+                    setActingWithdrawal(true);
+                    try {
+                      await adminAPI.processWithdrawal(selectedWithdrawal.id, { admin_email: 'admin@swyft.com', admin_notes: processNotes || 'Processing' });
+                      setProcessNotes('');
+                      setSelectedWithdrawal(null);
+                      await loadWithdrawals();
+                    } catch (e) {
+                      Alert.alert('Error', e.response?.data?.error || e.message || 'Failed to process');
+                    } finally {
+                      setActingWithdrawal(false);
+                    }
+                  }}
+                >
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Text style={styles.actionBtnText}>Mark Processing</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.rejectBtn]}
+                  disabled={actingWithdrawal}
+                  onPress={async () => {
+                    setActingWithdrawal(true);
+                    try {
+                      await adminAPI.rejectWithdrawal(selectedWithdrawal.id, { admin_email: 'admin@swyft.com', admin_notes: processNotes || 'Rejected' });
+                      setProcessNotes('');
+                      setSelectedWithdrawal(null);
+                      await loadWithdrawals();
+                    } catch (e) {
+                      Alert.alert('Error', e.response?.data?.error || e.message || 'Failed to reject');
+                    } finally {
+                      setActingWithdrawal(false);
+                    }
+                  }}
+                >
+                  <Ionicons name="close" size={16} color="#fff" />
+                  <Text style={styles.actionBtnText}>Reject</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {selectedWithdrawal.status === 'PROCESSING' && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Mark as Paid</Text>
+              <Text style={styles.reasonText}>Use this after the bank_account transfer is completed.</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Transfer reference (optional)"
+                placeholderTextColor="#9E9E9E"
+                value={transferReference}
+                onChangeText={setTransferReference}
+              />
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.approveBtn]}
+                  disabled={actingWithdrawal}
+                  onPress={async () => {
+                    setActingWithdrawal(true);
+                    try {
+                      await adminAPI.markWithdrawalPaid(selectedWithdrawal.id, { admin_email: 'admin@swyft.com', transfer_reference: transferReference || undefined });
+                      setTransferReference('');
+                      setSelectedWithdrawal(null);
+                      await loadWithdrawals();
+                    } catch (e) {
+                      Alert.alert('Error', e.response?.data?.error || e.message || 'Failed to mark paid');
+                    } finally {
+                      setActingWithdrawal(false);
+                    }
+                  }}
+                >
+                  <Ionicons name="checkmark-done" size={16} color="#fff" />
+                  <Text style={styles.actionBtnText}>Mark Paid</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.closeBtn} onPress={() => { setSelectedWithdrawal(null); setProcessNotes(''); setTransferReference(''); }}>
+            <Text style={styles.closeText}>Back to list</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
       {!selected && !archiveDetail && view === 'archive' && (
         <ScrollView
           style={styles.list}
@@ -338,7 +608,8 @@ export default function AdminReviewScreen() {
                   id_document: a.id_document,
                   selfie: a.selfie,
                   phone: a.phone,
-                  bank_account: a.bank_account,
+                  bank_account_account: a.bank_account_account,
+                  car: a.car,
                   decision: a.decision,
                   reviewer_email: a.reviewer_email,
                   notes: a.notes,
@@ -417,19 +688,19 @@ export default function AdminReviewScreen() {
 
               <SectionBlock
                 title="ID Document"
-                status={getStatus(bundle, 'id-document')}
+                status={getStatus(bundle, 'id_document')}
                 hasData={!!bundle.id_document}
                 acting={acting}
-                onApprove={() => review('id-document', 'approve')}
-                onReject={() => confirmReject('id-document')}
+                onApprove={() => review('id_document', 'approve')}
+                onReject={() => confirmReject('id_document')}
               >
                 {bundle.id_document ? (
                   <>
                     <DetailRow label="Type" value={bundle.id_document.document_type} />
                     <DetailRow label="Number" value={bundle.id_document.document_number} />
                     <DetailRow label="Expiry" value={bundle.id_document.expiry_date} />
-                    {getReason(bundle, 'id-document') ? (
-                      <Text style={styles.reasonText}>Reason: {getReason(bundle, 'id-document')}</Text>
+                    {getReason(bundle, 'id_document') ? (
+                      <Text style={styles.reasonText}>Reason: {getReason(bundle, 'id_document')}</Text>
                     ) : null}
                     <View style={styles.imgRow}>
                       <Img img={bundle.id_document.front_image} label="Front" />
@@ -485,45 +756,76 @@ export default function AdminReviewScreen() {
                 )}
               </SectionBlock>
 
-              <SectionBlock
-                title="Bank Account"
-                status={getStatus(bundle, 'bank')}
-                hasData={!!bundle.bank_account}
-                acting={acting}
-                onApprove={() => review('bank', 'approve')}
-                onReject={() => confirmReject('bank')}
-              >
-                {bundle.bank_account ? (
-                  <>
-                    <DetailRow label="Bank" value={bundle.bank_account.bank_name} />
-                    <DetailRow label="Holder" value={bundle.bank_account.account_holder_name} />
-                    <DetailRow label="Account" value={bundle.bank_account.account_number} />
-                    {bundle.bank_account.routing_number ? (
-                      <DetailRow label="Routing" value={bundle.bank_account.routing_number} />
-                    ) : null}
-                    {bundle.bank_account.iban ? (
-                      <DetailRow label="IBAN" value={bundle.bank_account.iban} />
-                    ) : null}
-                    {bundle.bank_account.swift_code ? (
-                      <DetailRow label="Swift" value={bundle.bank_account.swift_code} />
-                    ) : null}
-                    {getReason(bundle, 'bank') ? (
-                      <Text style={styles.reasonText}>Reason: {getReason(bundle, 'bank')}</Text>
-                    ) : null}
-                  </>
-                ) : (
-                  <Text style={styles.notSubmitted}>Not submitted</Text>
-                )}
-              </SectionBlock>
+               <SectionBlock
+                 title="Bank Account"
+                 status={getStatus(bundle, 'bank_account')}
+                 hasData={!!bundle.bank_account}
+                 acting={acting}
+                 onApprove={() => review('bank_account', 'approve')}
+                 onReject={() => confirmReject('bank_account')}
+               >
+                 {bundle.bank_account ? (
+                   <>
+                     <DetailRow label="Bank" value={bundle.bank_account.bank_name} />
+                     <DetailRow label="Holder" value={bundle.bank_account.account_holder_name} />
+                     <DetailRow label="Account" value={bundle.bank_account.account_number} />
+                     {bundle.bank_account.routing_number ? (
+                       <DetailRow label="Routing" value={bundle.bank_account.routing_number} />
+                     ) : null}
+                     {bundle.bank_account.iban ? (
+                       <DetailRow label="IBAN" value={bundle.bank_account.iban} />
+                     ) : null}
+                     {bundle.bank_account.swift_code ? (
+                       <DetailRow label="Swift" value={bundle.bank_account.swift_code} />
+                     ) : null}
+                     {getReason(bundle, 'bank_account') ? (
+                       <Text style={styles.reasonText}>Reason: {getReason(bundle, 'bank_account')}</Text>
+                     ) : null}
+                   </>
+                 ) : (
+                   <Text style={styles.notSubmitted}>Not submitted</Text>
+                 )}
+                </SectionBlock>
 
-              <TouchableOpacity style={[styles.approveAllBtn, acting && styles.disabled]} disabled={acting} onPress={approveAll}>
-                <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
-                <Text style={styles.approveAllText}>Approve All</Text>
-              </TouchableOpacity>
+               <SectionBlock
+                 title="Vehicle"
+                 status={bundle.car ? 'verified' : 'pending'}
+                 hasData={!!bundle.car}
+                 acting={acting}
+                 onApprove={() => review('car', 'approve')}
+                 onReject={() => confirmReject('car')}
+               >
+                 {bundle.car ? (
+                   <>
+                     <DetailRow label="Make" value={bundle.car.make} />
+                     <DetailRow label="Model" value={bundle.car.model} />
+                     <DetailRow label="Year" value={bundle.car.year} />
+                     <DetailRow label="Color" value={bundle.car.color} />
+                     <DetailRow label="Plate" value={bundle.car.plate_number} />
+                     {bundle.car.image_url ? (
+                       <View style={styles.imgRow}>
+                         <Img img={{ url: bundle.car.image_url, type: 'url' }} label="Vehicle Image" />
+                       </View>
+                     ) : null}
+                   </>
+                 ) : (
+                   <Text style={styles.notSubmitted}>Not submitted</Text>
+                 )}
+               </SectionBlock>
 
-              <TouchableOpacity style={styles.closeBtn} onPress={closeDetail}>
-                <Text style={styles.closeText}>Back to list</Text>
-              </TouchableOpacity>
+               <TouchableOpacity style={[styles.approveAllBtn, acting && styles.disabled]} disabled={acting} onPress={approveAll}>
+                 <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
+                 <Text style={styles.approveAllText}>Approve All</Text>
+               </TouchableOpacity>
+
+               <TouchableOpacity style={[styles.rejectAllBtn, acting && styles.disabled]} disabled={acting} onPress={rejectAll}>
+                 <Ionicons name="close-circle-outline" size={18} color="#fff" />
+                 <Text style={styles.rejectAllText}>Reject All</Text>
+               </TouchableOpacity>
+
+               <TouchableOpacity style={styles.closeBtn} onPress={closeDetail}>
+                 <Text style={styles.closeText}>Back to list</Text>
+               </TouchableOpacity>
             </>
           )}
         </ScrollView>
@@ -567,7 +869,7 @@ export default function AdminReviewScreen() {
           </View>
 
           {archiveDetail.id_document ? (
-            <SectionBlock title="ID Document" status={getStatus(archiveDetail, 'id-document')} hasData acting={false}>
+            <SectionBlock title="ID Document" status={getStatus(archiveDetail, 'id_document')} hasData={false} acting={false}>
               <DetailRow label="Type" value={archiveDetail.id_document.document_type} />
               <DetailRow label="Number" value={archiveDetail.id_document.document_number} />
               <DetailRow label="Expiry" value={archiveDetail.id_document.expiry_date} />
@@ -582,7 +884,7 @@ export default function AdminReviewScreen() {
           ) : null}
 
           {archiveDetail.selfie ? (
-            <SectionBlock title="Selfie Verification" status={getStatus(archiveDetail, 'selfie')} hasData acting={false}>
+            <SectionBlock title="Selfie Verification" status={getStatus(archiveDetail, 'selfie')} hasData={false} acting={false}>
               {archiveDetail.selfie.match_confidence != null && (
                 <DetailRow label="Match confidence" value={`${archiveDetail.selfie.match_confidence}%`} />
               )}
@@ -597,14 +899,14 @@ export default function AdminReviewScreen() {
           ) : null}
 
           {archiveDetail.phone ? (
-            <SectionBlock title="Phone Number" status={getStatus(archiveDetail, 'phone')} hasData acting={false}>
+            <SectionBlock title="Phone Number" status={getStatus(archiveDetail, 'phone')} hasData={false} acting={false}>
               <DetailRow label="Number" value={archiveDetail.phone.phone_number} />
               <DetailRow label="Verified" value={archiveDetail.phone.is_verified ? 'Yes' : 'No'} />
             </SectionBlock>
           ) : null}
 
           {archiveDetail.bank_account ? (
-            <SectionBlock title="Bank Account" status={getStatus(archiveDetail, 'bank')} hasData acting={false}>
+            <SectionBlock title="Bank Account" status={getStatus(archiveDetail, 'bank_account')} hasData={false} acting={false}>
               <DetailRow label="Bank" value={archiveDetail.bank_account.bank_name} />
               <DetailRow label="Holder" value={archiveDetail.bank_account.account_holder_name} />
               <DetailRow label="Account" value={archiveDetail.bank_account.account_number} />
@@ -623,10 +925,29 @@ export default function AdminReviewScreen() {
             </SectionBlock>
           ) : null}
 
+          {archiveDetail.car ? (
+            <SectionBlock title="Vehicle" status="verified" hasData={false} acting={false}>
+              <DetailRow label="Make" value={archiveDetail.car.make} />
+              <DetailRow label="Model" value={archiveDetail.car.model} />
+              <DetailRow label="Year" value={archiveDetail.car.year} />
+              <DetailRow label="Color" value={archiveDetail.car.color} />
+              <DetailRow label="Plate" value={archiveDetail.car.plate_number} />
+              {archiveDetail.car.image_url ? (
+                <View style={styles.imgRow}>
+                  <Img img={{ url: archiveDetail.car.image_url, type: 'url' }} label="Vehicle Image" />
+                </View>
+              ) : null}
+            </SectionBlock>
+          ) : null}
+
           {archiveDetail.notes ? (
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Reviewer notes</Text>
-              <Text style={styles.field}>{archiveDetail.notes}</Text>
+              {typeof archiveDetail.notes === 'string' ? (
+                <Text style={styles.detailValue}>{archiveDetail.notes}</Text>
+              ) : (
+                <Text style={styles.detailValue}>{JSON.stringify(archiveDetail.notes)}</Text>
+              )}
             </View>
           ) : null}
 
@@ -716,17 +1037,48 @@ const SectionBlock = ({ title, status, acting, hasData = true, onApprove, onReje
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f6f8' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
   header: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    padding: 20,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    position: 'relative',
   },
-  backBtn: { padding: 4 },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold', flex: 1, textAlign: 'center' },
+  headerTitleContainer: {
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  brandName: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    letterSpacing: 2,
+    marginBottom: 2,
+  },
+  headerLogoutBtn: {
+    position: 'absolute',
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
   sectionHint: { fontSize: 13, fontWeight: '600', color: '#607D8B', marginBottom: 10, textTransform: 'uppercase' },
   tabBar: { flexDirection: 'row', backgroundColor: '#ECEFF1', padding: 6 },
   tab: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
@@ -866,6 +1218,17 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   approveAllText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  rejectAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F44336',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginBottom: 10,
+  },
+  rejectAllText: { color: '#fff', fontWeight: 'bold', fontSize: 15 },
   disabled: { opacity: 0.6 },
   closeBtn: {
     alignItems: 'center',

@@ -33,7 +33,17 @@ export default function SignInScreen() {
     try {
       const result = await authService.login(email.trim(), password);
 
-      if (result.success) {
+      if (result.requiresVerification) {
+        const role = (result.role || result.user?.role || 'passenger').toLowerCase();
+        if (role === 'driver') {
+          router.replace('/(driver)/verify-summary');
+        } else {
+          router.replace({
+            pathname: '/(auth)/verify',
+            params: { email: result.email || email.trim() }
+          });
+        }
+      } else if (result.success) {
         const role = result.user.role || 'passenger';
         if (role === 'admin') {
           router.replace('/(admin)/review');
@@ -60,7 +70,7 @@ export default function SignInScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Swyft</Text>
-          <Text style={styles.subtitle}>Your ride, on demand</Text>
+          <Text style={styles.subtitle}>Your dispatch, on demand</Text>
         </View>
 
         <View style={styles.form}>

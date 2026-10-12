@@ -6,6 +6,7 @@ import { COLORS } from '../../constants/config';
 import geoService from '../../services/geo';
 import { interCityRoutesData, defaultVehicleTypes } from '../constants';
 import { calculateDistance, getPlaceDetails, getRouteCoordinates } from '../location';
+import PackageImageUpload from './package-image-upload';
 
 const { width } = Dimensions.get('window');
 
@@ -18,7 +19,7 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
     currentLocation, pickupLocation, pickupAddress, dropoffLocation, dropoffAddress,
     pickupSuggestions, dropoffSuggestions, showPickupSuggestions, showDropoffSuggestions,
     selectedRideType, selectedVehicleType, interCityMode, interCityRoute,
-    rideTypes, vehicleTypes, packageType, packageSize, packageDetails, specialInstructions,
+    rideTypes, vehicleTypes, packageType, packageSize, packageDetails, packageImageUrl, specialInstructions,
     selectedQuickNote, receiverName, receiverEmail, receiverPhone,
     pricingLoaded, estimatedPrice, priceBreakdownExpanded,
     locationLoading, loading, paymentMethod, setPaymentMethod
@@ -28,7 +29,7 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
   const assignedVehicle = assignedVehicleId ? defaultVehicleTypes.find(v => v.id === assignedVehicleId) : null;
 
   const hasRoute = interCityMode ? interCityRoute : selectedRideType;
-  const canBook = hasRoute && assignedVehicleId && pickupAddress && dropoffLocation && receiverName?.trim() && receiverEmail?.trim() && receiverPhone?.trim() && !loading;
+  const canBook = hasRoute && assignedVehicleId && pickupAddress && dropoffLocation && receiverName?.trim() && receiverEmail?.trim() && receiverPhone?.trim() && packageImageUrl?.trim() && !loading;
 
   return (
     <ScrollView 
@@ -344,6 +345,12 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
           value={specialInstructions} 
           onChangeText={(val) => state.set('specialInstructions', val)} 
           multiline 
+        />
+
+        <PackageImageUpload
+          imageUrl={packageImageUrl}
+          onImageUploaded={(url) => state.set('packageImageUrl', url)}
+          onImageRemoved={() => state.set('packageImageUrl', '')}
         />
       </View>
 

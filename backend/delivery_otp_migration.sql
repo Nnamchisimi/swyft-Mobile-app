@@ -8,8 +8,7 @@ ADD COLUMN delivery_otp_attempts INT DEFAULT 0,
 ADD COLUMN delivery_otp_expires_at TIMESTAMP NULL,
 ADD COLUMN delivery_completed_at TIMESTAMP NULL,
 ADD COLUMN delivery_completed_lat DECIMAL(10, 8) DEFAULT NULL,
-ADD COLUMN delivery_completed_lng DECIMAL(11, 8) DEFAULT NULL,
-ADD COLUMN delivery_flagged BOOLEAN DEFAULT FALSE;
+ADD COLUMN delivery_completed_lng DECIMAL(11, 8) DEFAULT NULL;
 
 -- Create index for delivery_id lookups
 CREATE INDEX idx_rides_delivery_id ON rides(delivery_id);

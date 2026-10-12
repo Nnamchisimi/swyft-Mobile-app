@@ -92,7 +92,13 @@ const SURCHARGES = {
   },
 };
 
+/**
+ * 
+ * @param {string} address - 
+ * @returns {boolean} 如果地址包含山村关键词返回true，否则返回false
+ */
 function isMountainVillage(address) {
+  // 首先检查地址是否存在，如果不存在则直接返回false
   if (!address) return false;
   return SURCHARGES.mountainVillage.keywords.some(kw =>
     address.toLowerCase().includes(kw.toLowerCase())

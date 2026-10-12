@@ -44,7 +44,22 @@ export default function SignInScreen() {
       console.log('Login result:', JSON.stringify(result, null, 2));
       setDebugInfo(`URL: ${API_URL}\nResult: ${JSON.stringify(result, null, 2)}`);
 
-      if (result.success) {
+      if (result.requiresVerification) {
+        const role = (result.role || result.user?.role || 'passenger').toLowerCase();
+
+        if (result.email) {
+          await authService.saveVerificationEmail(result.email);
+        }
+
+        if (role === 'driver') {
+          router.replace('/(driver)/verify-summary');
+        } else {
+          router.replace({
+            pathname: '/(auth)/verify',
+            params: { email: result.email || email.trim() }
+          });
+        }
+      } else if (result.success) {
         console.log('Login successful, user role:', result.user.role);
 
         const role = (result.user.role || 'passenger').toLowerCase();
@@ -57,15 +72,7 @@ export default function SignInScreen() {
         }
       } else {
         console.log('Login failed with error:', result.error);
-
-        if (result.requiresVerification || /verify your email/i.test(result.error || '')) {
-          router.replace({
-            pathname: '/(auth)/verify',
-            params: { email: result.email || email.trim() }
-          });
-        } else {
-          setError(result.error);
-        }
+        setError(result.error);
       }
     } catch (err) {
       console.log('Login exception caught:', err);
@@ -89,9 +96,8 @@ export default function SignInScreen() {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.brandName}>SWYFTinc</Text>
           <Text style={styles.title}>Swyft</Text>
-          <Text style={styles.subtitle}>Your ride, on demand</Text>
+          <Text style={styles.subtitle}>Your dispatch, on demand</Text>
         </View>
 
         <View style={styles.form}>
@@ -137,6 +143,10 @@ export default function SignInScreen() {
               <Text style={styles.link}>Sign Up</Text>
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity style={styles.forgotContainer} onPress={() => router.push('/(auth)/forgot-password')}>
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
@@ -228,6 +238,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   link: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  forgotContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  forgotText: {
     color: COLORS.primary,
     fontSize: 14,
     fontWeight: '600',

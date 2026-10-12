@@ -1,119 +1,56 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Image, Text, StyleSheet, Animated, Dimensions } from "react-native";
-import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { View, Image, Text, StyleSheet, Animated } from "react-native";
 import { COLORS } from "../src/constants/config";
 import swyftLogo from "@/assets/images/swyftmobilelogo.png";
-import { useAppReady } from "@/src/context/AppReadyContext";
 
-type Phase = "enter" | "hold" | "exit";
-
-interface SplashScreenProps {
-  onComplete: () => void;
-}
-
-export default function SplashScreen({ onComplete }: SplashScreenProps) {
-  const router = useRouter();
-  const { isAppReady } = useAppReady();
-  const [phase, setPhase] = useState<Phase>("enter");
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+export default function SplashScreen() {
+  const [showText, setShowText] = useState(false);
   const logoScale = useRef(new Animated.Value(0.96)).current;
   const logoTranslateY = useRef(new Animated.Value(10)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslateY = useRef(new Animated.Value(8)).current;
   const progressWidth = useRef(new Animated.Value(0)).current;
-  const onCompleteRef = useRef(onComplete);
-  onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    const checkAutoLogin = async () => {
-      const token = await AsyncStorage.getItem('authToken');
-      if (token) {
-        const role = await AsyncStorage.getItem('userRole');
-        if (role === 'admin') {
-          router.replace('/(admin)/review');
-        } else if (role === 'driver') {
-          router.replace('/(driver)/dashboard');
-        } else {
-          router.replace('/(passenger)/home');
-        }
-      }
-    };
-    
-    checkAutoLogin();
-  }, []);
+    Animated.parallel([
+      Animated.timing(logoScale, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(logoTranslateY, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-  useEffect(() => {
-    const t1 = setTimeout(() => setPhase("hold"), 800);
-    const t2 = setTimeout(() => setPhase("exit"), 3000);
-    const t3 = setTimeout(() => {
-      onCompleteRef.current();
-    }, 4000);
-
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (phase === "enter") {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoScale, {
-          toValue: 1,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoTranslateY, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-
-    if (phase === "hold") {
+    const timer = setTimeout(() => {
+      setShowText(true);
       Animated.parallel([
         Animated.timing(textOpacity, {
           toValue: 1,
-          duration: 500,
+          duration: 400,
           useNativeDriver: true,
         }),
         Animated.timing(textTranslateY, {
           toValue: 0,
-          duration: 500,
+          duration: 400,
           useNativeDriver: true,
         }),
-        Animated.loop(
-          Animated.timing(progressWidth, {
-            toValue: 1,
-            duration: 1800,
-            useNativeDriver: false,
-          })
-        ).start(),
       ]).start();
-    }
 
-    if (phase === "exit") {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 1000,
-        useNativeDriver: true,
-      }).start(() => {
-        onCompleteRef.current();
-      });
-    }
-  }, [phase]);
+      Animated.loop(
+        Animated.timing(progressWidth, {
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: false,
+        })
+      ).start();
+    }, 600);
 
-  if (phase === "exit" && fadeAnim.__getValue() === 0) {
-    return null;
-  }
+    return () => clearTimeout(timer);
+  }, []);
 
   const progressTranslate = progressWidth.interpolate({
     inputRange: [0, 1],
@@ -121,14 +58,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
   });
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        {
-          opacity: fadeAnim,
-        },
-      ]}
-    >
+    <View style={styles.container}>
       {/* Ambient glow */}
       <View style={styles.glow} />
 
@@ -138,7 +68,6 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           style={[
             styles.logoWrapper,
             {
-              opacity: phase !== "enter" ? 1 : fadeAnim,
               transform: [
                 { scale: logoScale },
                 { translateY: logoTranslateY },
@@ -153,17 +82,19 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           />
         </Animated.View>
 
-        <Animated.View
-          style={[
-            styles.textWrapper,
-            {
-              opacity: phase === "hold" || phase === "exit" ? textOpacity : 0,
-              transform: [{ translateY: textTranslateY }],
-            },
-          ]}
-        >
-          <Text style={styles.brandText}>SWYFT</Text>
-        </Animated.View>
+        {showText && (
+          <Animated.View
+            style={[
+              styles.textWrapper,
+              {
+                opacity: textOpacity,
+                transform: [{ translateY: textTranslateY }],
+              },
+            ]}
+          >
+            <Text style={styles.brandText}>SWYFT</Text>
+          </Animated.View>
+        )}
       </View>
 
       {/* Progress indicator */}
@@ -180,16 +111,13 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
           />
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
-const { width } = Dimensions.get("window");
-
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
+    flex: 1,
     backgroundColor: COLORS.primary,
     justifyContent: "center",
     alignItems: "center",
@@ -208,23 +136,23 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: "center",
-    gap: 24,
+    gap: 0,
   },
   logoWrapper: {
     alignItems: "center",
     justifyContent: "center",
   },
   logo: {
-    width: 176,
-    height: 176,
+    width: 120,
+    height: 120,
   },
   textWrapper: {
     alignItems: "center",
   },
   brandText: {
-    fontSize: 48,
+    fontSize: 20,
     fontWeight: "600",
-    letterSpacing: 14,
+    letterSpacing: 10,
     color: COLORS.white,
     textAlign: "center",
   },

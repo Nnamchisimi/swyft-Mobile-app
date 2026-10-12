@@ -6,6 +6,33 @@ require('dotenv').config();
 
 const db = require('./db-supabase');
 const { adminGuard, verifyToken } = require('./utils/helpers');
+const { createClient } = require('@supabase/supabase-js');
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+function calculateEtaString(driverLat, driverLng, dropoffLat, dropoffLng) {
+  if (!isFinite(driverLat) || !isFinite(driverLng) || !isFinite(dropoffLat) || !isFinite(dropoffLng)) return null;
+  const R = 6371;
+  const dLat = (dropoffLat - driverLat) * Math.PI / 180;
+  const dLng = (dropoffLng - driverLng) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(driverLat * Math.PI / 180) * Math.cos(dropoffLat * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distanceKm = R * c;
+  const avgSpeedKmh = 30;
+  const timeHours = distanceKm / avgSpeedKmh;
+  const timeMinutes = Math.round(timeHours * 60);
+  if (timeMinutes < 1) return 'Less than 1 min';
+  if (timeMinutes === 1) return '1 min away';
+  if (timeMinutes < 60) return `${timeMinutes} mins away`;
+  const hours = Math.floor(timeMinutes / 60);
+  const mins = timeMinutes % 60;
+  return `${hours}h ${mins}m away`;
+}
 
 // Route modules
 const { registerAuthRoutes } = require('./routes/auth');
@@ -48,6 +75,49 @@ app.use(express.urlencoded({ limit: '25mb', extended: true }));
 // Admin guard: every /api/admin/* request must carry a valid JWT with role = 'admin'
 app.use('/api/admin', adminGuard);
 
+// Migrate: ensure profile_picture column exists on users
+db.query(`ALTER TABLE public.users ADD COLUMN IF NOT EXISTS profile_picture TEXT`, (err) => {
+  if (err) console.error('[MIGRATION] users.profile_picture:', err.message);
+  else console.log('[MIGRATION] users.profile_picture ensured');
+});
+
+// Migrate: ensure image_url column exists on cars
+db.query(`ALTER TABLE cars ADD COLUMN IF NOT EXISTS image_url TEXT`, (err) => {
+  if (err) console.error('[MIGRATION] cars.image_url:', err.message);
+  else console.log('[MIGRATION] cars.image_url ensured');
+});
+
+// Migrate: ensure car column exists on driver_verification_archive
+db.query(`ALTER TABLE driver_verification_archive ADD COLUMN IF NOT EXISTS car JSONB`, (err) => {
+  if (err) console.error('[MIGRATION] driver_verification_archive.car:', err.message);
+  else console.log('[MIGRATION] driver_verification_archive.car ensured');
+});
+
+app.post('/api/upload', async (req, res) => {
+  try {
+    const { base64, path, bucket = 'casyft' } = req.body;
+    if (!base64 || !path) {
+      return res.status(400).json({ error: 'base64 and path are required' });
+    }
+
+    const buffer = Buffer.from(base64, 'base64');
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(path, buffer, { contentType: 'image/jpeg', upsert: true });
+
+    if (error) {
+      console.error('[UPLOAD_ERROR]', error);
+      return res.status(400).json({ error: error.message || 'Upload failed' });
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    res.json({ url: data.publicUrl });
+  } catch (err) {
+    console.error('[UPLOAD_ERROR]', err);
+    res.status(500).json({ error: err.message || 'Upload failed' });
+  }
+});
+
 // === SOCKET.IO (real-time) ===
 const server = http.createServer(app);
 
@@ -62,10 +132,10 @@ const io = new Server(server, {
 // rides/drivers/sockets depend on `io`, so register after it is created.
 registerAuthRoutes(app, db);
 registerRidesRoutes(app, io, db);
+registerWithdrawalRoutes(app, io, db);
 registerDriversRoutes(app, db);
 registerVerificationRoutes(app, db);
 registerPaymentsRoutes(app, db, io);
-registerWithdrawalRoutes(app, io, db);
 
 io.on('connection', (socket) => {
   console.log('Client connected');
@@ -141,16 +211,19 @@ io.on('connection', (socket) => {
 
     // Also emit to specific passenger if they have an active ride
     if (data.rideId) {
-      // Get passenger email for this ride
-      db.query('SELECT passenger_email FROM rides WHERE id = $1', [data.rideId], (err, results) => {
+      // Get passenger email and dropoff location for this ride
+      db.query('SELECT passenger_email, dropoff_lat, dropoff_lng FROM rides WHERE id = $1', [data.rideId], (err, results) => {
         if (results && results.rows.length > 0) {
           const passengerEmail = results.rows[0].passenger_email;
+          const ride = results.rows[0];
+          const eta = calculateEtaString(data.location.lat, data.location.lng, ride.dropoff_lat, ride.dropoff_lng);
           // Send to specific passenger room
           io.to(passengerEmail).emit('driverLocationUpdated', {
             rideId: data.rideId,
             lat: data.location.lat,
             lng: data.location.lng,
-            status: data.status
+            status: data.status,
+            eta
           });
         }
       });

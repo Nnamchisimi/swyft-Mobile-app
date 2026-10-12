@@ -43,7 +43,7 @@ export default function VerifyScreen() {
         // Navigate based on role
         const userRole = result.user.role?.toLowerCase();
         if (userRole === 'driver') {
-          router.replace('/(driver)/dashboard');
+          router.replace('/(driver)/verify-summary');
         } else {
           router.replace('/(passenger)/home');
         }

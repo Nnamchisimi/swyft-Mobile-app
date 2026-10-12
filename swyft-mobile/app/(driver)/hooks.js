@@ -4,11 +4,13 @@ import * as Location from 'expo-location';
 import { ridesAPI, driverAPI } from '../../src/services/api';
 import { socketService } from '../../src/services/socket';
 import { authService } from '../../src/services/auth';
-import { calculateDistance, calculateETA } from './utils';
+import { calculateDistance, calculateETA } from './_utils';
+
+let lastKnownOnlineStatus = false;
 
 export function useDriverDashboardState() {
   const [driverInfo, setDriverInfo] = useState(null);
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => lastKnownOnlineStatus);
   const [pendingRides, setPendingRides] = useState([]);
   const [currentRide, setCurrentRide] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -34,6 +36,14 @@ export function useDriverDashboardState() {
   };
 }
 
+export function getLastKnownOnlineStatus() {
+  return lastKnownOnlineStatus;
+}
+
+export function setLastKnownOnlineStatus(value) {
+  lastKnownOnlineStatus = value;
+}
+
 export function useDriverDashboardEffects(state, refs) {
   const {
     setDriverInfo,
@@ -50,6 +60,10 @@ export function useDriverDashboardEffects(state, refs) {
     setEta,
     setEtaDropoff,
   } = state;
+
+  useEffect(() => {
+    lastKnownOnlineStatus = isOnline;
+  }, [isOnline]);
 
   const { currentRideRef, locationSubscriptionRef, isOnlineRef, locationRef } = refs;
 
@@ -122,14 +136,40 @@ export function useDriverDashboardEffects(state, refs) {
       loadEarnings(email);
       loadActiveRide(email);
       loadVerificationStatus(email);
+      await refreshDriverInfo(email);
     }
   }
+
+  const refreshDriverInfo = async (email) => {
+    try {
+      const response = await driverAPI.getDriverInfo(email);
+      const driver = response.data;
+      if (driver) {
+        setDriverInfo(prev => ({
+          ...prev,
+          name: `${driver.first_name || prev?.firstName || ''} ${driver.last_name || prev?.lastName || ''}`.trim(),
+          email: driver.email || prev?.email || '',
+          phone: driver.phone || prev?.phone || '',
+          vehicle: driver.vehicle || prev?.vehicle || '',
+          profilePicture: driver.profile_picture || prev?.profilePicture || '',
+          firstName: driver.first_name || prev?.firstName || '',
+          lastName: driver.last_name || prev?.lastName || '',
+        }));
+      }
+    } catch (error) {
+      console.error('Error refreshing driver info:', error);
+    }
+  };
 
   const loadVerificationStatus = async (email) => {
     try {
       const response = await driverAPI.getVerificationStatus(email);
       const status = response.data;
       console.log('Driver verification status:', status);
+
+      if (!status?.is_approved) {
+        console.warn('Driver account is not approved');
+      }
     } catch (error) {
       console.error('Error loading verification status:', error);
       if (error.response?.status === 404) {
@@ -180,6 +220,14 @@ export function useDriverDashboardEffects(state, refs) {
       }
     } catch (error) {
       console.error('Error loading earnings:', error);
+
+      if (error.response?.status === 401) {
+        console.log('Earnings endpoint accessible - driver not approved but can view earnings');
+        setEarnings({
+          today_earnings: 0,
+          total_trips: 0,
+        });
+      }
 
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         console.log('Earnings request timed out, will retry...');
@@ -245,13 +293,21 @@ export function useDriverDashboardEffects(state, refs) {
           const currentLng = loc.coords.longitude;
 
           if ((ride.status === 'accepted' || ride.status === 'picked_up') && ride.pickup_lat && ride.pickup_lng) {
-            const distanceToPickup = calculateDistance(currentLat, currentLng, parseFloat(ride.pickup_lat), parseFloat(ride.pickup_lng));
-            setEta(calculateETA(distanceToPickup));
+            const pickupLat = parseFloat(ride.pickup_lat);
+            const pickupLng = parseFloat(ride.pickup_lng);
+            if (isFinite(currentLat) && isFinite(currentLng) && isFinite(pickupLat) && isFinite(pickupLng)) {
+              const distanceToPickup = calculateDistance(currentLat, currentLng, pickupLat, pickupLng);
+              setEta(calculateETA(distanceToPickup));
+            }
           }
 
           if (ride.status === 'picked_up' || ride.status === 'arrived_dropoff') {
-            const distanceToDropoff = calculateDistance(currentLat, currentLng, parseFloat(ride.dropoff_lat), parseFloat(ride.dropoff_lng));
-            setEtaDropoff(calculateETA(distanceToDropoff));
+            const dropoffLat = parseFloat(ride.dropoff_lat);
+            const dropoffLng = parseFloat(ride.dropoff_lng);
+            if (isFinite(currentLat) && isFinite(currentLng) && isFinite(dropoffLat) && isFinite(dropoffLng)) {
+              const distanceToDropoff = calculateDistance(currentLat, currentLng, dropoffLat, dropoffLng);
+              setEtaDropoff(calculateETA(distanceToDropoff));
+            }
           }
         }
       }

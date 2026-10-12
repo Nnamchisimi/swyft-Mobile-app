@@ -35,6 +35,7 @@ CREATE TABLE users (
   current_lng DECIMAL(11, 8) DEFAULT NULL,
   rating DECIMAL(2, 1) DEFAULT 5.0,
   vehicle_id INTEGER,
+  profile_picture TEXT,
   last_active TIMESTAMPTZ DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -49,6 +50,7 @@ CREATE TABLE cars (
   year VARCHAR(4) NOT NULL,
   color VARCHAR(50) NOT NULL,
   plate_number VARCHAR(20) NOT NULL,
+  image_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -84,6 +86,7 @@ CREATE TABLE rides (
   package_size VARCHAR(50),
   package_details TEXT,
   special_instructions TEXT,
+  package_image_url VARCHAR(500),
   vehicle_type VARCHAR(50),
   receiver_name VARCHAR(100),
   receiver_phone VARCHAR(20),
@@ -389,6 +392,8 @@ CREATE TABLE IF NOT EXISTS driver_verification_archive (
    selfie JSONB,
    phone_verification JSONB,
    bank_account JSONB,
+   car JSONB,
+   withdrawals JSONB,
   archived_at TIMESTAMPTZ DEFAULT NOW()
 );
 

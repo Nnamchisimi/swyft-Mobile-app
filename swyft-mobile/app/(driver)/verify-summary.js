@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,20 +9,29 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 import { authService } from '../../src/services/auth';
 import { driverAPI } from '../../src/services/api';
+import { uploadDriverImage } from '../../src/services/supabaseStorage';
 
 export default function DriverVerifySummaryScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
+  const [uploadingVehicle, setUploadingVehicle] = useState(false);
+  const [hasSubmittedForReview, setHasSubmittedForReview] = useState(false);
+  const redirectTimerRef = useRef(null);
+  const loadingStatusRef = useRef(false);
 
   const verifications = verificationStatus?.verifications || {};
+  const car = verificationStatus?.car || null;
+  const submittedForReview = hasSubmittedForReview || verificationStatus?.submitted_for_review || false;
 
   const getState = (key) => {
     const v = verifications[key];
@@ -46,11 +55,12 @@ export default function DriverVerifySummaryScreen() {
     return st === 'verified' || st === 'submitted';
   });
 
-  useEffect(() => {
-    loadVerificationStatus();
-  }, []);
+  const isApproved = verificationStatus?.is_approved || false;
 
   const loadVerificationStatus = async () => {
+    if (loadingStatusRef.current) return;
+    loadingStatusRef.current = true;
+    setLoadingStatus(true);
     try {
       const email = await authService.getUserEmail();
       const response = await driverAPI.getVerificationStatus(email);
@@ -58,7 +68,64 @@ export default function DriverVerifySummaryScreen() {
     } catch (error) {
       console.error('Error loading verification status:', error);
     } finally {
+      loadingStatusRef.current = false;
       setLoadingStatus(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isApproved) {
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = setTimeout(() => {
+        router.replace('/(driver)/dashboard');
+      }, 1500);
+    }
+    return () => {
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+    };
+  }, [isApproved, router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadVerificationStatus();
+    }, [])
+  );
+
+  const pickAndUploadVehicleImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Please allow access to your photo library.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    if (!asset.base64) {
+      Alert.alert('Error', 'Could not read selected image.');
+      return;
+    }
+
+    setUploadingVehicle(true);
+    try {
+      const email = await authService.getUserEmail();
+      const path = `vehicle-images/${email || 'driver'}-${Date.now()}.jpg`;
+      const url = await uploadDriverImage(asset.base64, path);
+      await driverAPI.updateVehicleImage(email, { image_url: url });
+      setVerificationStatus(prev => prev ? { ...prev, car: { ...prev.car, image_url: url } } : prev);
+      Alert.alert('Success', 'Vehicle image uploaded successfully.');
+    } catch (error) {
+      console.error('Vehicle image upload error:', error);
+      Alert.alert('Upload failed', 'Could not update vehicle image. Please try again.');
+    } finally {
+      setUploadingVehicle(false);
     }
   };
 
@@ -89,12 +156,13 @@ export default function DriverVerifySummaryScreen() {
             onPress: async () => {
               const email = await authService.getUserEmail();
               const response = await driverAPI.submitForReview(email);
+              setHasSubmittedForReview(true);
               
-              Alert.alert(
-                'Submitted!',
-                'Your application is under review. You will receive an email once approved.',
-                [{ text: 'OK', onPress: () => router.replace('/(driver)/dashboard') }]
-              );
+      Alert.alert(
+        'Submitted!',
+        'Your application is under review. You will receive an email once approved.',
+        [{ text: 'OK', onPress: () => loadVerificationStatus() }]
+      );
             }
           }
         ]
@@ -129,7 +197,7 @@ export default function DriverVerifySummaryScreen() {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
         <View style={styles.navHeader}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.replace('/(auth)/signin')}>
             <Text style={styles.backButton}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.navTitle}>Verification Summary</Text>
@@ -142,13 +210,31 @@ export default function DriverVerifySummaryScreen() {
     );
   }
 
-  const isApproved = verificationStatus?.is_approved || false;
+
+  if (isApproved) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+        <View style={styles.navHeader}>
+          <TouchableOpacity onPress={() => router.replace('/(auth)/signin')}>
+            <Text style={styles.backButton}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>Verification Summary</Text>
+          <View style={{ width: 50 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.success} />
+          <Text style={styles.loadingText}>Account approved! Redirecting to dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <View style={styles.navHeader}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.replace('/(auth)/signin')}>
           <Text style={styles.backButton}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.navTitle}>Verification Summary</Text>
@@ -158,9 +244,61 @@ export default function DriverVerifySummaryScreen() {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Verification Summary</Text>
-          <Text style={styles.subtitle}>Review your verification status</Text>
+          <Text style={styles.subtitle}>
+            {isApproved ? 'Account approved!' : submittedForReview ? 'Application under review' : 'Review your verification status'}
+          </Text>
         </View>
 
+        {submittedForReview && !isApproved ? (
+          <View>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Verification Requirements</Text>
+              
+              {[
+                { label: 'Government-Issued ID', key: 'id_document' },
+                { label: 'Live Selfie', key: 'selfie' },
+                { label: 'Phone Number', key: 'phone' },
+                { label: 'Bank Account', key: 'bank_account' },
+              ].map((item) => {
+                const state = getState(item.key);
+                const done = state === 'verified' || state === 'submitted';
+                return (
+                  <View key={item.key} style={styles.verificationItem}>
+                    <View style={styles.verificationInfo}>
+                      <Ionicons
+                        name={getStatusIcon(state)}
+                        size={24}
+                        color={getStatusColor(state)}
+                      />
+                      <Text style={styles.verificationLabel}>{item.label}</Text>
+                    </View>
+                    <View style={styles.verificationStatus}>
+                      <Text style={[styles.verifiedText, { color: getStatusColor(state) }]}>
+                        {getStatusLabel(state)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Approval Status</Text>
+              <View style={styles.approvalCard}>
+                <View style={styles.approvalInfo}>
+                  <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
+                  <View style={styles.approvalText}>
+                    <Text style={styles.approvalTitle}>Under Review</Text>
+                    <Text style={styles.approvalDesc}>
+                      Your documents are being reviewed by our team.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Verification Requirements</Text>
           
@@ -216,28 +354,49 @@ export default function DriverVerifySummaryScreen() {
               </View>
             );
           })}
+
+          <View style={styles.vehicleSection}>
+            <Text style={styles.sectionTitle}>Vehicle Image</Text>
+            <TouchableOpacity
+              style={styles.vehicleUploadCard}
+              onPress={pickAndUploadVehicleImage}
+              disabled={uploadingVehicle}
+            >
+              {car?.image_url ? (
+                <Image source={{ uri: car.image_url }} style={styles.vehiclePreview} resizeMode="cover" />
+              ) : (
+                <View style={styles.vehiclePlaceholder}>
+                  <Ionicons name="car-outline" size={40} color={COLORS.textSecondary} />
+                  <Text style={styles.vehiclePlaceholderText}>Tap to upload vehicle image</Text>
+                </View>
+              )}
+              <View style={styles.vehicleEditBadge}>
+                <Ionicons name="camera" size={14} color={COLORS.white} />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {!isApproved && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Approval Status</Text>
-            <View style={styles.approvalCard}>
-              <View style={styles.approvalInfo}>
-                <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
-                <View style={styles.approvalText}>
-                  <Text style={styles.approvalTitle}>
-                    {allRequiredSubmitted
-                      ? 'Ready for Review' 
-                      : 'Complete All Verifications'}
-                  </Text>
-                  <Text style={styles.approvalDesc}>
-                    {allRequiredSubmitted
-                      ? 'Your documents are ready for manual review by our team.'
-                      : 'Complete all verification steps to submit for review.'}
-                  </Text>
-                </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Approval Status</Text>
+          <View style={styles.approvalCard}>
+            <View style={styles.approvalInfo}>
+              <Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
+              <View style={styles.approvalText}>
+                <Text style={styles.approvalTitle}>
+                  {allRequiredSubmitted
+                    ? 'Ready for Review' 
+                    : 'Complete All Verifications'}
+                </Text>
+                <Text style={styles.approvalDesc}>
+                  {allRequiredSubmitted
+                    ? 'Your documents are ready for manual review by our team.'
+                    : 'Complete all verification steps to submit for review.'}
+                </Text>
               </View>
-              
+            </View>
+            
+            {!submittedForReview && (
               <TouchableOpacity
                 style={[styles.reviewButton, loading && styles.buttonDisabled]}
                 onPress={handleSubmitForReview}
@@ -249,27 +408,9 @@ export default function DriverVerifySummaryScreen() {
                   <Text style={styles.reviewButtonText}>Submit for Review</Text>
                 )}
               </TouchableOpacity>
-            </View>
+            )}
           </View>
-        )}
-
-        {isApproved && (
-          <View style={styles.section}>
-            <View style={styles.approvedCard}>
-              <Ionicons name="checkmark-circle" size={48} color={COLORS.success} />
-              <Text style={styles.approvedTitle}>Account Approved!</Text>
-              <Text style={styles.approvedDesc}>
-                Your driver account has been approved. You can now start accepting rides.
-              </Text>
-              <TouchableOpacity
-                style={styles.goOnlineButton}
-                onPress={() => router.replace('/(driver)/dashboard')}
-              >
-                <Text style={styles.goOnlineButtonText}>Go to Dashboard</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>What Happens Next</Text>
@@ -280,7 +421,7 @@ export default function DriverVerifySummaryScreen() {
             </View>
             <View style={styles.infoItem}>
               <Ionicons name="mail-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.infoText}>You'll receive an email when approved</Text>
+              <Text style={styles.infoText}>You will receive an email when approved</Text>
             </View>
             <View style={styles.infoItem}>
               <Ionicons name="car-outline" size={20} color={COLORS.primary} />
@@ -288,16 +429,9 @@ export default function DriverVerifySummaryScreen() {
             </View>
           </View>
         </View>
+          </View>
+        )}
       </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.completeButton}
-          onPress={() => router.replace('/(driver)/dashboard')}
-        >
-          <Text style={styles.completeButtonText}>Continue</Text>
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -328,6 +462,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
   header: { padding: 24, alignItems: 'center' },
   title: { fontSize: 24, fontWeight: 'bold', color: COLORS.text, marginBottom: 8 },
   subtitle: { fontSize: 14, color: COLORS.textSecondary },
@@ -355,6 +495,47 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   verifyButtonText: { fontSize: 14, color: COLORS.white, fontWeight: '600' },
+  
+  vehicleSection: { marginBottom: 16 },
+  vehicleUploadCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  vehiclePreview: {
+    width: '100%',
+    height: 180,
+  },
+  vehiclePlaceholder: {
+    width: '100%',
+    height: 180,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  vehiclePlaceholderText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  vehicleEditBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.white,
+  },
   
   approvalCard: {
     backgroundColor: COLORS.white,
@@ -389,6 +570,17 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   goOnlineButtonText: { color: COLORS.success, fontSize: 16, fontWeight: '600' },
+  
+  pendingCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pendingTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.text, marginTop: 12 },
+  pendingDesc: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20 },
+  pendingNote: { fontSize: 13, color: COLORS.primary, fontWeight: '600', marginTop: 12 },
   
   infoCard: {
     backgroundColor: COLORS.white,

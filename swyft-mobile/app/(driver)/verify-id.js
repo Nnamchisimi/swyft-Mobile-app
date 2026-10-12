@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../src/constants/config';
 import { authService } from '../../src/services/auth';
 import { driverAPI } from '../../src/services/api';
-import { uploadDriverImage, uploadBase64AsDataUri } from '../../src/services/supabaseStorage';
+import { uploadDriverImage, uploadBase64AsDataUri, uploadVehicleImage } from '../../src/services/supabaseStorage';
 
 export default function DriverIdDocumentScreen() {
   const router = useRouter();
@@ -29,6 +29,7 @@ export default function DriverIdDocumentScreen() {
     expiry_date: '',
     front_image_url: '',
     back_image_url: '',
+    vehicle_image_url: '',
   });
 
   const documentTypes = [
@@ -126,6 +127,94 @@ export default function DriverIdDocumentScreen() {
     );
   };
 
+  const handlePickVehicleImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Please allow photo access to continue.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        let url;
+        if (asset.base64) {
+          try {
+            const email = await authService.getUserEmail();
+            url = await uploadVehicleImage(asset.base64, email);
+          } catch (e) {
+            console.warn('Vehicle image upload failed, using base64 fallback:', e.message);
+            url = uploadBase64AsDataUri(asset.base64);
+          }
+        } else {
+          url = asset.uri;
+        }
+        setFormData({ ...formData, vehicle_image_url: url });
+      }
+    } catch (error) {
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Could not access image. Please try again.');
+    }
+  };
+
+  const handleTakeVehiclePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Required', 'Please allow camera access to take photos.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        let url;
+        if (asset.base64) {
+          try {
+            const email = await authService.getUserEmail();
+            url = await uploadVehicleImage(asset.base64, email);
+          } catch (e) {
+            console.warn('Vehicle image upload failed, using base64 fallback:', e.message);
+            url = uploadBase64AsDataUri(asset.base64);
+          }
+        } else {
+          url = asset.uri;
+        }
+        setFormData({ ...formData, vehicle_image_url: url });
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+      Alert.alert('Error', 'Could not access camera. Please try again.');
+    }
+  };
+
+  const handleVehicleImageUpload = () => {
+    Alert.alert(
+      'Upload Vehicle Photo',
+      'Choose how to upload:',
+      [
+        { text: 'Take Photo', onPress: handleTakeVehiclePhoto },
+        { text: 'Choose from Gallery', onPress: handlePickVehicleImage },
+        { text: 'Skip for now', style: 'cancel', onPress: () => {} },
+      ]
+    );
+  };
+
   const formatExpiryDate = (value) => {
     if (!value || value.trim() === '') return '';
     const m = value.trim().match(/^(\d{1,2})\/(\d{2,4})$/);
@@ -158,7 +247,15 @@ export default function DriverIdDocumentScreen() {
       }
       const payload = { ...formData, expiry_date: formatExpiryDate(formData.expiry_date) };
       const response = await driverAPI.submitIdDocument(email, payload);
-      
+
+      if (formData.vehicle_image_url) {
+        try {
+          await driverAPI.updateVehicleImage(email, { image_url: formData.vehicle_image_url });
+        } catch (vehicleError) {
+          console.warn('Vehicle image save failed:', vehicleError);
+        }
+      }
+
       router.push('/(driver)/verify-selfie');
     } catch (error) {
       console.log('ID submission error:', error.response?.data);
@@ -281,6 +378,20 @@ export default function DriverIdDocumentScreen() {
             </TouchableOpacity>
             {formData.back_image_url && (
               <Image source={{ uri: formData.back_image_url }} style={styles.previewImage} />
+            )}
+          </View>
+
+          <View style={styles.imageUploadSection}>
+            <Text style={styles.label}>Vehicle Photo (optional)</Text>
+            <TouchableOpacity
+              style={styles.imageButton}
+              onPress={handleVehicleImageUpload}
+            >
+              <Ionicons name="car-outline" size={32} color={COLORS.primary} />
+              <Text style={styles.imageButtonText}>Upload Vehicle Photo</Text>
+            </TouchableOpacity>
+            {formData.vehicle_image_url && (
+              <Image source={{ uri: formData.vehicle_image_url }} style={styles.previewImage} />
             )}
           </View>
         </View>

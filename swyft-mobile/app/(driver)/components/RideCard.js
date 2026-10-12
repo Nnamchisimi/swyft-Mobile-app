@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../src/constants/config';
-import { calculateDistance } from '../utils';
+import { calculateDistance } from '../_utils';
 import styles from '../styles';
 
 export default function RideCard({ ride, onAccept, onDecline, location }) {
@@ -89,12 +89,14 @@ export default function RideCard({ ride, onAccept, onDecline, location }) {
           style={styles.declineButton}
           onPress={() => onDecline(ride)}
         >
+          <Ionicons name="close-outline" size={20} color={COLORS.error} />
           <Text style={styles.declineButtonText}>Decline</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.acceptButton}
           onPress={() => onAccept(ride)}
         >
+          <Ionicons name="checkmark-outline" size={20} color={COLORS.white} />
           <Text style={styles.acceptButtonText}>Accept</Text>
         </TouchableOpacity>
       </View>
