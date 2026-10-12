@@ -253,12 +253,21 @@ export function useDriverDashboardEffects(state, refs) {
 
   const requestLocation = async () => {
     try {
+      // Seed the map immediately with the OS-cached position so it renders
+      // right away instead of waiting for a fresh GPS fix.
+      try {
+        const last = await Location.getLastKnownPositionAsync();
+        if (last?.coords) {
+          setLocation(last.coords);
+          locationRef.current = last.coords;
+        }
+      } catch {}
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Location permission is required.');
         return;
       }
-      const loc = await Location.getCurrentPositionAsync({});
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setLocation(loc.coords);
       locationRef.current = loc.coords;
     } catch (error) {

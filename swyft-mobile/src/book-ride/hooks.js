@@ -399,9 +399,18 @@ export function useBookRideEffects(state) {
   async function getCurrentLocation() {
     setLocationLoading(true);
     try {
+      // Seed the map immediately with the OS-cached position so it renders
+      // right away instead of waiting for a fresh GPS fix.
+      try {
+        const last = await Location.getLastKnownPositionAsync();
+        if (last?.coords) {
+          setCurrentLocation({ latitude: last.coords.latitude, longitude: last.coords.longitude });
+        }
+      } catch {}
+
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') { Alert.alert('Permission Denied', 'Location permission is required.'); setLocationLoading(false); return; }
-      const location = await Location.getCurrentPositionAsync({});
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const coords = { latitude: location.coords.latitude, longitude: location.coords.longitude };
       setCurrentLocation(coords);
       if (state.dropoffLocation) { const routeCoords = await geoService.getRouteCoordinates(coords, state.dropoffLocation); setRouteCoordinates(routeCoords?.length ? routeCoords : [coords, state.dropoffLocation]); }

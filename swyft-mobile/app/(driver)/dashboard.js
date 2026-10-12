@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,8 @@ import {
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Marker, Polyline } from 'react-native-maps';
+import SwyftMap from '../../src/components/SwyftMap';
 import { useDriverDashboardState } from './hooks';
 import { useDriverDashboardEffects } from './hooks';
 import { toggleOnline, handleAcceptRide, handleDeclineRide, handleStartRide, handleArrived, handleCompleteRide, handleCancelCurrentRide, handleLogout } from './actions';
@@ -32,8 +33,30 @@ export default function DriverDashboard() {
   const isOnlineRef = useRef(false);
   const locationRef = useRef(null);
   const currentRideRef = useRef(null);
+  const lastCenteredAtRef = useRef(null);
 
   const state = useDriverDashboardState();
+
+  // initialRegion only applies when the map mounts, and the first position is
+  // an OS-cached approximation (getLastKnownPositionAsync). Once the accurate
+  // fix lands, re-center — but only when the map is off by a meaningful
+  // distance, so routine tracking updates never yank the camera mid-pan.
+  useEffect(() => {
+    const loc = state.location;
+    if (!loc) return;
+    const last = lastCenteredAtRef.current;
+    const isOffTarget = !last
+      || Math.abs(last.latitude - loc.latitude) > 0.0015
+      || Math.abs(last.longitude - loc.longitude) > 0.0015;
+    if (!isOffTarget) return;
+    lastCenteredAtRef.current = loc;
+    mapRef.current?.animateToRegion({
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    }, 400);
+  }, [state.location]);
   const refs = {
     currentRideRef,
     locationSubscriptionRef: locationSubscription,
@@ -152,10 +175,9 @@ export default function DriverDashboard() {
 
         <View style={styles.mapContainer}>
           {state.location ? (
-            <MapView
+            <SwyftMap
               ref={mapRef}
               style={styles.map}
-              provider={PROVIDER_GOOGLE}
               initialRegion={{
                 latitude: state.location.latitude,
                 longitude: state.location.longitude,
@@ -244,7 +266,7 @@ export default function DriverDashboard() {
                   lineDashPattern={[10, 5]}
                 />
               )}
-            </MapView>
+            </SwyftMap>
           ) : (
             <View style={[styles.mapPlaceholder, { justifyContent: 'center', alignItems: 'center' }]}>
               <ActivityIndicator size="large" color={COLORS.primary} />

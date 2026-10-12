@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Marker, Polyline } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
+import SwyftMap from '../../components/SwyftMap';
 import { COLORS } from '../../constants/config';
 import geoService from '../../services/geo';
 import { interCityRoutesData, defaultVehicleTypes } from '../constants';
@@ -30,6 +31,18 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
 
   const hasRoute = interCityMode ? interCityRoute : selectedRideType;
   const canBook = hasRoute && assignedVehicleId && pickupAddress && dropoffLocation && receiverName?.trim() && receiverEmail?.trim() && receiverPhone?.trim() && packageImageUrl?.trim() && !loading;
+
+  // initialRegion only applies when the map mounts, so when the seeded position
+  // is replaced by the accurate fix, pan the camera to it.
+  useEffect(() => {
+    if (!currentLocation) return;
+    mapRef.current?.animateToRegion({
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    }, 400);
+  }, [currentLocation, mapRef]);
 
   return (
     <ScrollView 
@@ -63,7 +76,7 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
           )}
         </View>
         {currentLocation ? (
-          <MapView ref={mapRef} style={styles.map} provider={PROVIDER_GOOGLE} initialRegion={{
+          <SwyftMap ref={mapRef} style={styles.map} initialRegion={{
             latitude: (pickupLocation || currentLocation)?.latitude,
             longitude: (pickupLocation || currentLocation)?.longitude,
             latitudeDelta: 0.05, longitudeDelta: 0.05,
@@ -72,7 +85,7 @@ export function BookingForm({ state, styles, mapRef, onPickupChange, onDropoffCh
             {dropoffLocation && <Marker coordinate={{ latitude: dropoffLocation.latitude, longitude: dropoffLocation.longitude }} title="Dropoff" pinColor={COLORS.error} />}
             {state.driverLocation && <Marker coordinate={{ latitude: state.driverLocation.latitude, longitude: state.driverLocation.longitude }} title="Courier"><View style={styles.driverMarkerStyle}><Ionicons name="car" size={14} color="white" /></View></Marker>}
             {(pickupLocation && dropoffLocation) && <Polyline coordinates={[pickupLocation, dropoffLocation]} strokeColor={COLORS.primary} strokeWidth={4} />}
-          </MapView>
+          </SwyftMap>
         ) : (
           <View style={styles.mapPlaceholder}>
             <ActivityIndicator size="large" color={COLORS.primary} />

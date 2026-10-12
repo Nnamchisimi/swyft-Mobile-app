@@ -14,7 +14,8 @@ import {
   Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Marker, Polyline } from 'react-native-maps';
+import SwyftMap from '../../src/components/SwyftMap';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { ridesAPI } from '../../src/services/api';
@@ -479,9 +480,8 @@ export default function TrackRideScreen() {
 
         {showMap && (
           <View style={styles.mapCard}>
-            <MapView
+            <SwyftMap
               style={styles.map}
-              provider={PROVIDER_GOOGLE}
               initialRegion={{
                 latitude: driverLocation.latitude,
                 longitude: driverLocation.longitude,
@@ -520,7 +520,7 @@ export default function TrackRideScreen() {
                 strokeColor={COLORS.primary}
                 strokeWidth={4}
               />
-            </MapView>
+            </SwyftMap>
           </View>
         )}
 
